@@ -1,7 +1,7 @@
 add_library(axiom_engine STATIC
-    src/Application.cpp
-    src/Renderer.cpp
-)
+    "src/core/Application.cpp"
+    
+ "src/platform/Window.cpp")
 
 target_include_directories(axiom_engine
     PUBLIC
