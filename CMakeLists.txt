@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.25)
-project(YourEngine LANGUAGES CXX)
+project(Axiom LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+option(AXIOM_ENABLE_CONSOLE_LOG "Enable console logging" ON)
 
 # Engine Projects
 add_subdirectory(axiom)

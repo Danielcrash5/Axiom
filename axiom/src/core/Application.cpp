@@ -1,5 +1,6 @@
 #include "axiom/core/Application.h"
 #include "axiom/platform/Window.h"
+#include "axiom/core/Logger.h"
 #include <chrono>
 
 namespace axiom {
@@ -14,6 +15,13 @@ namespace axiom {
 		Window::Props props;
 		props.title = "Axiom Engine";
         m_Window = std::make_unique<Window>(props);
+
+#ifdef AXIOM_ENABLE_CONSOLE_LOG
+        Logger::Get().AddSink(
+            std::make_unique<ConsoleSink>()
+        );
+#endif
+
 		OnInit();
 	}
 
