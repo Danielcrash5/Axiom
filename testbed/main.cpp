@@ -1,22 +1,26 @@
 #include <axiom/core/Application.h>
 #include <iostream>
 
-class MyGame : public axiom::Application {
+class Testbed : public axiom::Application {
+public:
+    Testbed() :
+        Application("testbed") {
+
+    }
 protected:
     void OnInit() override {
-        std::cout << "Init\n";
     }
 
     void OnUpdate(float dt) override {
-        std::cout << "Frame: " << dt << "\n";
     }
 
     void OnShutdown() override {
-        std::cout << "Shutdown\n";
+       
     }
 };
 
 int main() {
-    MyGame game;
+    Testbed game;
     game.Run();
+    return 0;
 }

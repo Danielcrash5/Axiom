@@ -1,5 +1,7 @@
 #pragma once
 
+#include "axiom/events/EventBus.h"
+
 #include <string>
 
 struct GLFWwindow;
@@ -15,7 +17,7 @@ namespace axiom {
         };
 
     public:
-        explicit Window(const Props& props);
+        explicit Window(const Props& props, EventBus& eventBus);
         ~Window();
 
         void PollEvents();
@@ -33,6 +35,8 @@ namespace axiom {
 
     private:
         GLFWwindow* m_Window = nullptr;
+
+        EventBus& m_EventBus;
 
         uint32_t m_Width = 0;
         uint32_t m_Height = 0;

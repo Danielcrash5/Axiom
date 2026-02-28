@@ -1,39 +1,97 @@
 #pragma once
 #include "axiom/platform/Window.h"
+#include "axiom/events/EventBus.h"
+#include "axiom/events/Events.h"
+#include "axiom/core/Layerstack.h"
 #include <memory>
 
 namespace axiom {
 
-    class Application {
-    public:
-        Application() = default;
-        virtual ~Application() = default;
+	class Application {
+	public:
+		Application(std::string AppName = "Axiom Engine", uint32_t width = 1280, uint32_t height = 720);
+		virtual ~Application() = default;
 
-        void Run();
+		void Run();
 
-    protected:
-        virtual void OnInit() {
-        }
-        virtual void OnUpdate(float dt) {
-        }
-        virtual void OnShutdown() {
-        }
-
-        void Close() {
-            m_Running = false;
-        }
-
-        std::unique_ptr<Window>& GetWindow() {
-            return m_Window;
+		void PushLayer(std::unique_ptr<Layer> layer) {
+			m_LayerStack.PushLayer(std::move(layer), m_EventBus);
 		}
 
-    private:
-        void MainLoop();
-        void Init();
+		void PushOverlay(std::unique_ptr<Layer> overlay) {
+			m_LayerStack.PushOverlay(std::move(overlay), m_EventBus);
+		}
 
-    private:
-        bool m_Running = true;
-        std::unique_ptr<Window> m_Window;
-    };
+		void PopLayer(Layer* layer) {
+			m_LayerStack.PopLayer(layer);
+		}
+
+		void PopOverlay(Layer* overlay) {
+			m_LayerStack.PopOverlay(overlay);
+		}
+
+	protected:
+		virtual void OnInit() {
+		}
+		virtual void OnUpdate(float dt) {
+		}
+		virtual void OnShutdown() {
+		}
+
+		void Close() {
+			m_Running = false;
+		}
+
+		static Application& Get() {
+			return *s_Instance;
+		}
+
+		EventBus& GetEventBus() {
+			return m_EventBus;
+		}
+
+		std::unique_ptr<Window>& GetWindow() {
+			return m_Window;
+		}
+
+		uint32_t GetWidth() {
+			return m_Width;
+		}
+
+		uint32_t GetHeigth() {
+			return m_Height;
+		}
+
+	private:
+		void MainLoop();
+		void Init();
+
+		bool OnWindowClose(WindowCloseEvent& e) {
+			Close();
+			return true;
+		}
+
+		bool OnWindowResize(WindowResizeEvent& e) {
+			m_Width = e.width;
+			m_Height = e.height;
+			return false; // Return false to allow other listeners to handle the event as well
+		}
+
+	private:
+		bool m_Running = true;
+		std::unique_ptr<Window> m_Window;
+		std::string m_AppName;
+
+		uint32_t m_Width, m_Height;
+
+		static Application* s_Instance;
+
+		LayerStack m_LayerStack;
+		EventBus m_EventBus;
+	};
+
 
 }
+
+
+#define GetMainEventBus() axiom::Application::Get().GetEventBus() 

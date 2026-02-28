@@ -51,9 +51,18 @@ namespace axiom {
 
 }
 
-#define ENG_TRACE(...) axiom::Logger::Get().Log(axiom::LogLevel::Trace, __VA_ARGS__)
-#define ENG_DEBUG(...) axiom::Logger::Get().Log(axiom::LogLevel::Debug, __VA_ARGS__)
-#define ENG_INFO(...)  axiom::Logger::Get().Log(axiom::LogLevel::Info,  __VA_ARGS__)
-#define ENG_WARN(...)  axiom::Logger::Get().Log(axiom::LogLevel::Warn,  __VA_ARGS__)
-#define ENG_ERROR(...) axiom::Logger::Get().Log(axiom::LogLevel::Error, __VA_ARGS__)
-#define ENG_FATAL(...) axiom::Logger::Get().Log(axiom::LogLevel::Fatal, __VA_ARGS__)
+#define AXIOM_TRACE(...) axiom::Logger::Get().Log(axiom::LogLevel::Trace, __VA_ARGS__)
+#define AXIOM_DEBUG(...) axiom::Logger::Get().Log(axiom::LogLevel::Debug, __VA_ARGS__)
+#define AXIOM_INFO(...)  axiom::Logger::Get().Log(axiom::LogLevel::Info,  __VA_ARGS__)
+#define AXIOM_WARN(...)  axiom::Logger::Get().Log(axiom::LogLevel::Warn,  __VA_ARGS__)
+#define AXIOM_ERROR(...) axiom::Logger::Get().Log(axiom::LogLevel::Error, __VA_ARGS__)
+#define AXIOM_FATAL(...) axiom::Logger::Get().Log(axiom::LogLevel::Fatal, __VA_ARGS__)
+
+
+#define AXIOM_ASSERT(x, ...) \
+	do { \
+		if (!(x)) { \
+			AXIOM_ERROR("Assertion Failed: " __VA_ARGS__); \
+			std::abort(); \
+		} \
+	} while (0)
