@@ -24,6 +24,10 @@ namespace axiom {
         virtual void OnUpdate(float deltaTime) {
         }
 
+        void setEventBus(EventBus& eventBus) {
+            m_EventBus = &eventBus;
+		}
+
         const std::string& GetName() const {
             return m_Name;
         }

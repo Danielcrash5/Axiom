@@ -1,5 +1,5 @@
-#include "ActionMap.hpp"
-#include <glm/gtc/clamp.hpp>
+#include "axiom/input/ActionMap.h"
+#include <glm/glm.hpp>
 #include <cmath>
 
 namespace axiom {

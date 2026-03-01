@@ -46,6 +46,9 @@ namespace axiom {
             }
 		);
 
+		m_Input.Init(m_Window->GetNativeHandle());
+		m_InputSystem.Init();
+
 		OnInit();
 	}
 
@@ -64,6 +67,9 @@ namespace axiom {
 
             for (auto& layer : m_LayerStack)
 				layer->OnUpdate(dt);
+
+			m_Input.Update();
+			m_InputSystem.Update();
 
 			m_Window->PollEvents();
             m_EventBus.DispatchQueued();

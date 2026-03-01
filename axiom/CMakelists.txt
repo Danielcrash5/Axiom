@@ -10,7 +10,7 @@ target_sources(axiom_engine PRIVATE ${AXIOM_SOURCES})
 target_include_directories(axiom_engine
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/external/glm
+        ${CMAKE_SOURCE_DIR}/thirdparty/glm
 )
 
 if(AXIOM_ENABLE_CONSOLE_LOG)

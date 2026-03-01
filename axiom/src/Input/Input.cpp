@@ -1,4 +1,4 @@
-#include "Input.h"
+#include "axiom/input/Input.h"
 #include <GLFW/glfw3.h>
 #include <cmath>
 
@@ -9,14 +9,14 @@ namespace axiom {
     std::array<bool, GLFW_KEY_LAST + 1> Input::s_CurrentKeys {};
     std::array<bool, GLFW_KEY_LAST + 1> Input::s_PreviousKeys {};
 
-    std::array<bool, GLFW_MOUSE_BUTTON_LAST + 1> Input::s_CurrentMouse {};
-    std::array<bool, GLFW_MOUSE_BUTTON_LAST + 1> s_PreviousMouse {};
+    std::array<bool, GLFW_MOUSE_BUTTON_LAST + 1> Input::s_CurrentMouse = {false};
+    std::array<bool, GLFW_MOUSE_BUTTON_LAST + 1> Input::s_PreviousMouse = {false};
 
     glm::vec2 Input::s_MousePosition {};
     glm::vec2 Input::s_PreviousMousePosition {};
 
-    void Input::Init(GLFWwindow* window) {
-        s_Window = window;
+    void Input::Init(void* window) {
+        s_Window = (GLFWwindow*)window;
     }
 
     void Input::Update() {
@@ -117,6 +117,22 @@ namespace axiom {
             ApplyDeadzone(state.axes[GLFW_GAMEPAD_AXIS_RIGHT_X]),
             ApplyDeadzone(state.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y])
         );
+    }
+
+    // Implementation: Input.cpp
+    float Input::GetGamepadAxis(int axis, int id) {
+        if (!IsGamepadConnected(id))
+            return 0.0f;
+
+        GLFWgamepadstate state;
+        if (!glfwGetGamepadState(id, &state))
+            return 0.0f;
+
+        // Achsen ab 0 bis GLFW_GAMEPAD_AXIS_LAST
+        if (axis < 0 || axis > GLFW_GAMEPAD_AXIS_LAST)
+            return 0.0f;
+
+        return ApplyDeadzone(state.axes[axis]);
     }
 
     float Input::GetGamepadLeftTrigger(int id) {

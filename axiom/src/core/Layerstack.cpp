@@ -1,4 +1,5 @@
-#include "LayerStack.hpp"
+#include "axiom/core/LayerStack.h"
+#include "axiom/events/EventBus.h"
 
 namespace axiom {
 
@@ -8,7 +9,7 @@ namespace axiom {
     }
 
     void LayerStack::PushLayer(std::unique_ptr<Layer> layer, EventBus& eventBus) {
-		layer->m_EventBus = &eventBus;
+		layer->setEventBus(eventBus);
         layer->OnAttach();
 
         m_Layers.emplace(m_Layers.begin() + m_LayerInsertIndex, std::move(layer));
@@ -16,7 +17,7 @@ namespace axiom {
     }
 
     void LayerStack::PushOverlay(std::unique_ptr<Layer> overlay, EventBus& eventBus) {
-		overlay->m_EventBus = &eventBus;
+        overlay->setEventBus(eventBus);
         overlay->OnAttach();
         m_Layers.emplace_back(std::move(overlay));
     }

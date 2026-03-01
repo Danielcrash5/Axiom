@@ -12,7 +12,7 @@ namespace axiom {
 
     class Input {
     public:
-        static void Init(GLFWwindow* window);
+        static void Init(void* window);
         static void Update();
 
         // ================= Keyboard =================
@@ -35,6 +35,9 @@ namespace axiom {
 
         static glm::vec2 GetGamepadLeftStick(int id = GLFW_JOYSTICK_1);
         static glm::vec2 GetGamepadRightStick(int id = GLFW_JOYSTICK_1);
+
+        // Header: Input.hpp
+        static float GetGamepadAxis(int axis, int id = GLFW_JOYSTICK_1);
 
         static float GetGamepadLeftTrigger(int id = GLFW_JOYSTICK_1);
         static float GetGamepadRightTrigger(int id = GLFW_JOYSTICK_1);
