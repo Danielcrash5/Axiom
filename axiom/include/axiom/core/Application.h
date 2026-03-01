@@ -32,18 +32,6 @@ namespace axiom {
 			m_LayerStack.PopOverlay(overlay);
 		}
 
-	protected:
-		virtual void OnInit() {
-		}
-		virtual void OnUpdate(float dt) {
-		}
-		virtual void OnShutdown() {
-		}
-
-		void Close() {
-			m_Running = false;
-		}
-
 		static Application& Get() {
 			return *s_Instance;
 		}
@@ -62,6 +50,26 @@ namespace axiom {
 
 		uint32_t GetHeigth() {
 			return m_Height;
+		}
+
+		Input& GetInput() {
+			return m_Input;
+		}
+
+		InputSystem& GetInputSystem() {
+			return m_InputSystem;
+		}
+
+	protected:
+		virtual void OnInit() {
+		}
+		virtual void OnUpdate(float dt) {
+		}
+		virtual void OnShutdown() {
+		}
+
+		void Close() {
+			m_Running = false;
 		}
 
 	private:
@@ -100,3 +108,6 @@ namespace axiom {
 
 
 #define GetMainEventBus() axiom::Application::Get().GetEventBus() 
+#define GetMainWindow() axiom::Application::Get().GetWindow()
+#define GetMainInput() axiom::Application::Get().GetInput()
+#define GetMainInputSystem() axiom::Application::Get().GetInputSystem()

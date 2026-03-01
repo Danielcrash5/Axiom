@@ -5,8 +5,7 @@
 #include "KeyCodes.h"
 #include "MouseCodes.h"
 #include "GamepadCodes.h"
-
-struct GLFWwindow;
+#include <GLFW/glfw3.h>
 
 namespace axiom {
 
@@ -36,7 +35,6 @@ namespace axiom {
         static glm::vec2 GetGamepadLeftStick(int id = GLFW_JOYSTICK_1);
         static glm::vec2 GetGamepadRightStick(int id = GLFW_JOYSTICK_1);
 
-        // Header: Input.hpp
         static float GetGamepadAxis(int axis, int id = GLFW_JOYSTICK_1);
 
         static float GetGamepadLeftTrigger(int id = GLFW_JOYSTICK_1);

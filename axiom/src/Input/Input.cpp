@@ -15,6 +15,35 @@ namespace axiom {
     glm::vec2 Input::s_MousePosition {};
     glm::vec2 Input::s_PreviousMousePosition {};
 
+    static std::vector<KeyCode> s_ValidKeys = {
+		Key::A, Key::B, Key::C, Key::D, Key::E, Key::F, Key::G, Key::H, Key::I, Key::J,
+		Key::K, Key::L, Key::M, Key::N, Key::O, Key::P, Key::Q, Key::R, Key::S, Key::T,
+		Key::U, Key::V, Key::W, Key::X, Key::Y, Key::Z,
+		Key::Num0, Key::Num1, Key::Num2, Key::Num3, Key::Num4,
+		Key::Num5, Key::Num6, Key::Num7, Key::Num8, Key::Num9,
+		Key::F1, Key::F2, Key::F3, Key::F4, Key::F5, Key::F6,
+		Key::F7, Key::F8, Key::F9, Key::F10, Key::F11, Key::F12,
+		Key::Space, Key::Escape, Key::Enter, Key::Tab, Key::Backspace,
+		Key::Insert, Key::Delete, Key::Right, Key::Left, Key::Down,
+		Key::Up, Key::PageUp, Key::PageDown, Key::Home, Key::End,
+		Key::CapsLock, Key::ScrollLock, Key::NumLock, Key::PrintScreen,
+		Key::Pause, Key::Menu,
+		Key::LeftShift, Key::LeftControl, Key::LeftAlt, Key::LeftSuper,
+		Key::RightShift, Key::RightControl, Key::RightAlt, Key::RightSuper,
+		Key::KP0, Key::KP1, Key::KP2, Key::KP3, Key::KP4,
+        Key::KP5, Key::KP6, Key::KP7, Key::KP8, Key::KP9,
+		Key::KPDecimal, Key::KPDivide, Key::KPMultiply, Key::KPSubtract, Key::KPAdd,
+		Key::F1, Key::F2, Key::F3, Key::F4, Key::F5, Key::F6, Key::F7, Key::F8, Key::F9, Key::F10, Key::F11, Key::F12,
+		Key::F13, Key::F14, Key::F15, Key::F16, Key::F17, Key::F18, Key::F19, Key::F20,
+		Key::F21, Key::F22, Key::F23, Key::F24,
+		Key::KPEnter, Key::KPEqual,
+		Key::RightSuper, Key::RightAlt, Key::RightControl, Key::RightShift,
+		Key::LeftSuper, Key::LeftAlt, Key::LeftControl, Key::LeftShift,
+		Key::Menu, Key::Pause, Key::PrintScreen, Key::NumLock, Key::ScrollLock, Key::CapsLock,
+		Key::End, Key::Home, Key::PageDown, Key::PageUp, Key::Up, Key::Down, Key::Left, Key::Right,
+		Key::Insert, Key::Delete, Key::Backspace, Key::Tab, Key::Enter, Key::Escape, Key::Space
+	};
+
     void Input::Init(void* window) {
         s_Window = (GLFWwindow*)window;
     }
@@ -25,8 +54,9 @@ namespace axiom {
         s_PreviousMousePosition = s_MousePosition;
 
         // Keyboard
-        for (int key = 0; key <= GLFW_KEY_LAST; ++key)
+        for (KeyCode key : s_ValidKeys)
             s_CurrentKeys[key] = glfwGetKey(s_Window, key) == GLFW_PRESS;
+
 
         // Mouse
         for (int button = 0; button <= GLFW_MOUSE_BUTTON_LAST; ++button)

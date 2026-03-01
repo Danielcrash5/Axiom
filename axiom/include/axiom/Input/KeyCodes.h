@@ -1,30 +1,11 @@
 #pragma once
-
 #include <GLFW/glfw3.h>
 
 namespace axiom {
-
     using KeyCode = int;
 
     namespace Key {
-        constexpr KeyCode Space = GLFW_KEY_SPACE;
-        constexpr KeyCode Apostrophe = GLFW_KEY_APOSTROPHE;
-        constexpr KeyCode Comma = GLFW_KEY_COMMA;
-        constexpr KeyCode Minus = GLFW_KEY_MINUS;
-        constexpr KeyCode Period = GLFW_KEY_PERIOD;
-        constexpr KeyCode Slash = GLFW_KEY_SLASH;
-
-        constexpr KeyCode D0 = GLFW_KEY_0;
-        constexpr KeyCode D1 = GLFW_KEY_1;
-        constexpr KeyCode D2 = GLFW_KEY_2;
-        constexpr KeyCode D3 = GLFW_KEY_3;
-        constexpr KeyCode D4 = GLFW_KEY_4;
-        constexpr KeyCode D5 = GLFW_KEY_5;
-        constexpr KeyCode D6 = GLFW_KEY_6;
-        constexpr KeyCode D7 = GLFW_KEY_7;
-        constexpr KeyCode D8 = GLFW_KEY_8;
-        constexpr KeyCode D9 = GLFW_KEY_9;
-
+        // Letters
         constexpr KeyCode A = GLFW_KEY_A;
         constexpr KeyCode B = GLFW_KEY_B;
         constexpr KeyCode C = GLFW_KEY_C;
@@ -52,26 +33,20 @@ namespace axiom {
         constexpr KeyCode Y = GLFW_KEY_Y;
         constexpr KeyCode Z = GLFW_KEY_Z;
 
-        constexpr KeyCode Escape = GLFW_KEY_ESCAPE;
-        constexpr KeyCode Enter = GLFW_KEY_ENTER;
-        constexpr KeyCode Tab = GLFW_KEY_TAB;
-        constexpr KeyCode Backspace = GLFW_KEY_BACKSPACE;
+        // Numbers
+        constexpr KeyCode Num0 = GLFW_KEY_0;
+        constexpr KeyCode Num1 = GLFW_KEY_1;
+        constexpr KeyCode Num2 = GLFW_KEY_2;
+        constexpr KeyCode Num3 = GLFW_KEY_3;
+        constexpr KeyCode Num4 = GLFW_KEY_4;
+        constexpr KeyCode Num5 = GLFW_KEY_5;
+        constexpr KeyCode Num6 = GLFW_KEY_6;
+        constexpr KeyCode Num7 = GLFW_KEY_7;
+        constexpr KeyCode Num8 = GLFW_KEY_8;
+        constexpr KeyCode Num9 = GLFW_KEY_9;
 
-        constexpr KeyCode Left = GLFW_KEY_LEFT;
-        constexpr KeyCode Right = GLFW_KEY_RIGHT;
-        constexpr KeyCode Up = GLFW_KEY_UP;
-        constexpr KeyCode Down = GLFW_KEY_DOWN;
-
-        constexpr KeyCode LeftShift = GLFW_KEY_LEFT_SHIFT;
-        constexpr KeyCode LeftControl = GLFW_KEY_LEFT_CONTROL;
-        constexpr KeyCode LeftAlt = GLFW_KEY_LEFT_ALT;
-
-		constexpr KeyCode RightShift = GLFW_KEY_RIGHT_SHIFT;
-        constexpr KeyCode RightControl = GLFW_KEY_RIGHT_CONTROL;
-        constexpr KeyCode RightAlt = GLFW_KEY_RIGHT_ALT;
-		constexpr KeyCode Menu = GLFW_KEY_MENU;
-
-		constexpr KeyCode F1 = GLFW_KEY_F1;
+        // Function keys
+        constexpr KeyCode F1 = GLFW_KEY_F1;
         constexpr KeyCode F2 = GLFW_KEY_F2;
         constexpr KeyCode F3 = GLFW_KEY_F3;
         constexpr KeyCode F4 = GLFW_KEY_F4;
@@ -82,30 +57,70 @@ namespace axiom {
         constexpr KeyCode F9 = GLFW_KEY_F9;
         constexpr KeyCode F10 = GLFW_KEY_F10;
         constexpr KeyCode F11 = GLFW_KEY_F11;
-		constexpr KeyCode F12 = GLFW_KEY_F12;
-		constexpr KeyCode F13 = GLFW_KEY_F13;
-		constexpr KeyCode F14 = GLFW_KEY_F14;
-		constexpr KeyCode F15 = GLFW_KEY_F15;
-		constexpr KeyCode F16 = GLFW_KEY_F16;
-		constexpr KeyCode F17 = GLFW_KEY_F17;
-		constexpr KeyCode F18 = GLFW_KEY_F18;
-		constexpr KeyCode F19 = GLFW_KEY_F19;
-		constexpr KeyCode F20 = GLFW_KEY_F20;
-		constexpr KeyCode F21 = GLFW_KEY_F21;
-		constexpr KeyCode F22 = GLFW_KEY_F22;
-		constexpr KeyCode F23 = GLFW_KEY_F23;
-		constexpr KeyCode F24 = GLFW_KEY_F24;
-		constexpr KeyCode Pause = GLFW_KEY_PAUSE;
-		constexpr KeyCode World1 = GLFW_KEY_WORLD_1;
-		constexpr KeyCode World2 = GLFW_KEY_WORLD_2;
-		constexpr KeyCode Numpad0 = GLFW_KEY_KP_0;
-		constexpr KeyCode Numpad1 = GLFW_KEY_KP_1;
-		constexpr KeyCode Numpad2 = GLFW_KEY_KP_2;
+        constexpr KeyCode F12 = GLFW_KEY_F12;
+        constexpr KeyCode F13 = GLFW_KEY_F13;
+        constexpr KeyCode F14 = GLFW_KEY_F14;
+        constexpr KeyCode F15 = GLFW_KEY_F15;
+        constexpr KeyCode F16 = GLFW_KEY_F16;
+        constexpr KeyCode F17 = GLFW_KEY_F17;
+        constexpr KeyCode F18 = GLFW_KEY_F18;
+        constexpr KeyCode F19 = GLFW_KEY_F19;
+        constexpr KeyCode F20 = GLFW_KEY_F20;
+        constexpr KeyCode F21 = GLFW_KEY_F21;
+        constexpr KeyCode F22 = GLFW_KEY_F22;
+        constexpr KeyCode F23 = GLFW_KEY_F23;
+        constexpr KeyCode F24 = GLFW_KEY_F24;
 
-		// TODO: Add all the other keys
+        // Special keys
+		constexpr KeyCode Space = GLFW_KEY_SPACE;
+        constexpr KeyCode Escape = GLFW_KEY_ESCAPE;
+        constexpr KeyCode Enter = GLFW_KEY_ENTER;
+        constexpr KeyCode Tab = GLFW_KEY_TAB;
+        constexpr KeyCode Backspace = GLFW_KEY_BACKSPACE;
+        constexpr KeyCode Insert = GLFW_KEY_INSERT;
+        constexpr KeyCode Delete = GLFW_KEY_DELETE;
+        constexpr KeyCode Right = GLFW_KEY_RIGHT;
+        constexpr KeyCode Left = GLFW_KEY_LEFT;
+        constexpr KeyCode Down = GLFW_KEY_DOWN;
+        constexpr KeyCode Up = GLFW_KEY_UP;
+        constexpr KeyCode PageUp = GLFW_KEY_PAGE_UP;
+        constexpr KeyCode PageDown = GLFW_KEY_PAGE_DOWN;
+        constexpr KeyCode Home = GLFW_KEY_HOME;
+        constexpr KeyCode End = GLFW_KEY_END;
+        constexpr KeyCode CapsLock = GLFW_KEY_CAPS_LOCK;
+        constexpr KeyCode ScrollLock = GLFW_KEY_SCROLL_LOCK;
+        constexpr KeyCode NumLock = GLFW_KEY_NUM_LOCK;
+        constexpr KeyCode PrintScreen = GLFW_KEY_PRINT_SCREEN;
+        constexpr KeyCode Pause = GLFW_KEY_PAUSE;
+        constexpr KeyCode Menu = GLFW_KEY_MENU;
 
-		constexpr KeyCode Last = GLFW_KEY_LAST;
+        // Modifiers
+        constexpr KeyCode LeftShift = GLFW_KEY_LEFT_SHIFT;
+        constexpr KeyCode LeftControl = GLFW_KEY_LEFT_CONTROL;
+        constexpr KeyCode LeftAlt = GLFW_KEY_LEFT_ALT;
+        constexpr KeyCode LeftSuper = GLFW_KEY_LEFT_SUPER;
+        constexpr KeyCode RightShift = GLFW_KEY_RIGHT_SHIFT;
+        constexpr KeyCode RightControl = GLFW_KEY_RIGHT_CONTROL;
+        constexpr KeyCode RightAlt = GLFW_KEY_RIGHT_ALT;
+        constexpr KeyCode RightSuper = GLFW_KEY_RIGHT_SUPER;
 
+        // Numpad
+        constexpr KeyCode KP0 = GLFW_KEY_KP_0;
+        constexpr KeyCode KP1 = GLFW_KEY_KP_1;
+        constexpr KeyCode KP2 = GLFW_KEY_KP_2;
+        constexpr KeyCode KP3 = GLFW_KEY_KP_3;
+        constexpr KeyCode KP4 = GLFW_KEY_KP_4;
+        constexpr KeyCode KP5 = GLFW_KEY_KP_5;
+        constexpr KeyCode KP6 = GLFW_KEY_KP_6;
+        constexpr KeyCode KP7 = GLFW_KEY_KP_7;
+        constexpr KeyCode KP8 = GLFW_KEY_KP_8;
+        constexpr KeyCode KP9 = GLFW_KEY_KP_9;
+        constexpr KeyCode KPDecimal = GLFW_KEY_KP_DECIMAL;
+        constexpr KeyCode KPDivide = GLFW_KEY_KP_DIVIDE;
+        constexpr KeyCode KPMultiply = GLFW_KEY_KP_MULTIPLY;
+        constexpr KeyCode KPSubtract = GLFW_KEY_KP_SUBTRACT;
+        constexpr KeyCode KPAdd = GLFW_KEY_KP_ADD;
+        constexpr KeyCode KPEnter = GLFW_KEY_KP_ENTER;
+        constexpr KeyCode KPEqual = GLFW_KEY_KP_EQUAL;
     }
-
 }
