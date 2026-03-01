@@ -12,60 +12,71 @@ namespace axiom {
         Key,
         MouseButton,
         GamepadButton,
-        GamepadAxis
+        GamepadAxis,
+        MouseAxis
     };
 
-    // ---------------------
+    // ======================
     // Button Binding
-    // ---------------------
+    // ======================
 
     struct ButtonBinding {
         InputType type;
         int code;
     };
 
-    // ---------------------
+    // ======================
     // Axis Binding
-    // ---------------------
-
-    enum class AxisType {
-        Digital,   // two buttons (negative / positive)
-        Analog     // single axis (gamepad)
-    };
+    // ======================
 
     struct AxisBinding {
-        AxisType type;
+        InputType type;
+        int code;
 
-        // Digital
-        int negative = 0;
-        int positive = 0;
-
-        // Analog
-        int axis = 0;
         float scale = 1.0f;
+        float deadzone = 0.0f;
+
+        bool invert = false;
     };
 
-    // =====================
+    // ======================
     // ActionMap
-    // =====================
+    // ======================
 
     class ActionMap {
     public:
 
-        // -------- Buttons --------
+        // ---- Buttons ----
         void BindButton(const std::string& action, InputType type, int code);
         bool IsActionPressed(const std::string& action) const;
         bool IsActionJustPressed(const std::string& action) const;
 
-        // -------- Axis --------
-        void BindAxisDigital(const std::string& axis, int negative, int positive);
-        void BindAxisAnalog(const std::string& axis, int gamepadAxis, float scale = 1.0f);
+        void RebindButton(const std::string& action, size_t index, InputType type, int code);
 
+        // ---- Axis 1D ----
+        void BindAxis(const std::string& axis, const AxisBinding& binding);
         float GetAxis(const std::string& axis) const;
 
+        void RebindAxis(const std::string& axis, size_t index, const AxisBinding& binding);
+
+        // ---- Axis 2D ----
+        void BindAxis2D(const std::string& axis,
+                        const std::string& xAxis,
+                        const std::string& yAxis);
+
+        glm::vec2 GetAxis2D(const std::string& axis) const;
+
     private:
+
         std::unordered_map<std::string, std::vector<ButtonBinding>> m_ButtonBindings;
-        std::unordered_map<std::string, std::vector<AxisBinding>> m_AxisBindings;
+        std::unordered_map<std::string, std::vector<AxisBinding>>   m_AxisBindings;
+
+        struct Axis2D {
+            std::string xAxis;
+            std::string yAxis;
+        };
+
+        std::unordered_map<std::string, Axis2D> m_Axis2DBindings;
     };
 
 }
