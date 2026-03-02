@@ -1,7 +1,7 @@
 #include "axiom/core/Application.h"
 #include "axiom/platform/Window.h"
 #include "axiom/core/Logger.h"
-#include <chrono>
+#include "axiom/core/Time.h"
 
 namespace axiom {
 
@@ -53,15 +53,9 @@ namespace axiom {
 	}
 
 	void Application::MainLoop() {
-		using clock = std::chrono::high_resolution_clock;
-
-		auto lastTime = clock::now();
 
 		while (m_Running) {
-			auto now = clock::now();
-			float dt =
-				std::chrono::duration<float>(now - lastTime).count();
-			lastTime = now;
+			float dt = Time::GetDeltaTime();
 
 			OnUpdate(dt);
 
