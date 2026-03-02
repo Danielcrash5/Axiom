@@ -8,6 +8,13 @@ namespace axiom {
             layer->OnDetach();
     }
 
+    void LayerStack::Shutdown() {
+        for (auto& layer : m_Layers)
+            layer->OnDetach();
+
+        m_Layers.clear();
+    }
+
     void LayerStack::PushLayer(std::unique_ptr<Layer> layer, EventBus& eventBus) {
 		layer->setEventBus(eventBus);
         layer->OnAttach();

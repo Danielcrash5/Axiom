@@ -75,6 +75,7 @@ namespace axiom {
 	private:
 		void MainLoop();
 		void Init();
+		void Shutdown();
 
 		bool OnWindowClose(WindowCloseEvent& e) {
 			Close();

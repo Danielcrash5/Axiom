@@ -1,6 +1,7 @@
 #include <axiom/core/Application.h>
 #include <axiom/core/Layer.h>
 #include <axiom/input/KeyCodes.h>
+#include <axiom/core/Logger.h>
 #include <iostream>
 
 class InputTestLayer : public axiom::Layer {
@@ -9,16 +10,16 @@ class InputTestLayer : public axiom::Layer {
         Layer("InputTestLayer") {
     }
     void OnAttach() override {
-        std::cout << "InputTestLayer attached!" << std::endl;
+        AXIOM_INFO("InputTestLayer attached!");
     }
     void OnUpdate(float dt) override {
         auto input = GetMainInput();
         if (input.IsKeyPressed(axiom::Key::Space)) {
-            std::cout << "Space key is pressed!" << std::endl;
+            AXIOM_INFO("Space key is pressed!");
         }
     }
     void OnDetach() override {
-        std::cout << "InputTestLayer detached!" << std::endl;
+        AXIOM_INFO("InputTestLayer detached!");
     }
 };
 

@@ -19,6 +19,8 @@ namespace axiom {
         void PopLayer(Layer* layer);
         void PopOverlay(Layer* overlay);
 
+		void Shutdown();
+
         auto begin() {
             return m_Layers.begin();
         }
