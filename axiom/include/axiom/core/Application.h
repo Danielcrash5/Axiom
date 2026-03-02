@@ -44,11 +44,11 @@ namespace axiom {
 			return m_Window;
 		}
 
-		uint32_t GetWidth() {
+		uint32_t GetWidth() const {
 			return m_Width;
 		}
 
-		uint32_t GetHeigth() {
+		uint32_t GetHeigth() const {
 			return m_Height;
 		}
 
@@ -61,12 +61,19 @@ namespace axiom {
 		}
 
 	protected:
+
+		// Virtual Gamehooks - Override these in your application subclass to implement game-specific behavior
 		virtual void OnInit() {
-		}
-		virtual void OnUpdate(float dt) {
 		}
 		virtual void OnShutdown() {
 		}
+
+		virtual void OnPreUpdate(float dt) {}
+		virtual void OnPostUpdate(float dt) {}
+		virtual void OnFixedUpdate(float dt) {}
+		virtual void OnUpdate(float dt) {}
+
+		virtual void OnRender() {}
 
 		void Close() {
 			m_Running = false;
@@ -77,9 +84,17 @@ namespace axiom {
 		void Init();
 		void Shutdown();
 
+		void MainUpdate();
+		void PreUpdate(float dt);
+		void PostUpdate(float dt);
+		void FixedUpdate(float dt);
+		void Update(float dt);
+
+		void Render();
+
 		bool OnWindowClose(WindowCloseEvent& e) {
 			Close();
-			return true;
+			return true; // Return true to indicate that the event has been handled and should not be propagated further
 		}
 
 		bool OnWindowResize(WindowResizeEvent& e) {
@@ -104,9 +119,7 @@ namespace axiom {
 		EventBus m_EventBus;
 	};
 
-
 }
-
 
 #define GetMainEventBus() axiom::Application::Get().GetEventBus() 
 #define GetMainWindow() axiom::Application::Get().GetWindow()

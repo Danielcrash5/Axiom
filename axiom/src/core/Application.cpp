@@ -55,19 +55,65 @@ namespace axiom {
 	void Application::MainLoop() {
 
 		while (m_Running) {
-			float dt = Time::GetDeltaTime();
+			MainUpdate();
 
-			OnUpdate(dt);
-
-			for (auto& layer : m_LayerStack)
-				layer->OnUpdate(dt);
-
-			m_Input.Update();
-			m_InputSystem.Update();
-
-			m_Window->PollEvents();
-			m_EventBus.DispatchQueued();
+			Render();
 		}
+	}
+
+	void Application::Render() {
+		OnRender();
+		for (auto& layer : m_LayerStack)
+			layer->OnRender();
+	}
+
+	void Application::PreUpdate(float dt) {
+		OnPreUpdate(dt);
+		for (auto& layer : m_LayerStack)
+			layer->OnPreUpdate(dt);
+	}
+
+	void Application::PostUpdate(float dt) {
+		OnPostUpdate(dt);
+		for (auto& layer : m_LayerStack)
+			layer->OnPostUpdate(dt);
+	}
+
+	void Application::FixedUpdate(float dt) {
+		OnFixedUpdate(dt);
+		for (auto& layer : m_LayerStack)
+			layer->OnFixedUpdate(dt);
+	}
+
+	void Application::Update(float dt) {
+		OnUpdate(dt);
+		for (auto& layer : m_LayerStack)
+			layer->OnUpdate(dt);
+	}
+
+	static float m_LastFixedUpdate = 0.0f;
+	static float m_FixedUpdateInterval = 1.0f / 60.0f; // 60 FPS
+
+	void Application::MainUpdate() {
+		// Calculate delta time
+		float dt = Time::GetDeltaTime();
+
+		// Call update functions
+		PreUpdate(dt);
+		Update(dt);
+		while (Time::GetTime() - m_LastFixedUpdate >= m_FixedUpdateInterval) {
+			FixedUpdate(m_FixedUpdateInterval);
+			m_LastFixedUpdate += m_FixedUpdateInterval;
+		}
+		PostUpdate(dt);
+
+		// Update input systems after all updates to ensure we have the latest input state for the next frame
+		m_Input.Update();
+		m_InputSystem.Update();
+
+		// Process events
+		m_Window->PollEvents();
+		m_EventBus.DispatchQueued();
 	}
 
 	void Application::Shutdown() {

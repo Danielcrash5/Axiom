@@ -21,8 +21,13 @@ namespace axiom {
         virtual void OnDetach() {
         }
 
-        virtual void OnUpdate(float deltaTime) {
-        }
+        virtual void OnPreUpdate(float dt) {}
+        virtual void OnPostUpdate(float dt) {}
+        virtual void OnFixedUpdate(float dt) {}
+        virtual void OnUpdate(float dt) {}
+
+        virtual void OnRender() {}
+
 
         void setEventBus(EventBus& eventBus) {
             m_EventBus = &eventBus;

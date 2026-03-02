@@ -116,8 +116,8 @@ namespace axiom {
         // =========================================================
 
         struct Listener {
-            uint64_t ID;
-            int Priority;
+            uint64_t ID = 0;
+            int Priority = 0;
             std::function<bool(void*)> Callback;
         };
 
