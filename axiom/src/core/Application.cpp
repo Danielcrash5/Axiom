@@ -13,6 +13,7 @@ namespace axiom {
 		m_AppName = AppName;
 		m_Height = height;
 		m_Width = width;
+		
 	}
 
 
@@ -46,8 +47,12 @@ namespace axiom {
 			}
 		);
 
+		m_Renderer = std::make_unique<Renderer>();
+
+		m_Renderer->Init((GLFWwindow*)m_Window->GetNativeHandle());
 		m_Input.Init(m_Window->GetNativeHandle());
 		m_InputSystem.Init();
+
 
 		OnInit();
 	}
@@ -62,9 +67,13 @@ namespace axiom {
 	}
 
 	void Application::Render() {
+
+		m_Renderer->BeginFrame();
 		OnRender();
 		for (auto& layer : m_LayerStack)
 			layer->OnRender();
+
+		m_Renderer->EndFrame();
 	}
 
 	void Application::PreUpdate(float dt) {
@@ -106,6 +115,8 @@ namespace axiom {
 			m_LastFixedUpdate += m_FixedUpdateInterval;
 		}
 		PostUpdate(dt);
+
+		Render();
 
 		// Update input systems after all updates to ensure we have the latest input state for the next frame
 		m_Input.Update();

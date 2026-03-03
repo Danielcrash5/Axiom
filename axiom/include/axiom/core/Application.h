@@ -5,6 +5,7 @@
 #include "axiom/core/Layerstack.h"
 #include "axiom/input/Input.h"
 #include "axiom/input/InputSystem.h"
+#include "axiom/renderer/Renderer.h"
 #include <memory>
 
 namespace axiom {
@@ -63,10 +64,8 @@ namespace axiom {
 	protected:
 
 		// Virtual Gamehooks - Override these in your application subclass to implement game-specific behavior
-		virtual void OnInit() {
-		}
-		virtual void OnShutdown() {
-		}
+		virtual void OnInit() {}
+		virtual void OnShutdown() {}
 
 		virtual void OnPreUpdate(float dt) {}
 		virtual void OnPostUpdate(float dt) {}
@@ -111,6 +110,8 @@ namespace axiom {
 		uint32_t m_Width, m_Height;
 
 		static Application* s_Instance;
+
+		std::unique_ptr<Renderer> m_Renderer;
 
 		InputSystem m_InputSystem;
 		Input m_Input;
