@@ -3,6 +3,7 @@
 #include <iostream>
 
 void VulkanContext::Init(GLFWwindow* window) {
+    m_Window = window;
     CreateInstance();
     CreateSurface(window);
     PickPhysicalDevice();
@@ -111,8 +112,13 @@ void VulkanContext::CreateLogicalDevice() {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
 
+    VkPhysicalDeviceVulkan13Features features13{};
+    features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    features13.dynamicRendering = VK_TRUE;
+
     VkDeviceCreateInfo createInfo {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    createInfo.pNext = &features13;
     createInfo.queueCreateInfoCount = (uint32_t)queueInfos.size();
     createInfo.pQueueCreateInfos = queueInfos.data();
     createInfo.enabledExtensionCount = 1;
@@ -120,4 +126,7 @@ void VulkanContext::CreateLogicalDevice() {
 
     if (vkCreateDevice(m_PhysicalDevice, &createInfo, nullptr, &m_Device) != VK_SUCCESS)
         throw std::runtime_error("Failed to create logical device!");
+
+    vkGetDeviceQueue(m_Device, m_GraphicsQueueIndex, 0, &m_GraphicsQueue);
+    vkGetDeviceQueue(m_Device, m_PresentQueueIndex, 0, &m_PresentQueue);
 }

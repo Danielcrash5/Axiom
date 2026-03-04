@@ -11,7 +11,7 @@ public:
 	void OnAttach() override {
 		AXIOM_INFO("InputTestLayer attached!");
 	}
-	void OnUpdate(float dt) override {
+	void OnFixedUpdate(float dt) override {
 		auto input = GetMainInput();
 		if (input.IsKeyPressed(axiom::Key::Space)) {
 			AXIOM_INFO("Space key is pressed!");
