@@ -47,9 +47,6 @@ namespace axiom {
 			}
 		);
 
-		m_Renderer = std::make_unique<Renderer>();
-
-		m_Renderer->Init((GLFWwindow*)m_Window->GetNativeHandle());
 		m_Input.Init(m_Window->GetNativeHandle());
 		m_InputSystem.Init();
 
@@ -68,12 +65,10 @@ namespace axiom {
 
 	void Application::Render() {
 
-		m_Renderer->BeginFrame();
 		OnRender();
 		for (auto& layer : m_LayerStack)
 			layer->OnRender();
 
-		m_Renderer->EndFrame();
 	}
 
 	void Application::PreUpdate(float dt) {
@@ -128,6 +123,5 @@ namespace axiom {
 	void Application::Shutdown() {
 		OnShutdown();
 		m_LayerStack.Shutdown();
-		m_Renderer->Shutdown();
 	}
 }

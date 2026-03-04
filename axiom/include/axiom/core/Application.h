@@ -5,7 +5,6 @@
 #include "axiom/core/Layerstack.h"
 #include "axiom/input/Input.h"
 #include "axiom/input/InputSystem.h"
-#include "axiom/renderer/Renderer.h"
 #include <memory>
 
 namespace axiom {
@@ -110,8 +109,6 @@ namespace axiom {
 		uint32_t m_Width, m_Height;
 
 		static Application* s_Instance;
-
-		std::unique_ptr<Renderer> m_Renderer;
 
 		InputSystem m_InputSystem;
 		Input m_Input;
