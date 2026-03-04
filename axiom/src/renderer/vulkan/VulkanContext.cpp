@@ -11,14 +11,20 @@ void VulkanContext::Init(GLFWwindow* window) {
 }
 
 void VulkanContext::Cleanup() {
-    if (m_Device)
+    if (m_Device != VK_NULL_HANDLE) {
         vkDestroyDevice(m_Device, nullptr);
+        m_Device = VK_NULL_HANDLE;
+    }
 
-    if (m_Surface)
+    if (m_Surface != VK_NULL_HANDLE) {
         vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
+        m_Surface = VK_NULL_HANDLE;
+    }
 
-    if (m_Instance)
+    if (m_Instance != VK_NULL_HANDLE) {
         vkDestroyInstance(m_Instance, nullptr);
+        m_Instance = VK_NULL_HANDLE;
+    }
 }
 
 void VulkanContext::CreateInstance() {

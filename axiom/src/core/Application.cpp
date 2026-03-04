@@ -128,5 +128,6 @@ namespace axiom {
 	void Application::Shutdown() {
 		OnShutdown();
 		m_LayerStack.Shutdown();
+		m_Renderer->Shutdown();
 	}
 }

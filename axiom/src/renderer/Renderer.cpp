@@ -27,10 +27,14 @@ void Renderer::Init(GLFWwindow* window) {
 }
 
 void Renderer::Shutdown() {
+	if (!m_Context) return;
+
+	vkDeviceWaitIdle(m_Context->GetDevice());
+
 	CleanupFrames();
 
-	if (m_Swapchain) { m_Swapchain->Cleanup(); delete m_Swapchain; m_Swapchain = nullptr; }
-	if (m_Context) { m_Context->Cleanup(); delete m_Context; m_Context = nullptr; }
+	if (m_Swapchain) { delete m_Swapchain; m_Swapchain = nullptr; }
+	if (m_Context) { delete m_Context; m_Context = nullptr; }
 }
 
 // ----- Frame handling -----
@@ -70,7 +74,6 @@ void Renderer::BeginFrame() {
 	auto& frame = m_Frames[m_CurrentFrame];
 
 	vkWaitForFences(m_Context->GetDevice(), 1, &frame.InFlightFence, VK_TRUE, UINT64_MAX);
-	vkResetFences(m_Context->GetDevice(), 1, &frame.InFlightFence);
 
 	// TODO: CommandBuffer allocation and begin
 }
@@ -79,6 +82,8 @@ void Renderer::EndFrame() {
 	auto& frame = m_Frames[m_CurrentFrame];
 
 	// TODO: Submit CommandBuffer + Present
+	// NOTE: vkResetFences and re-signal must happen here once actual GPU submission is implemented.
+	// Until then, do NOT reset the fence in BeginFrame, or the next wait will block forever.
 
 	m_CurrentFrame = (m_CurrentFrame + 1) % MaxFramesInFlight;
 }

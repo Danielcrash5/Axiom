@@ -70,6 +70,9 @@ void VulkanSwapchain::Init() {
 }
 
 void VulkanSwapchain::Cleanup() {
-    if (m_Swapchain)
+    if (m_Swapchain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(m_Context->GetDevice(), m_Swapchain, nullptr);
+        m_Swapchain = VK_NULL_HANDLE;
+    }
+    m_Images.clear();
 }
