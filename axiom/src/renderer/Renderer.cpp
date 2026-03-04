@@ -10,15 +10,15 @@ Renderer::~Renderer() {
 
 void Renderer::Init(GLFWwindow* window) {
 	m_Window = window;
-	m_Context = new VulkanContext(m_Window);
-	m_Context->Init();
+	m_Context = new VulkanContext();
+	m_Context->Init(m_Window);
 
 	if (m_Context->GetDevice() == VK_NULL_HANDLE)
 		AXIOM_ERROR("Vulkan logical device ist null!");
 	if (m_Context->GetPhysicalDevice() == VK_NULL_HANDLE)
 		AXIOM_ERROR("Vulkan physical device ist null!");
 
-	m_Swapchain = new VulkanSwapchain(m_Context, m_Window);
+	m_Swapchain = new VulkanSwapchain(m_Context);
 	m_Swapchain->Init();
 
 	CreateFrames();
@@ -30,7 +30,7 @@ void Renderer::Shutdown() {
 	CleanupFrames();
 
 	if (m_Swapchain) { m_Swapchain->Cleanup(); delete m_Swapchain; m_Swapchain = nullptr; }
-	if (m_Context) { m_Context->Shutdown(); delete m_Context; m_Context = nullptr; }
+	if (m_Context) { m_Context->Cleanup(); delete m_Context; m_Context = nullptr; }
 }
 
 // ----- Frame handling -----

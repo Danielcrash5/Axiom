@@ -116,8 +116,6 @@ namespace axiom {
 		}
 		PostUpdate(dt);
 
-		Render();
-
 		// Update input systems after all updates to ensure we have the latest input state for the next frame
 		m_Input.Update();
 		m_InputSystem.Update();
