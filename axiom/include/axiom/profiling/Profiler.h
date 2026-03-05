@@ -4,6 +4,7 @@
 #include <string_view>
 #include <array>
 #include <cstdint>
+#include <source_location>
 
 namespace axiom::profiling {
 
@@ -54,3 +55,9 @@ namespace axiom::profiling {
 
 #define AXIOM_PROFILE_SCOPE(name) \
     axiom::profiling::CPUScope scope##__LINE__(name)
+
+#define AXIOM_PROFILE_FUNCTION() \
+    axiom::profiling::CPUScope scope##__LINE__(std::source_location::current().function_name())
+
+#define AXIOM_PROFILE_FRAME() \
+    AXIOM_PROFILE_SCOPE("Frame")

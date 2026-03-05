@@ -65,7 +65,7 @@ namespace axiom {
 			axiom::profiling::Profiler::BeginFrame();
 
 			{
-				AXIOM_PROFILE_SCOPE("Frame");
+				AXIOM_PROFILE_FRAME();
 
 				MainUpdate();
 				Render();
