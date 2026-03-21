@@ -16,11 +16,12 @@ target_include_directories(axiom_engine
 if(AXIOM_ENABLE_CONSOLE_LOG)
     target_compile_definitions(axiom_engine
         PUBLIC AXIOM_ENABLE_CONSOLE_LOG
+        PUBLIC GLF_INCLUDE_NONE
     )
 endif()
 
-find_package(Vulkan REQUIRED)
+find_package(OpenGL REQUIRED)
 
 target_link_libraries(axiom_engine
-    PUBLIC glfw Vulkan::Vulkan
+    PUBLIC glfw OpenGL::GL glad
 )

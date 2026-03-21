@@ -19,3 +19,15 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(thirdparty/glfw)
+
+# GLAD - OpenGL Loader
+add_library(glad thirdparty/glad/src/glad.c)
+
+target_include_directories(glad PUBLIC
+    thirdpaarty/glad/include
+)
+
+target_link_libraries(your_target
+    glad
+    glfw
+)
