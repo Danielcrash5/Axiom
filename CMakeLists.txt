@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(Axiom LANGUAGES CXX)
+project(Axiom LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,13 +21,4 @@ set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 add_subdirectory(thirdparty/glfw)
 
 # GLAD - OpenGL Loader
-add_library(glad thirdparty/glad/src/glad.c)
-
-target_include_directories(glad PUBLIC
-    thirdpaarty/glad/include
-)
-
-target_link_libraries(your_target
-    glad
-    glfw
-)
+add_subdirectory(thirdparty/glad)

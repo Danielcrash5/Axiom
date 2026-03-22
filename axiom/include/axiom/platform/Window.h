@@ -2,6 +2,8 @@
 
 #include "axiom/events/EventBus.h"
 
+#include "axiom/platform/opengl/OpenGLContext.h"
+
 #include <string>
 
 struct GLFWwindow;
@@ -21,6 +23,7 @@ namespace axiom {
         ~Window();
 
         void PollEvents();
+        void SwapBuffers();
 
         bool ShouldClose() const;
 
@@ -37,6 +40,8 @@ namespace axiom {
         GLFWwindow* m_Window = nullptr;
 
         EventBus& m_EventBus;
+
+        std::unique_ptr<OpenGLContext> m_context;
 
         uint32_t m_Width = 0;
         uint32_t m_Height = 0;

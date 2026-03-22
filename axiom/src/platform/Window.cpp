@@ -96,6 +96,9 @@ namespace axiom {
 			win->m_EventBus.Publish(event);
 							});
 
+		m_context = std::make_unique<OpenGLContext>(m_Window);
+		m_context->Init();
+
 		m_Width = props.width;
 		m_Height = props.height;
 	}
@@ -130,6 +133,10 @@ namespace axiom {
 
 	void* Window::GetNativeHandle() const {
 		return m_Window;
+	}
+
+	void Window::SwapBuffers() {
+		m_context->SwapBuffers();
 	}
 
 }

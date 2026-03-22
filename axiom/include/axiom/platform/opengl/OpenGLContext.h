@@ -1,0 +1,21 @@
+#pragma once
+
+struct GLFWwindow;
+
+namespace axiom {
+
+    class OpenGLContext {
+    public:
+
+        OpenGLContext(GLFWwindow* window);
+
+        void Init();
+        void SwapBuffers();
+
+    private:
+
+        GLFWwindow* m_WindowHandle;
+
+    };
+
+}
