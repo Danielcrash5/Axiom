@@ -17,6 +17,8 @@ namespace axiom {
             return m_Resources;
         }
 
+        uint32_t GetRendererID() const { return m_ProgramID; }
+
     private:
 
         uint32_t m_ProgramID = 0;
