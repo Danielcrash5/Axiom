@@ -16,7 +16,7 @@ target_include_directories(axiom_engine
 if(AXIOM_ENABLE_CONSOLE_LOG)
     target_compile_definitions(axiom_engine
         PUBLIC AXIOM_ENABLE_CONSOLE_LOG
-        PUBLIC GLF_INCLUDE_NONE
+        PUBLIC GLFW_INCLUDE_NONE
     )
 endif()
 
