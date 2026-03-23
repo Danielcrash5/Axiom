@@ -6,6 +6,7 @@
 #include <variant>
 
 #include "axiom/renderer/Shader.h"
+#include <glm/glm.hpp>
 
 namespace axiom {
 

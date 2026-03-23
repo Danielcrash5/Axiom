@@ -27,7 +27,7 @@ namespace axiom {
 			s_GLFWInitialized = true;
 		}
 
-		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // wichtig für Vulkan
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
 
 		m_Window = glfwCreateWindow(
 			props.width,
