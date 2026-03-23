@@ -27,6 +27,10 @@ namespace axiom {
 			s_GLFWInitialized = true;
 		}
 
+		glfwWindowHint(GLFW_OPENGL_CORE_PROFILE, GLFW_TRUE);
+		glfwWindowHint(GLFW_VERSION_MAJOR, 4);
+		glfwWindowHint(GLFW_VERSION_MINOR, 6);
+
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
 
 		m_Window = glfwCreateWindow(
