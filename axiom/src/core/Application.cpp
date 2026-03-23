@@ -98,6 +98,8 @@ namespace axiom {
 		}
 
 		Renderer::EndFrame();
+
+		m_Window->SwapBuffers();
 	}
 
 	void Application::PreUpdate(float dt) {
