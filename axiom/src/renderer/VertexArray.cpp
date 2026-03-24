@@ -1,4 +1,5 @@
 #include "axiom/renderer/VertexArray.h"
+#include "axiom/core/Logger.h"
 
 #include <glad/glad.h>
 
@@ -26,7 +27,8 @@ namespace axiom {
             return GL_BOOL;
         }
 
-        return 0;
+        AXIOM_ASSERT(false, "Unknown ShaderDataType!");
+        return GL_FLOAT; // fallback
     }
 
     // ===================== VAO =====================

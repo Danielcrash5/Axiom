@@ -20,8 +20,12 @@ namespace axiom {
         m_Values[name] = value;
     }
 
-    void Material::Set(const std::string& name, std::shared_ptr<Texture> texture) {
+    /*void Material::Set(const std::string& name, std::shared_ptr<Texture> texture) {
         m_Textures[name] = texture;
+    }*/
+
+    void Material::Set(const std::string& name, const glm::mat4& value) {
+        m_Values[name] = value;
     }
 
     // ===================== BIND =====================
@@ -64,7 +68,17 @@ namespace axiom {
                 } else if (std::holds_alternative<int>(it->second)) {
                     glUniform1i(res.location, std::get<int>(it->second));
                 }
+                else if (std::holds_alternative<glm::mat4>(it->second)) {
+                    glUniformMatrix4fv(
+                        res.location,
+                        1,
+                        GL_FALSE,
+                        &std::get<glm::mat4>(it->second)[0][0]
+                    );
+                }
             }
+
+            
         }
     }
 

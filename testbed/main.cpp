@@ -2,6 +2,9 @@
 #include <axiom/core/Layer.h>
 #include <axiom/input/KeyCodes.h>
 #include <axiom/core/Logger.h>
+#include <axiom/renderer/Renderer2D.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 
 class InputTestLayer : public axiom::Layer {
@@ -31,13 +34,42 @@ public:
 protected:
 	void OnInit() override {
 		PushLayer(std::make_unique<InputTestLayer>());
+		axiom::Renderer2D::Init();
+		projection = glm::ortho(
+			0.0f, 1280.0f,   // left, right
+			0.0f, 720.0f,    // bottom, top
+			-1.0f, 1.0f      // near, far
+		);
 	}
 
-	void OnUpdate(float dt) override {}
+	void OnRender() override {
+		axiom::Renderer2D::Begin(projection);
+		axiom::Renderer2D::DrawQuad(position, glm::vec2(1.0f, 1.0f), glm::vec4(1, 1, 1, 1));
+		axiom::Renderer2D::End();
+	}
+
+	void OnUpdate(float dt) override {
+		auto input = GetMainInput();
+		if (input.IsKeyPressed(axiom::Key::D)) {
+			position.x += 100 * dt;
+		}
+		if (input.IsKeyPressed(axiom::Key::A)) {
+			position.x -= 100 * dt;
+		}
+		if (input.IsKeyPressed(axiom::Key::W)) {
+			position.y += 100 * dt;
+		}
+		if (input.IsKeyPressed(axiom::Key::S)) {
+			position.y -= 100 * dt;
+		}
+	}
 
 	void OnShutdown() override {
-
+		axiom::Renderer2D::Shutdown();
 	}
+
+	glm::mat4 projection;
+	glm::vec3 position = { 0.0f, 0.0f, 0.0f };
 };
 
 int main() {

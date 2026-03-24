@@ -28,7 +28,8 @@ namespace axiom {
 
         void Set(const std::string& name, float value);
         void Set(const std::string& name, int value);
-        void Set(const std::string& name, std::shared_ptr<Texture> texture);
+        // noch keine Texturen void Set(const std::string& name, std::shared_ptr<Texture> texture);
+        void Set(const std::string& name, const glm::mat4& value);
 
         void Bind() const;
 

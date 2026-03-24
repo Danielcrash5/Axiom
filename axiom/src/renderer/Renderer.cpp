@@ -41,7 +41,7 @@ namespace axiom {
             GL_TRIANGLES,
             count,
             GL_UNSIGNED_INT,
-            (const void*)(uintptr_t)(indexOffset * sizeof(uint32_t))
-        );
+            (const void*)(uintptr_t)(indexOffset * sizeof(uint32_t)));
+    };
 
 }
