@@ -156,10 +156,16 @@ namespace axiom {
 
         uint32_t size = (uint8_t*)s_Data.VertexBufferPtr - (uint8_t*)s_Data.VertexBufferBase;
 
+        if (size == 0)
+            return;
+
+        s_Data.VAO->Bind();
         s_Data.VBO->Bind();
+
         glBufferSubData(GL_ARRAY_BUFFER, 0, size, s_Data.VertexBufferBase);
 
         s_Data.Material->Bind();
+
         Renderer::DrawIndexed(s_Data.VAO, s_Data.QuadIndexCount);
     }
 

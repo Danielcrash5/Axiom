@@ -6,6 +6,8 @@ target_link_libraries(testbed
     PRIVATE axiom_engine
 )
 
+file(COPY "${CMAKE_SOURCE_DIR}/assets" DESTINATION "${CMAKE_BINARY_DIR}/testbed")
+
 if(WIN32)
     if(NOT AXIOM_ENABLE_CONSOLE_LOG)
         set_target_properties(testbed PROPERTIES

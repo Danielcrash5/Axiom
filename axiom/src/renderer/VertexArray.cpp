@@ -34,7 +34,7 @@ namespace axiom {
     // ===================== VAO =====================
 
     VertexArray::VertexArray() {
-        glCreateVertexArrays(1, &m_ID);
+        glGenVertexArrays(1, &m_ID);
     }
 
     VertexArray::~VertexArray() {
