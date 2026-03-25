@@ -96,6 +96,7 @@ namespace axiom {
     void Renderer2D::Begin(const glm::mat4& viewProj) {
         s_Data.ViewProj = viewProj;
         s_Data.Material->Set("u_ViewProj", s_Data.ViewProj);
+        s_Data.Material->Bind();
         StartBatch();
     }
 

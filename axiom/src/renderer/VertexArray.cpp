@@ -24,7 +24,7 @@ namespace axiom {
             return GL_INT;
 
         case ShaderDataType::Bool:
-            return GL_BOOL;
+            return GL_INT;
         }
 
         AXIOM_ASSERT(false, "Unknown ShaderDataType!");
