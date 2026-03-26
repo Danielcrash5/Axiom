@@ -101,8 +101,17 @@ namespace axiom {
 			win->m_EventBus.Publish(event);
 							});
 
+		m_Vsync = props.vsync;
+
+
 		m_context = std::make_unique<OpenGLContext>(m_Window);
 		m_context->Init();
+
+		if (m_Vsync) {
+			glfwSwapInterval(1);
+		} else {
+			glfwSwapInterval(0);
+		}
 
 		m_Width = props.width;
 		m_Height = props.height;
@@ -144,6 +153,11 @@ namespace axiom {
 
 	void Window::SwapBuffers() {
 		m_context->SwapBuffers();
+	}
+
+	void Window::ToggleVsync() {
+		m_Vsync = !m_Vsync;
+		glfwSwapInterval(m_Vsync);
 	}
 
 }

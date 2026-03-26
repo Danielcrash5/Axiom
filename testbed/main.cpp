@@ -14,7 +14,7 @@ public:
 	void OnAttach() override {
 		AXIOM_INFO("InputTestLayer attached!");
 	}
-	void OnFixedUpdate(float dt) override {
+	void OnFixedUpdate(double dt) override {
 		auto input = GetMainInput();
 		if (input.IsKeyPressed(axiom::Key::Space)) {
 			AXIOM_INFO("Space key is pressed!");
@@ -48,19 +48,19 @@ protected:
 		axiom::Renderer2D::End();
 	}
 
-	void OnUpdate(float dt) override {
+	void OnUpdate(double dt) override {
 		auto input = GetMainInput();
 		if (input.IsKeyPressed(axiom::Key::D)) {
-			position.x += 1000 * dt;
+			position.x += 500 * dt;
 		}
 		if (input.IsKeyPressed(axiom::Key::A)) {
-			position.x -= 1000 * dt;
+			position.x -= 500 * dt;
 		}
 		if (input.IsKeyPressed(axiom::Key::W)) {
-			position.y += 1000 * dt;
+			position.y += 500 * dt;
 		}
 		if (input.IsKeyPressed(axiom::Key::S)) {
-			position.y -= 1000 * dt;
+			position.y -= 500 * dt;
 		}
 	}
 

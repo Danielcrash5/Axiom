@@ -66,10 +66,10 @@ namespace axiom {
 		virtual void OnInit() {}
 		virtual void OnShutdown() {}
 
-		virtual void OnPreUpdate(float dt) {}
-		virtual void OnPostUpdate(float dt) {}
-		virtual void OnFixedUpdate(float dt) {}
-		virtual void OnUpdate(float dt) {}
+		virtual void OnPreUpdate(double dt) {}
+		virtual void OnPostUpdate(double dt) {}
+		virtual void OnFixedUpdate(double dt) {}
+		virtual void OnUpdate(double dt) {}
 
 		virtual void OnRender() {}
 
@@ -83,10 +83,10 @@ namespace axiom {
 		void Shutdown();
 
 		void MainUpdate();
-		void PreUpdate(float dt);
-		void PostUpdate(float dt);
-		void FixedUpdate(float dt);
-		void Update(float dt);
+		void PreUpdate(double dt);
+		void PostUpdate(double dt);
+		void FixedUpdate(double dt);
+		void Update(double dt);
 
 		void Render();
 

@@ -60,9 +60,11 @@ namespace axiom {
 
 	void Application::MainLoop() {
 
-		float printTimer = 0.0f;
+		double printTimer = 0.0f;
 
 		while (m_Running) {
+
+			Time::Update();
 
 			axiom::profiling::Profiler::BeginFrame();
 
@@ -102,7 +104,7 @@ namespace axiom {
 		m_Window->SwapBuffers();
 	}
 
-	void Application::PreUpdate(float dt) {
+	void Application::PreUpdate(double dt) {
 		AXIOM_PROFILE_SCOPE("PreUpdate");
 
 		OnPreUpdate(dt);
@@ -112,7 +114,7 @@ namespace axiom {
 		}
 	}
 
-	void Application::PostUpdate(float dt) {
+	void Application::PostUpdate(double dt) {
 		AXIOM_PROFILE_SCOPE("PostUpdate");
 		OnPostUpdate(dt);
 		for (auto& layer : m_LayerStack) {
@@ -121,7 +123,7 @@ namespace axiom {
 		}
 	}
 
-	void Application::FixedUpdate(float dt) {
+	void Application::FixedUpdate(double dt) {
 		AXIOM_PROFILE_SCOPE("FixedUpdate");
 		OnFixedUpdate(dt);
 		for (auto& layer : m_LayerStack) {
@@ -130,7 +132,7 @@ namespace axiom {
 		}
 	}
 
-	void Application::Update(float dt) {
+	void Application::Update(double dt) {
 		AXIOM_PROFILE_SCOPE("Update");
 		OnUpdate(dt);
 		for (auto& layer : m_LayerStack) {
@@ -139,8 +141,8 @@ namespace axiom {
 		}
 	}
 
-	static float m_LastFixedUpdate = 0.0f;
-	static float m_FixedUpdateInterval = 1.0f / 60.0f; // 60 FPS
+	static double m_LastFixedUpdate = 0.0f;
+	static double m_FixedUpdateInterval = 1.0f / 75.0f; // 75 FPS evtl. konfigurierbar machen wie schnéll ddas FixedUpdate ist
 
 	void Application::MainUpdate() {
 
@@ -151,7 +153,7 @@ namespace axiom {
 
 		m_InputSystem.Update();
 
-		float dt = Time::GetDeltaTime();
+		double dt = Time::GetDeltaTime();
 
 		PreUpdate(dt);
 		Update(dt);

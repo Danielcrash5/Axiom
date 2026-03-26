@@ -16,6 +16,7 @@ namespace axiom {
             uint32_t width = 1280;
             uint32_t height = 720;
             std::string title = "Engine";
+            bool vsync = true;
         };
 
     public:
@@ -32,6 +33,9 @@ namespace axiom {
 
         void* GetNativeHandle() const;
 
+        bool VsyncEnabled() { return m_Vsync;  }
+        void ToggleVsync();
+
     private:
         void Init(const Props& props);
         void Shutdown();
@@ -40,6 +44,8 @@ namespace axiom {
         GLFWwindow* m_Window = nullptr;
 
         EventBus& m_EventBus;
+
+        bool m_Vsync = true;
 
         std::unique_ptr<OpenGLContext> m_context;
 

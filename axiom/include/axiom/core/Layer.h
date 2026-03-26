@@ -18,10 +18,10 @@ namespace axiom {
 		virtual void OnAttach() {}
 		virtual void OnDetach() {}
 
-		virtual void OnPreUpdate(float dt) {}
-		virtual void OnPostUpdate(float dt) {}
-		virtual void OnFixedUpdate(float dt) {}
-		virtual void OnUpdate(float dt) {}
+		virtual void OnPreUpdate(double dt) {}
+		virtual void OnPostUpdate(double dt) {}
+		virtual void OnFixedUpdate(double dt) {}
+		virtual void OnUpdate(double dt) {}
 
 		virtual void OnRender() {}
 
