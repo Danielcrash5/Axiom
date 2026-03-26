@@ -37,17 +37,11 @@ namespace axiom {
 		if (count == 0)
 			count = vao->GetIndexBuffer()->GetCount();
 
-		/*glDrawElements(
-			GL_TRIANGLES,
-			count,
-			GL_UNSIGNED_INT,
-			(const void*)(uintptr_t)(indexOffset * sizeof(uint32_t)));*/
-
 		glDrawElements(
 			GL_TRIANGLES,
 			count,
 			GL_UNSIGNED_INT,
-			nullptr
+			(const void*)(uintptr_t)(indexOffset * sizeof(uint32_t))
 		);
 	};
 

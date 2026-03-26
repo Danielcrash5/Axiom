@@ -53,22 +53,20 @@ namespace axiom {
 
         const auto layout = vb->GetLayout();
 
-        uint32_t index = 0;
+		for (const auto& element : layout.GetElements()) {
+			glEnableVertexAttribArray(m_AttribIndex);
 
-        for (const auto& element : layout.GetElements()) {
-            glEnableVertexAttribArray(index);
+			glVertexAttribPointer(
+				m_AttribIndex,
+				ShaderDataTypeComponentCount(element.Type),
+				ShaderDataTypeToOpenGLBaseType(element.Type),
+				element.Normalized ? GL_TRUE : GL_FALSE,
+				layout.GetStride(),
+				(const void*)(uintptr_t)element.Offset
+			);
 
-            glVertexAttribPointer(
-                index,
-                ShaderDataTypeComponentCount(element.Type),
-                ShaderDataTypeToOpenGLBaseType(element.Type),
-                element.Normalized ? GL_TRUE : GL_FALSE,
-                layout.GetStride(),
-                (const void*)(uintptr_t)element.Offset
-            );
-
-            index++;
-        }
+			m_AttribIndex++;
+		}
 
         m_VertexBuffers.push_back(vb);
     }

@@ -44,23 +44,23 @@ protected:
 
 	void OnRender() override {
 		axiom::Renderer2D::Begin(projection);
-		axiom::Renderer2D::DrawQuad(position, glm::vec2(1.0f, 1.0f), glm::vec4(1, 1, 1, 1));
+		axiom::Renderer2D::DrawQuad(position, glm::vec2(200.0f, 200.0f), glm::vec4(1, 1, 1, 1));
 		axiom::Renderer2D::End();
 	}
 
 	void OnUpdate(float dt) override {
 		auto input = GetMainInput();
 		if (input.IsKeyPressed(axiom::Key::D)) {
-			position.x += 100 * dt;
+			position.x += 1000 * dt;
 		}
 		if (input.IsKeyPressed(axiom::Key::A)) {
-			position.x -= 100 * dt;
+			position.x -= 1000 * dt;
 		}
 		if (input.IsKeyPressed(axiom::Key::W)) {
-			position.y += 100 * dt;
+			position.y += 1000 * dt;
 		}
 		if (input.IsKeyPressed(axiom::Key::S)) {
-			position.y -= 100 * dt;
+			position.y -= 1000 * dt;
 		}
 	}
 

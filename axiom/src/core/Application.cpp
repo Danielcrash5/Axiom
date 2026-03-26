@@ -146,6 +146,11 @@ namespace axiom {
 
 		AXIOM_PROFILE_SCOPE("Application::MainUpdate");
 
+		m_Window->PollEvents();
+		m_EventBus.DispatchQueued();
+
+		m_InputSystem.Update();
+
 		float dt = Time::GetDeltaTime();
 
 		PreUpdate(dt);
@@ -157,12 +162,6 @@ namespace axiom {
 		}
 
 		PostUpdate(dt);
-
-		m_Input.Update();
-		m_InputSystem.Update();
-
-		m_Window->PollEvents();
-		m_EventBus.DispatchQueued();
 	}
 
 	void Application::Shutdown() {
