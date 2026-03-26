@@ -11,6 +11,7 @@ namespace axiom {
 
         void Init();
         void SwapBuffers();
+        void SetViewport(int width, int height);
 
     private:
 

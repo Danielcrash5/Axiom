@@ -73,6 +73,7 @@ namespace axiom {
 			WindowResizeEvent event{ static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 			win->m_Width = width;
 			win->m_Height = height;
+			win->m_context->SetViewport(width, height);
 			win->m_EventBus.Publish(event);
 								  });
 
@@ -105,6 +106,8 @@ namespace axiom {
 
 		m_Width = props.width;
 		m_Height = props.height;
+
+		m_context->SetViewport(m_Width, m_Height);
 	}
 
 	void Window::Shutdown() {

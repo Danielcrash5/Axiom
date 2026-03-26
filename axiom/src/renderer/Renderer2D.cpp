@@ -4,6 +4,7 @@
 #include "axiom/renderer/Shader.h"
 #include "axiom/renderer/Material.h"
 #include "axiom/renderer/Renderer.h"
+#include "axiom/core/Logger.h"
 
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -50,6 +51,8 @@ namespace axiom {
         s_Data.VAO = std::make_shared<VertexArray>();
 
         s_Data.VBO = std::make_shared<VertexBuffer>(nullptr, MaxVertices * sizeof(QuadVertex));
+
+        AXIOM_INFO("QUADVERTEX SIZE = {}", sizeof(QuadVertex));
 
         VertexLayout layout = {
             { ShaderDataType::Vec3, "a_Position" },
