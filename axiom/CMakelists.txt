@@ -23,5 +23,5 @@ endif()
 find_package(OpenGL REQUIRED)
 
 target_link_libraries(axiom_engine
-    PUBLIC glfw OpenGL::GL glad
+    PUBLIC glfw OpenGL::GL glad stb
 )

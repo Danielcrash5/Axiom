@@ -9,13 +9,13 @@ uniform mat4 u_ViewProj;
 
 out vec4 v_Color;
 out vec2 v_TexCoord;
-out float v_TexIndex;
+flat out int v_TexIndex; // Index als Integer für Array-Zugriff
 
 void main()
 {
     v_Color = a_Color;
     v_TexCoord = a_TexCoord;
-    v_TexIndex = a_TexIndex;
+    v_TexIndex = int(a_TexIndex + 0.5); // Rundung auf nächstes int
 
     gl_Position = u_ViewProj * vec4(a_Position, 1.0);
 }

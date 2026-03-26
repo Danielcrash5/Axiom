@@ -1,6 +1,7 @@
 #include "axiom/renderer/Material.h"
 #include "axiom/platform/opengl/OpenGLShader.h"
 #include "axiom/core/Logger.h"
+#include "axiom/renderer/Texture.h"
 
 #include <glad/glad.h>
 
@@ -20,9 +21,9 @@ namespace axiom {
         m_Values[name] = value;
     }
 
-    /*void Material::Set(const std::string& name, std::shared_ptr<Texture> texture) {
+    void Material::Set(const std::string& name, std::shared_ptr<Texture> texture) {
         m_Textures[name] = texture;
-    }*/
+    }
 
     void Material::Set(const std::string& name, const glm::mat4& value) {
         m_Values[name] = value;
@@ -47,14 +48,12 @@ namespace axiom {
                 if (it == m_Textures.end())
                     continue;
 
-                glActiveTexture(GL_TEXTURE0 + textureSlot);
+                // Bindless oder klassische Textur-Bindung wird intern gehandhabt
+                it->second->BindToShader(res.location, textureSlot);
 
-                // TODO: texture->Bind()
-                // it->second->Bind();
-
-                glUniform1i(res.location, textureSlot);
-
-                textureSlot++;
+                // Nur inkrementieren, wenn klassische Bindung genutzt wird
+                if (!it->second->IsBindless())
+                    textureSlot++;
             }
 
             // VALUES

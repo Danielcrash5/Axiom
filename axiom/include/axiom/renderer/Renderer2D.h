@@ -32,7 +32,22 @@ namespace axiom {
             const std::shared_ptr<Texture>& texture
         );
 
+        static void DrawQuad(
+            const glm::vec3& position,
+            const glm::vec2& size,
+            const float rotation,
+            const std::shared_ptr<Texture>& texture
+        );
+
+        static void DrawQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color, float rotation);
+
+        static void DrawQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color, const std::shared_ptr<Texture>& texture);
+
+        static void DrawQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color, float rotation, const std::shared_ptr<Texture>& texture);
+
     private:
+
+        static void DrawQuadInternal(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color, float rotation, const std::shared_ptr<Texture>& texture);
 
         static void Flush();
         static void StartBatch();

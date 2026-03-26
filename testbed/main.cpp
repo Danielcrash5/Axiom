@@ -3,6 +3,7 @@
 #include <axiom/input/KeyCodes.h>
 #include <axiom/core/Logger.h>
 #include <axiom/renderer/Renderer2D.h>
+#include <axiom/renderer/Texture.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
@@ -29,7 +30,8 @@ class Testbed : public axiom::Application {
 public:
 	Testbed() :
 		Application("testbed") {
-
+		texture1 = std::make_shared<axiom::Texture>("assets/textures/Dark/texture_01.png");
+		texture2 = std::make_shared<axiom::Texture>("assets/textures/Green/texture_03.png");
 	}
 protected:
 	void OnInit() override {
@@ -45,6 +47,8 @@ protected:
 	void OnRender() override {
 		axiom::Renderer2D::Begin(projection);
 		axiom::Renderer2D::DrawQuad(position, glm::vec2(200.0f, 200.0f), glm::vec4(1, 1, 1, 1));
+		axiom::Renderer2D::DrawQuad({360.0f, 0.1f, 100.0f}, {500.0f, 500.0f}, texture1);
+		axiom::Renderer2D::DrawQuad({360.0f, 0.1f, 100.0f}, {500.0f, 500.0f}, 45.0f, texture2);
 		axiom::Renderer2D::End();
 	}
 
@@ -70,6 +74,9 @@ protected:
 
 	glm::mat4 projection;
 	glm::vec3 position = { 0.0f, 0.0f, 0.2f };
+
+	std::shared_ptr<axiom::Texture> texture1;
+	std::shared_ptr<axiom::Texture> texture2;
 };
 
 int main() {

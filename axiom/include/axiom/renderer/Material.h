@@ -6,6 +6,7 @@
 #include <variant>
 
 #include "axiom/renderer/Shader.h"
+#include "axiom/renderer/Texture.h"
 #include <glm/glm.hpp>
 
 namespace axiom {
@@ -28,7 +29,7 @@ namespace axiom {
 
         void Set(const std::string& name, float value);
         void Set(const std::string& name, int value);
-        // noch keine Texturen void Set(const std::string& name, std::shared_ptr<Texture> texture);
+        void Set(const std::string& name, std::shared_ptr<Texture> texture);
         void Set(const std::string& name, const glm::mat4& value);
 
         void Bind() const;

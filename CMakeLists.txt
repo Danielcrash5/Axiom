@@ -22,3 +22,6 @@ add_subdirectory(thirdparty/glfw)
 
 # GLAD - OpenGL Loader
 add_subdirectory(thirdparty/glad)
+
+
+add_subdirectory(thirdparty/stb)
