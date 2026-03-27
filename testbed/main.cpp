@@ -30,8 +30,7 @@ class Testbed : public axiom::Application {
 public:
 	Testbed() :
 		Application("testbed") {
-		texture1 = std::make_shared<axiom::Texture>("assets/textures/Dark/texture_01.png");
-		texture2 = std::make_shared<axiom::Texture>("assets/textures/Green/texture_03.png");
+		// Nie etwas hier hinein schreiben
 	}
 protected:
 	void OnInit() override {
@@ -42,13 +41,15 @@ protected:
 			0.0f, 720.0f,    // bottom, top
 			-1.0f, 1.0f      // near, far
 		);
+		texture1 = std::make_shared<axiom::Texture>("assets/textures/Dark/texture_01.png");
+		texture2 = std::make_shared<axiom::Texture>("assets/textures/Green/texture_03.png");
 	}
 
 	void OnRender() override {
 		axiom::Renderer2D::Begin(projection);
 		axiom::Renderer2D::DrawQuad(position, glm::vec2(200.0f, 200.0f), glm::vec4(1, 1, 1, 1));
 		axiom::Renderer2D::DrawQuad({360.0f, 0.1f, 100.0f}, {500.0f, 500.0f}, texture1);
-		axiom::Renderer2D::DrawQuad({360.0f, 0.1f, 100.0f}, {500.0f, 500.0f}, 45.0f, texture2);
+		axiom::Renderer2D::DrawQuad({360.0f, 0.05f, 100.0f}, {500.0f, 500.0f}, 45.0f, texture2);
 		axiom::Renderer2D::End();
 	}
 

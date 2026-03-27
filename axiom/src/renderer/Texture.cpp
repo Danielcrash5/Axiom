@@ -1,98 +1,251 @@
 #include "axiom/renderer/Texture.h"
 #include "axiom/core/Logger.h"
+#include <glad/glad.h>
+#include <stb_image.h>
 
 namespace axiom {
-    Texture::Texture(int w, int h, GLenum internalFormat)
-        : width(w), height(h) {
-        glCreateTextures(GL_TEXTURE_2D, 1, &textureID);
-        glTextureStorage2D(textureID, 1, internalFormat, width, height);
-        SetWrap(GL_REPEAT, GL_REPEAT);
-        SetFilter(GL_LINEAR, GL_LINEAR);
-        // noch keine Bindless Textures da ich zu Faul bin den richtigen Shader zu schreiben MakeBindless();
-    }
 
-    Texture::Texture(const std::string& filePath, bool flipVertically) {
-        stbi_set_flip_vertically_on_load(flipVertically);
-        int channels;
-        unsigned char* data = stbi_load(filePath.c_str(), &width, &height, &channels, 4);
+	bool Texture::s_BindlessSupported = false;
 
-        AXIOM_ASSERT(data, "Failed to load texture {}", filePath);
+	// ===================== Mapping =====================
 
-        glCreateTextures(GL_TEXTURE_2D, 1, &textureID);
-        glTextureStorage2D(textureID, 1, GL_RGBA8, width, height);
-        glTextureSubImage2D(textureID, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	static GLenum ToGLWrap(TextureWrap wrap) {
+		switch (wrap) {
+		case TextureWrap::Repeat: return GL_REPEAT;
+		case TextureWrap::Clamp:  return GL_CLAMP_TO_EDGE;
+		case TextureWrap::Mirror: return GL_MIRRORED_REPEAT;
+		}
+		return GL_REPEAT;
+	}
 
-        SetWrap(GL_REPEAT, GL_REPEAT);
-        SetFilter(GL_LINEAR, GL_LINEAR);
+	static GLenum ToGLFilter(TextureFilter filter, bool mipmaps = false) {
+		if (mipmaps) {
+			return (filter == TextureFilter::Linear)
+				? GL_LINEAR_MIPMAP_LINEAR
+				: GL_NEAREST_MIPMAP_NEAREST;
+		}
+		return (filter == TextureFilter::Linear) ? GL_LINEAR : GL_NEAREST;
+	}
 
-        stbi_image_free(data);
-        // noch keine Bindless Textures da ich zu Faul bin den richtigen Shader zu schreiben MakeBindless();
-    }
+	static GLenum ChannelsToFormat(int channels) {
+		switch (channels) {
+		case 1: return GL_RED;
+		case 3: return GL_RGB;
+		case 4: return GL_RGBA;
+		}
+		return GL_RGBA;
+	}
 
-    Texture::~Texture() {
-        if (isBindless)
-            glMakeTextureHandleNonResidentARB(bindlessHandle);
-        if (textureID)
-            glDeleteTextures(1, &textureID);
-    }
+	// ===================== Konstruktor =====================
 
-    // ===================== Klassisches Binden =====================
-    void Texture::Bind(GLuint unit) const {
-        glBindTextureUnit(unit, textureID);
-    }
+	Texture::Texture(const std::string& path, const TextureSpec& spec)
+		: m_Spec(spec) {
+		LoadFromFile(path);
+		ApplyParameters();
+		MakeBindless();
+	}
 
-    // ===================== Bindless Textures =====================
-    void Texture::MakeBindless() {
-        CheckBindlessSupport();
+	Texture::Texture(uint32_t width, uint32_t height, const TextureSpec& spec)
+		: m_Width(width), m_Height(height), m_Spec(spec) {
+		CreateEmpty();
+		ApplyParameters();
+		MakeBindless();
+	}
 
-        if (!s_BindlessSupported) {
-            AXIOM_ERROR("[Texture] Cannot make bindless: not supported on this GPU.");
-            return;
-        }
+	Texture::~Texture() {
+		if (m_IsBindless)
+			glMakeTextureHandleNonResidentARB(m_Handle);
 
-        if (isBindless) return;
+		if (m_RendererID)
+			glDeleteTextures(1, &m_RendererID);
+	}
 
-        bindlessHandle = glGetTextureHandleARB(textureID);
-        glMakeTextureHandleResidentARB(bindlessHandle);
-        isBindless = true;
-    }
+	// ===================== Creation =====================
 
-    // ===================== Shader-Kompatible Bindung =====================
-    void Texture::BindToShader(GLint location, GLuint textureSlot) const {
-        if (isBindless) {
-            glUniformHandleui64ARB(location, bindlessHandle);
-        } else {
-            glActiveTexture(GL_TEXTURE0 + textureSlot);
-            glBindTextureUnit(textureSlot, textureID);
-            glUniform1i(location, textureSlot);
-        }
-    }
+	void Texture::CreateEmpty() {
+		glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
+		glTextureStorage2D(m_RendererID, 1, GL_RGBA8, m_Width, m_Height);
+	}
 
-    // ===================== Parameter =====================
-    void Texture::SetWrap(GLenum s, GLenum t) {
-        glTextureParameteri(textureID, GL_TEXTURE_WRAP_S, s);
-        glTextureParameteri(textureID, GL_TEXTURE_WRAP_T, t);
-    }
+	void Texture::LoadFromFile(const std::string& path) {
+		stbi_set_flip_vertically_on_load(m_Spec.FlipOnLoad);
 
-    void Texture::SetFilter(GLenum minFilter, GLenum magFilter) {
-        glTextureParameteri(textureID, GL_TEXTURE_MIN_FILTER, minFilter);
-        glTextureParameteri(textureID, GL_TEXTURE_MAG_FILTER, magFilter);
-    }
+		int channels;
+		unsigned char* data = stbi_load(path.c_str(), (int*)&m_Width, (int*)&m_Height, &channels, 0);
 
-    bool Texture::s_BindlessSupported = false;
+		AXIOM_ASSERT(data, "Failed to load texture {}", path);
 
-    void Texture::CheckBindlessSupport() {
-        static bool checked = false;
-        if (checked) return;
-        checked = true;
+		GLenum format = ChannelsToFormat(channels);
 
-        // Prüfen, ob Extension vorhanden
-        if (GLAD_GL_ARB_bindless_texture) {
-            s_BindlessSupported = true;
-            AXIOM_INFO("[Texture] Bindless Textures supported.");
-        } else {
-            s_BindlessSupported = false;
-            AXIOM_INFO("[Texture] Bindless Textures NOT supported.");
-        }
-    }
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+		glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
+
+		GLenum internalFormat =
+			(format == GL_RGB) ? GL_RGB8 :
+			(format == GL_RED) ? GL_R8 : GL_RGBA8;
+
+		glTextureStorage2D(m_RendererID, 1, internalFormat, m_Width, m_Height);
+
+		glTextureSubImage2D(
+			m_RendererID,
+			0,
+			0, 0,
+			m_Width,
+			m_Height,
+			format,
+			GL_UNSIGNED_BYTE,
+			data
+		);
+
+		if (m_Spec.GenerateMipmaps)
+			glGenerateTextureMipmap(m_RendererID);
+
+		MakeBindless();
+
+		stbi_image_free(data);
+	}
+
+	void Texture::UploadData(void* data, uint32_t width, uint32_t height, GLenum format, GLenum type) {
+		if (!m_RendererID) {
+			AXIOM_ERROR("UploadData called on uninitialized texture!");
+			return;
+		}
+
+		// Prüfe, ob bindless
+		if (m_IsBindless) {
+			// immutable -> nur SubImage in vorhandener Textur möglich
+			if (width > m_Width || height > m_Height) {
+				AXIOM_ERROR("UploadData: bindless texture cannot be resized! width={}, height={}", width, height);
+				return;
+			}
+
+			glTextureSubImage2D(m_RendererID, 0, 0, 0, width, height, format, type, data);
+		}
+		else if (m_IsImmutable) {
+			// normale immutable Textur
+			if (width > m_Width || height > m_Height) {
+				AXIOM_ERROR("UploadData: immutable texture cannot be resized! width={}, height={}", width, height);
+				return;
+			}
+			glTextureSubImage2D(m_RendererID, 0, 0, 0, width, height, format, type, data);
+		}
+		else {
+			// mutable Textur, kann komplett neu gesetzt werden
+			glBindTexture(GL_TEXTURE_2D, m_RendererID);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, format, type, data);
+		}
+
+		m_Width = width;
+		m_Height = height;
+
+		if (m_Spec.GenerateMipmaps)
+			glGenerateTextureMipmap(m_RendererID);
+	}
+
+	// ===================== Spec Handling =====================
+
+	void Texture::SetSpec(const TextureSpec& spec) {
+		m_Spec = spec;
+
+		ApplyParameters();
+
+		if (m_Spec.GenerateMipmaps)
+			glGenerateTextureMipmap(m_RendererID);
+
+		MakeBindless();
+	}
+
+	void Texture::SetWrap(TextureWrap s, TextureWrap t) {
+		m_Spec.WrapS = s;
+		m_Spec.WrapT = t;
+
+		glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_S, ToGLWrap(s));
+		glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_T, ToGLWrap(t));
+	}
+
+	void Texture::SetFilter(TextureFilter min, TextureFilter mag) {
+		m_Spec.MinFilter = min;
+		m_Spec.MagFilter = mag;
+
+		glTextureParameteri(
+			m_RendererID,
+			GL_TEXTURE_MIN_FILTER,
+			ToGLFilter(min, m_Spec.GenerateMipmaps)
+		);
+
+		glTextureParameteri(
+			m_RendererID,
+			GL_TEXTURE_MAG_FILTER,
+			ToGLFilter(mag)
+		);
+	}
+
+	void Texture::SetMipmaps(bool enabled) {
+		m_Spec.GenerateMipmaps = enabled;
+
+		if (enabled)
+			glGenerateTextureMipmap(m_RendererID);
+
+		SetFilter(m_Spec.MinFilter, m_Spec.MagFilter);
+	}
+
+	void Texture::ApplyParameters() {
+		SetWrap(m_Spec.WrapS, m_Spec.WrapT);
+		SetFilter(m_Spec.MinFilter, m_Spec.MagFilter);
+	}
+
+	// ===================== Binding =====================
+
+	void Texture::Bind(uint32_t slot) const {
+		glBindTextureUnit(slot, m_RendererID);
+	}
+
+	void Texture::BindToShader(GLint location, uint32_t slot) const {
+		if (!this) {
+			AXIOM_ERROR("BindToShader called on nullptr!");
+			return;
+		}
+
+		if (m_IsBindless) {
+			glUniformHandleui64ARB(location, m_Handle);
+		}
+		else {
+			glBindTextureUnit(slot, m_RendererID);
+			glUniform1i(location, slot);
+		}
+	}
+
+	// ===================== Bindless =====================
+
+	void Texture::MakeBindless() {
+		CheckBindlessSupport();
+
+		if (!s_BindlessSupported) {
+			m_IsImmutable = false;
+			return;
+		}
+
+		if (m_IsBindless)
+			return;
+
+		m_Handle = glGetTextureHandleARB(m_RendererID);
+		glMakeTextureHandleResidentARB(m_Handle);
+		m_IsBindless = true;
+		m_IsImmutable = true;
+	}
+
+	void Texture::CheckBindlessSupport() {
+		static bool checked = false;
+		if (checked) return;
+		checked = true;
+
+		s_BindlessSupported = GLAD_GL_ARB_bindless_texture;
+
+		if (s_BindlessSupported)
+			AXIOM_INFO("Bindless supported");
+		else
+			AXIOM_WARN("Bindless NOT supported");
+	}
+
 }

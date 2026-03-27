@@ -1,4 +1,5 @@
 #version 460 core
+#extension GL_ARB_bindless_texture : require
 
 in vec4 v_Color;
 in vec2 v_TexCoord;

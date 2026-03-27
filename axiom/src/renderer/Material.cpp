@@ -11,25 +11,18 @@ namespace axiom {
         : m_Shader(shader) {
     }
 
-    // ===================== SET =====================
-
     void Material::Set(const std::string& name, float value) {
         m_Values[name] = value;
     }
-
     void Material::Set(const std::string& name, int value) {
         m_Values[name] = value;
     }
-
-    void Material::Set(const std::string& name, std::shared_ptr<Texture> texture) {
-        m_Textures[name] = texture;
-    }
-
     void Material::Set(const std::string& name, const glm::mat4& value) {
         m_Values[name] = value;
     }
-
-    // ===================== BIND =====================
+    void Material::Set(const std::string& name, std::shared_ptr<Texture> texture) {
+        m_Textures[name] = texture;
+    }
 
     void Material::Bind() const {
         m_Shader->Bind();
@@ -42,43 +35,28 @@ namespace axiom {
         for (const auto& res : m_Shader->GetResources()) {
             const std::string& name = res.name;
 
-            // TEXTURE
             if (res.type == ShaderResourceType::Sampler2D) {
                 auto it = m_Textures.find(name);
-                if (it == m_Textures.end())
+                if (it == m_Textures.end() || !it->second) {
+                    AXIOM_WARN("Material::Bind: Texture '{}' is null!", name);
                     continue;
+                }
 
-                // Bindless oder klassische Textur-Bindung wird intern gehandhabt
                 it->second->BindToShader(res.location, textureSlot);
 
-                // Nur inkrementieren, wenn klassische Bindung genutzt wird
                 if (!it->second->IsBindless())
                     textureSlot++;
             }
-
-            // VALUES
             else if (res.type == ShaderResourceType::Uniform) {
                 auto it = m_Values.find(name);
-                if (it == m_Values.end())
-                    continue;
+                if (it == m_Values.end()) continue;
 
-                if (std::holds_alternative<float>(it->second)) {
-                    glUniform1f(res.location, std::get<float>(it->second));
-                } else if (std::holds_alternative<int>(it->second)) {
-                    glUniform1i(res.location, std::get<int>(it->second));
-                }
-                else if (std::holds_alternative<glm::mat4>(it->second)) {
-                    glUniformMatrix4fv(
-                        res.location,
-                        1,
-                        GL_FALSE,
-                        &std::get<glm::mat4>(it->second)[0][0]
-                    );
-                }
+                if (std::holds_alternative<float>(it->second)) glUniform1f(res.location, std::get<float>(it->second));
+                else if (std::holds_alternative<int>(it->second)) glUniform1i(res.location, std::get<int>(it->second));
+                else if (std::holds_alternative<glm::mat4>(it->second))
+                    glUniformMatrix4fv(res.location, 1, GL_FALSE, &std::get<glm::mat4>(it->second)[0][0]);
             }
-
-            
         }
     }
 
-}
+} // namespace axiom
