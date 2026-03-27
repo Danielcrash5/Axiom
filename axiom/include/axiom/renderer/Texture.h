@@ -7,61 +7,46 @@ namespace axiom {
 
     class Texture {
     public:
-        Texture(const std::string& path, const TextureSpec& spec = TextureSpec());
-        Texture(uint32_t width, uint32_t height, const TextureSpec& spec = TextureSpec());
+        Texture(const std::string& path, const TextureSpec& spec = {});
+        Texture(uint32_t width, uint32_t height, const TextureSpec& spec = {});
         ~Texture();
+
+        // ===== Upload =====
+        void UploadData(const void* data, uint32_t width, uint32_t height);
 
         // ===== Binding =====
         void Bind(uint32_t slot = 0) const;
         void BindToShader(GLint location, uint32_t slot = 0) const;
 
-        // ===== Spec komplett =====
-        void SetSpec(const TextureSpec& spec);
-        const TextureSpec& GetSpec() const {
-            return m_Spec;
+        // ===== Info =====
+        uint32_t GetRendererID() const {
+            return m_RendererID;
         }
-
-        // ===== Einzelne Specs =====
-        void SetWrap(TextureWrap s, TextureWrap t);
-        void SetFilter(TextureFilter min, TextureFilter mag);
-        void SetMipmaps(bool enabled);
-
-        // ===== Bindless =====
         bool IsBindless() const {
             return m_IsBindless;
         }
-        GLuint64 GetHandle() const {
-            return m_Handle;
-        }
-
-        uint32_t GetRendererID() {
-            return m_RendererID;
-        }
-
-        void SetRendererID(uint32_t ID) {
-            m_RendererID = ID;
-        }
-
-        void UploadData(void* data, uint32_t width, uint32_t height, GLenum format = GL_RGBA, GLenum type = GL_UNSIGNED_BYTE);
 
     private:
+        void Create(uint32_t width, uint32_t height, GLenum internalFormat);
         void LoadFromFile(const std::string& path);
-        void CreateEmpty();
-
         void ApplyParameters();
-        void MakeBindless();
 
+        void MakeBindless();
         static void CheckBindlessSupport();
 
     private:
         uint32_t m_RendererID = 0;
-        uint32_t m_Width = 0, m_Height = 0;
-        bool m_IsImmutable;
+        uint32_t m_Width = 0;
+        uint32_t m_Height = 0;
+
+        GLenum m_InternalFormat = GL_RGBA8;
+        GLenum m_DataFormat = GL_RGBA;
 
         TextureSpec m_Spec;
 
-        GLuint64 m_Handle = 0;
+        // Bindless
         bool m_IsBindless = false;
+        GLuint64 m_Handle = 0;
 
         static bool s_BindlessSupported;
     };
