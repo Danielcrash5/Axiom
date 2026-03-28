@@ -2,8 +2,6 @@
 
 #include "axiom/events/EventBus.h"
 
-#include "axiom/platform/opengl/OpenGLContext.h"
-
 #include <string>
 
 struct GLFWwindow;
@@ -47,7 +45,6 @@ namespace axiom {
 
         bool m_Vsync = true;
 
-        std::unique_ptr<OpenGLContext> m_context;
 
         uint32_t m_Width = 0;
         uint32_t m_Height = 0;

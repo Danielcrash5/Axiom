@@ -3,7 +3,6 @@
 #include "axiom/core/Logger.h"
 #include "axiom/core/Time.h"
 #include "axiom/profiling/Profiler.h"
-#include "axiom/renderer/Renderer.h"
 
 namespace axiom {
 
@@ -53,8 +52,6 @@ namespace axiom {
 		m_Input.Init(m_Window->GetNativeHandle());
 		m_InputSystem.Init();
 
-		Renderer::Init();
-
 		OnInit();
 	}
 
@@ -89,17 +86,12 @@ namespace axiom {
 	void Application::Render() {
 		AXIOM_PROFILE_SCOPE("Render");
 
-		Renderer::BeginFrame();
-		Renderer::Clear();
-
 		OnRender();
 
 		for (auto& layer : m_LayerStack) {
 			AXIOM_PROFILE_SCOPE(layer->GetName());
 			layer->OnRender();
 		}
-
-		Renderer::EndFrame();
 
 		m_Window->SwapBuffers();
 	}

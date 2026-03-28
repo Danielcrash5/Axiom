@@ -73,7 +73,6 @@ namespace axiom {
 			WindowResizeEvent event{ static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 			win->m_Width = width;
 			win->m_Height = height;
-			win->m_context->SetViewport(width, height);
 			win->m_EventBus.Publish(event);
 								  });
 
@@ -104,9 +103,6 @@ namespace axiom {
 		m_Vsync = props.vsync;
 
 
-		m_context = std::make_unique<OpenGLContext>(m_Window);
-		m_context->Init();
-
 		if (m_Vsync) {
 			glfwSwapInterval(1);
 		} else {
@@ -115,8 +111,6 @@ namespace axiom {
 
 		m_Width = props.width;
 		m_Height = props.height;
-
-		m_context->SetViewport(m_Width, m_Height);
 	}
 
 	void Window::Shutdown() {
@@ -152,7 +146,7 @@ namespace axiom {
 	}
 
 	void Window::SwapBuffers() {
-		m_context->SwapBuffers();
+
 	}
 
 	void Window::ToggleVsync() {
