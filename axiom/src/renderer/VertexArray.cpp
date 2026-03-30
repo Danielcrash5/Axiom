@@ -1,6 +1,7 @@
 #include "axiom/renderer/VertexArray.h"
 #include "axiom/renderer/VertexBuffer.h"
 #include "axiom/renderer/IndexBuffer.h"
+#include "axiom/renderer/VertexBufferLayout.h"
 #include <glad/glad.h>
 
 namespace axiom {

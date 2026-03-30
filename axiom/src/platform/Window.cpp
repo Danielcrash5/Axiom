@@ -111,7 +111,7 @@ namespace axiom {
 
 		// GLAD
 		if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-			std::cout << "Failed to initialize GLAD\n";
+			AXIOM_ERROR("Failed to initialize GLAD");
 			return;
 		}
 
