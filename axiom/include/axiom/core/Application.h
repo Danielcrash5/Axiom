@@ -71,7 +71,7 @@ namespace axiom {
 		virtual void OnFixedUpdate(double dt) {}
 		virtual void OnUpdate(double dt) {}
 
-		virtual void OnRender() {}
+		virtual void OnRender(double alpha) {}
 
 		void Close() {
 			m_Running = false;
@@ -88,7 +88,7 @@ namespace axiom {
 		void FixedUpdate(double dt);
 		void Update(double dt);
 
-		void Render();
+		void Render(double alpha);
 
 		bool OnWindowClose(WindowCloseEvent& e) {
 			Close();

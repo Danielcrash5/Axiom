@@ -35,7 +35,7 @@ protected:
 		PushLayer(std::make_unique<InputTestLayer>());
 	}
 
-	void OnRender() override {
+	void OnRender(double alpha) override {
 		
 	}
 

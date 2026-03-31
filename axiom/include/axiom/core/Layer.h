@@ -23,7 +23,7 @@ namespace axiom {
 		virtual void OnFixedUpdate(double dt) {}
 		virtual void OnUpdate(double dt) {}
 
-		virtual void OnRender() {}
+		virtual void OnRender(double alpha) {}
 
 
 		void setEventBus(EventBus& eventBus) {

@@ -69,6 +69,7 @@ namespace axiom {
 				AXIOM_PROFILE_FRAME();
 
 				MainUpdate();
+				double alpha = (Time::GetTime() - m_LastFixedUpdate) / m_FixedUpdateInterval;
 				Render();
 			}
 
@@ -83,14 +84,14 @@ namespace axiom {
 		}
 	}
 
-	void Application::Render() {
+	void Application::Render(double alpha) {
 		AXIOM_PROFILE_SCOPE("Render");
 
-		OnRender();
+		OnRender(alpha);
 
 		for (auto& layer : m_LayerStack) {
 			AXIOM_PROFILE_SCOPE(layer->GetName());
-			layer->OnRender();
+			layer->OnRender(alpha);
 		}
 
 		m_Window->SwapBuffers();
@@ -150,9 +151,14 @@ namespace axiom {
 		PreUpdate(dt);
 		Update(dt);
 
-		while (Time::GetTime() - m_LastFixedUpdate >= m_FixedUpdateInterval) {
+		// -------- Fixed Update --------
+		int maxSteps = 5;
+		int steps = 0;
+
+		while (Time::GetTime() - m_LastFixedUpdate >= m_FixedUpdateInterval && steps < maxSteps) {
 			FixedUpdate(m_FixedUpdateInterval);
 			m_LastFixedUpdate += m_FixedUpdateInterval;
+			steps++;
 		}
 
 		PostUpdate(dt);
