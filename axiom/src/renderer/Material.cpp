@@ -1,6 +1,7 @@
 #include "axiom/renderer/Material.h"
 #include "axiom/renderer/Shader.h"
 #include "axiom/renderer/Texture.h"
+#include "axiom/core/Logger.h"
 
 namespace axiom {
 
@@ -11,12 +12,29 @@ namespace axiom {
 
     // ---------------- Bind ----------------
     void Material::bind() {
+        if (!m_Shader) {
+            AXIOM_ERROR("Attempt to bind Material without a shader");
+            return;
+        }
+
         m_Shader->bind();
 
         // Textures binden
         for (auto& [name, binding] : m_Textures) {
-            binding.texture->bind(binding.slot);
-            m_Shader->setInt(name, binding.slot);
+            if (binding.texture) {
+                uint64_t handle = binding.texture->getBindlessHandle();
+                if (handle) {
+                    // set bindless handle directly to the sampler uniform (e.g. "u_Textures[0]")
+                    m_Shader->setTextureHandle(name, handle);
+                } else {
+                    // fallback to regular binding
+                    binding.texture->bind(binding.slot);
+                    m_Shader->setInt(name, binding.slot);
+                }
+            } else {
+                // no texture object (only slot set), ensure uniform points to slot
+                m_Shader->setInt(name, binding.slot);
+            }
         }
 
         // Uniforms setzen

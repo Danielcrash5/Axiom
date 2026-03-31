@@ -7,13 +7,14 @@ in vec4 v_Color;
 flat in int v_TexIndex;
 
 uniform vec4 u_Color;
-uniform sampler2D u_Textures[16];
+uniform int u_UseTexture;
+uniform sampler2D u_Textures[32];
 
 void main()
 {
     vec4 color = v_Color * u_Color;
 
-    if (v_TexIndex >= 0) {
+    if (u_UseTexture == 1 && v_TexIndex >= 0) {
         color *= texture(u_Textures[v_TexIndex], v_UV);
     }
 

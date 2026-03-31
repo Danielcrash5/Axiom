@@ -91,25 +91,30 @@ namespace axiom {
 			s_GLFWInitialized = true;
 		}
 
-		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-		glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
-		glfwWindowHint(GLFW_VERSION_MAJOR, 4);
-		glfwWindowHint(GLFW_VERSION_MINOR, 6);
+		glfwSetErrorCallback([](int error, const char* description) {
+			AXIOM_ERROR("GLFW Error ({}): {}", error, description);
+		});
 
+		// Korrekte Kontext-Hints verwenden
+		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+		glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
 
-		m_Window = glfwCreateWindow(
-			props.width,
-			props.height,
-			props.title.c_str(),
-			nullptr,
-			nullptr
-		);
+		// Fenster erstellen
+		m_Window = glfwCreateWindow(props.width, props.height, props.title.c_str(), nullptr, nullptr);
+		if (!m_Window) {
+			// glfwGetError returns an error code and optionally a description via the
+			// out-parameter. Call it correctly to obtain the description string.
+			const char* desc = nullptr;
+			int err = glfwGetError(&desc);
+			(void)err; // err may be unused - keep for debugging if needed
+			throw std::runtime_error(std::string("Failed to create GLFW window: ") + (desc ? desc : "unknown"));
+		}
 
-		if (!m_Window)
-			throw std::runtime_error("Failed to create GLFW window");
-
-		// GLAD
+		// Kontext aktiv machen bevor GL-Funktionen geladen werden
+		glfwMakeContextCurrent(m_Window);
 		if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
 			AXIOM_ERROR("Failed to initialize GLAD");
 			return;
@@ -130,10 +135,6 @@ namespace axiom {
 		);
 
 		glfwSetWindowUserPointer(m_Window, this);
-
-		glfwSetErrorCallback([](int error, const char* description) {
-			AXIOM_ERROR("GLFW Error ({}): {}", error, description);
-							 });
 
 		glfwSetCharCallback(m_Window, [](GLFWwindow* window, unsigned int codepoint) {
 			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));

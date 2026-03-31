@@ -83,7 +83,7 @@ namespace axiom {
         };
 
         // Max texture slots supported by the batch (GL spec guarantees at least 16)
-        static constexpr uint32_t MaxTextureSlots = 16;
+        static constexpr uint32_t MaxTextureSlots = 32;
         static std::shared_ptr<Texture> s_TextureSlots[MaxTextureSlots];
 
         // Assign a texture to a slot for the current batch. Returns slot index or -1 on failure.

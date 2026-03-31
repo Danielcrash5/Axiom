@@ -3,6 +3,8 @@
 #include "axiom/core/Logger.h"
 #include "axiom/core/Time.h"
 #include "axiom/profiling/Profiler.h"
+#include "axiom/renderer/Renderer.h"
+#include "axiom/renderer/Renderer2D.h"
 
 namespace axiom {
 
@@ -55,6 +57,12 @@ static double m_FixedUpdateInterval = 1.0 / 75.0; // 75 FPS
 
 		m_Input.Init(m_Window->GetNativeHandle());
 		m_InputSystem.Init();
+	// Initialize renderer
+	axiom::Renderer::Init();
+	axiom::Renderer2D::Init();
+
+	// setup a simple orthographic camera for 2D
+	m_Camera.setOrthographic(0.0f, (float)m_Width, 0.0f, (float)m_Height, -1.0f, 1.0f);
 
 		OnInit();
 	}
@@ -91,14 +99,24 @@ static double m_FixedUpdateInterval = 1.0 / 75.0; // 75 FPS
 	void Application::Render(double alpha) {
 		AXIOM_PROFILE_SCOPE("Render");
 
-		OnRender(alpha);
+	// clear and begin frame
+	axiom::Renderer::Begin({ 0.1f, 0.1f, 0.1f, 1.0f });
 
-		for (auto& layer : m_LayerStack) {
-			AXIOM_PROFILE_SCOPE(layer->GetName());
-			layer->OnRender(alpha);
-		}
+	// 2D Renderer frame
+	axiom::Renderer2D::Begin(m_Camera);
 
-		m_Window->SwapBuffers();
+	OnRender(alpha);
+
+	for (auto& layer : m_LayerStack) {
+		AXIOM_PROFILE_SCOPE(layer->GetName());
+		layer->OnRender(alpha);
+	}
+
+	axiom::Renderer2D::End();
+
+	axiom::Renderer::End();
+
+	m_Window->SwapBuffers();
 	}
 
 	void Application::PreUpdate(double dt) {
@@ -169,5 +187,8 @@ static double m_FixedUpdateInterval = 1.0 / 75.0; // 75 FPS
 		AXIOM_PROFILE_SCOPE("Application::Shutdown");
 		OnShutdown();
 		m_LayerStack.Shutdown();
+
+	axiom::Renderer2D::Shutdown();
+	axiom::Renderer::Shutdown();
 	}
 }

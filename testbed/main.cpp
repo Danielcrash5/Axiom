@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
+#include "scene/TestScene.h"
 
 class InputTestLayer : public axiom::Layer {
 public:
@@ -32,7 +33,8 @@ public:
 	}
 protected:
 	void OnInit() override {
-		PushLayer(std::make_unique<InputTestLayer>());
+        PushLayer(std::make_unique<InputTestLayer>());
+		PushLayer(std::make_unique<TestScene>());
 	}
 
 	void OnRender(double alpha) override {

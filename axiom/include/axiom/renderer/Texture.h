@@ -90,10 +90,14 @@ namespace axiom {
             return m_Spec;
         }
 
+        // Bindless texture handle (0 if not available)
+        uint64_t getBindlessHandle();
+
     private:
         uint32_t m_RendererID = 0;
         TextureType m_Type;
         TextureSpecification m_Spec;
+        uint64_t m_BindlessHandle = 0;
     };
 
 }

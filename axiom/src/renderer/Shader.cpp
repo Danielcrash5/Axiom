@@ -24,10 +24,26 @@ namespace axiom {
 
 		for (auto& stage : stages) {
 			std::filesystem::path path(stage.path);
-			std::string src = preprocessShader(parseShaderFile(stage.path), path.parent_path().string());
-			unsigned int shader = compileShader(shaderStageToGL(stage.stage), src);
-			glAttachShader(m_RendererID, shader);
-			compiledShaders.push_back(shader);
+			std::string src = parseShaderFile(stage.path);
+			if (src.empty()) {
+				// sauber aufräumen wie zuvor
+				for (auto s : compiledShaders) glDeleteShader(s);
+				glDeleteProgram(m_RendererID);
+				m_RendererID = 0;
+				throw std::runtime_error("Shader file empty or not found: " + stage.path);
+			}
+			src = preprocessShader(src, path.parent_path().string());
+     unsigned int shader = compileShader(shaderStageToGL(stage.stage), src);
+		if (shader == 0) {
+			// Cleanup already created shaders and program
+			for (auto s : compiledShaders)
+				glDeleteShader(s);
+			glDeleteProgram(m_RendererID);
+			m_RendererID = 0;
+			throw std::runtime_error("Shader compilation failed. See log for details.");
+		}
+		glAttachShader(m_RendererID, shader);
+		compiledShaders.push_back(shader);
 		}
 
 		glLinkProgram(m_RendererID);
@@ -61,41 +77,74 @@ namespace axiom {
 
 	// ---------------- Preprocess Shader ----------------
 	std::string Shader::preprocessShader(const std::string& source, const std::string& parentDir) {
-		std::stringstream ss;
+    std::stringstream ss;
 
-		// füge alle definierten Flags ein
-		for (auto& [key, val] : m_Defines)
-			ss << "#define " << key << " " << val << "\n";
+	// We must keep the #version directive as the first directive in the shader.
+	// Find the #version line and emit it first, then insert extension directives
+	// and defines. If no #version is present, prepend extensions/defines at top.
+	std::istringstream stream(source);
+	std::string line;
+	bool versionEmitted = false;
 
-		std::istringstream stream(source);
-		std::string line;
+	while (std::getline(stream, line)) {
+		if (!versionEmitted && line.find("#version") != std::string::npos) {
+			// emit version line first
+			ss << line << "\n";
 
-		while (std::getline(stream, line)) {
-			if (line.find("#include") != std::string::npos) {
-				size_t firstQuote = line.find('"');
-				size_t lastQuote = line.find_last_of('"');
-				AXIOM_ASSERT(firstQuote != std::string::npos && lastQuote != std::string::npos,
-							 "Malformed #include directive");
 
-				std::string includeFile = line.substr(firstQuote + 1, lastQuote - firstQuote - 1);
-				std::string includePath = parentDir + "/" + includeFile;
-
-				std::string includedSource = preprocessShader(parseShaderFile(includePath), parentDir);
-				ss << includedSource << "\n";
+			// inject known extensions AFTER #version
+         // Inject bindless extension only when requested via defines
+			if (m_Defines.find("AX_BINDLESS") != m_Defines.end()) {
+				ss << "#extension GL_ARB_bindless_texture : require\n";
 			}
-			else {
-				ss << line << "\n";
-			}
+
+			// now insert defines
+			for (auto& [key, val] : m_Defines)
+				ss << "#define " << key << " " << val << "\n";
+
+			versionEmitted = true;
+
+			continue; // skip normal emission of this line again
 		}
 
-		return ss.str();
+		if (line.find("#include") != std::string::npos) {
+			size_t firstQuote = line.find('"');
+			size_t lastQuote = line.find_last_of('"');
+			AXIOM_ASSERT(firstQuote != std::string::npos && lastQuote != std::string::npos,
+						 "Malformed #include directive");
+
+			std::string includeFile = line.substr(firstQuote + 1, lastQuote - firstQuote - 1);
+			std::string includePath = parentDir + "/" + includeFile;
+
+			std::string includedSource = preprocessShader(parseShaderFile(includePath), parentDir);
+			ss << includedSource << "\n";
+		}
+		else {
+			ss << line << "\n";
+		}
+	}
+
+	// if no #version was found, emit extensions/defines at the top now
+    if (!versionEmitted) {
+		std::stringstream withDefines;
+		// if no version found, inject extension and defines at the top only when requested
+		if (m_Defines.find("AX_BINDLESS") != m_Defines.end())
+			withDefines << "#extension GL_ARB_bindless_texture : require\n";
+		for (auto& [key, val] : m_Defines)
+			withDefines << "#define " << key << " " << val << "\n";
+		withDefines << ss.str();
+		return withDefines.str();
+	}
+
+	return ss.str();
 	}
 
 	// ---------------- Parse Shader File ----------------
 	std::string Shader::parseShaderFile(const std::string& path) {
 		std::ifstream stream(path);
-		AXIOM_ASSERT(stream.is_open(), "Failed to open shader file: {}", path);
-
+		if (!stream.is_open()) {
+			throw std::runtime_error("Failed to open shader file: " + path);
+		}
 		std::stringstream ss;
 		ss << stream.rdbuf();
 		return ss.str();
@@ -114,6 +163,8 @@ namespace axiom {
 			char infoLog[1024];
 			glGetShaderInfoLog(id, 1024, nullptr, infoLog);
 			AXIOM_ERROR("Shader Compilation Failed ({}):\n{}", type, infoLog);
+           glDeleteShader(id);
+			return 0;
 		}
 
 		return id;
@@ -151,6 +202,23 @@ namespace axiom {
 	void Shader::setInt(const std::string& name, int value) {
 		glUniform1i(getUniformLocation(name), value);
 	}
+void Shader::setTextureHandle(const std::string& name, uint64_t handle) {
+    int loc = getUniformLocation(name);
+	if (loc < 0) return;
+
+	// prefer program uniform direct call if available
+	if (glProgramUniformHandleui64ARB) {
+		glProgramUniformHandleui64ARB(m_RendererID, loc, handle);
+		return;
+	}
+
+	if (glUniformHandleui64ARB) {
+		glUniformHandleui64ARB(loc, handle);
+		return;
+	}
+
+	AXIOM_WARN("Bindless texture handle functions not available at runtime for uniform '{}'", name);
+}
 	void Shader::setFloat(const std::string& name, float value) {
 		glUniform1f(getUniformLocation(name), value);
 	}

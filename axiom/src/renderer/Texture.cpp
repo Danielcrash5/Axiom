@@ -66,6 +66,14 @@ namespace axiom {
     Texture::~Texture() {
         if (m_RendererID)
             glDeleteTextures(1, &m_RendererID);
+        if (m_BindlessHandle) {
+#ifdef GL_ARB_bindless_texture
+            // there's no glMakeTextureHandleNonResidentARB exposed by glad in some setups
+            // but we try to call it if available
+            if (glMakeTextureHandleNonResidentARB) glMakeTextureHandleNonResidentARB(m_BindlessHandle);
+#endif
+            m_BindlessHandle = 0;
+        }
     }
 
     // ---------------- Allocate ----------------
@@ -227,6 +235,15 @@ namespace axiom {
     // ---------------- Bind ----------------
     void Texture::bind(uint32_t slot) const {
         glBindTextureUnit(slot, m_RendererID);
+    }
+
+    uint64_t Texture::getBindlessHandle() {
+        if (m_BindlessHandle != 0) return m_BindlessHandle;
+        if (glGetTextureHandleARB && glMakeTextureHandleResidentARB) {
+            m_BindlessHandle = glGetTextureHandleARB(m_RendererID);
+            if (m_BindlessHandle) glMakeTextureHandleResidentARB(m_BindlessHandle);
+        }
+        return m_BindlessHandle;
     }
 
 }

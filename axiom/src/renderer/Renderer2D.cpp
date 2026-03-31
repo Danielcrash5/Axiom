@@ -5,7 +5,9 @@
 #include "axiom/renderer/IndexBuffer.h"
 #include "axiom/renderer/Shader.h"
 #include "axiom/renderer/Texture.h"
+#include <glad/glad.h>
 #include "axiom/renderer/VertexBufferLayout.h"
+#include "axiom/core/Logger.h"
 #include <algorithm>
 
 namespace axiom {
@@ -87,11 +89,19 @@ namespace axiom {
 
         // Default Materials erstellen
         // Load shaders from assets/shaders/Renderer2D
+        // Detect runtime support for bindless textures and set shader define accordingly
+        bool bindlessSupported = false;
+        if (glGetTextureHandleARB && glMakeTextureHandleResidentARB) {
+            bindlessSupported = true;
+        }
+
         auto quadShader = std::make_shared<Shader>();
+        if (bindlessSupported) quadShader->setDefine("AX_BINDLESS", "1");
         quadShader->compile({ { ShaderStage::Vertex, "assets/shaders/Renderer2D/Quad.vert.glsl" },
                              { ShaderStage::Fragment, "assets/shaders/Renderer2D/Quad.frag.glsl" } });
 
         auto circleShader = std::make_shared<Shader>();
+        if (bindlessSupported) circleShader->setDefine("AX_BINDLESS", "1");
         circleShader->compile({ { ShaderStage::Vertex, "assets/shaders/Renderer2D/Circle.vert.glsl" },
                                { ShaderStage::Fragment, "assets/shaders/Renderer2D/Circle.frag.glsl" } });
 
@@ -103,6 +113,10 @@ namespace axiom {
         s_DefaultCircleMaterial->setVec4("u_Color", glm::vec4(1.0f));
         s_DefaultCircleMaterial->setFloat("u_Thickness", 0.0f);
         s_DefaultCircleMaterial->setFloat("u_Feather", 0.005f);
+
+        s_DefaultLineMaterial = std::make_shared<Material>(quadShader);
+        s_DefaultLineMaterial->setVec4("u_Color", glm::vec4(1.0f));
+        s_DefaultLineMaterial->setInt("u_UseTexture", 0);
     }
 
     void Renderer2D::Shutdown() {
@@ -150,16 +164,27 @@ namespace axiom {
             }
             if (!mat) continue;
 
-            // bind textures used by material and ensure they are in texture slots
+            // bind textures used by material. Prefer bindless handles if available,
+            // otherwise assign texture units via the slot allocator.
             int primaryTexSlot = -1;
             for (auto& tb : mat->getTextureBindings()) {
                 const std::string& name = std::get<0>(tb);
                 std::shared_ptr<Texture> tex = std::get<1>(tb);
-                int slot = bindTextureToSlot(tex);
-                if (slot >= 0) {
-                    mat->setTextureSlot(name, slot);
-                    mat->setInt(name, slot);
-                    if (primaryTexSlot == -1) primaryTexSlot = slot;
+                if (!tex) continue;
+
+                uint64_t handle = tex->getBindlessHandle();
+                if (handle) {
+                    // set bindless handle directly on the shader (requires extension)
+                    auto sh = mat->getShader();
+                    if (sh) sh->setTextureHandle(name, handle);
+                    else AXIOM_WARN("Material has no shader while assigning bindless handle for '{}'", name);
+                } else {
+                    int slot = bindTextureToSlot(tex);
+                    if (slot >= 0) {
+                        mat->setTextureSlot(name, slot);
+                        mat->setInt(name, slot);
+                        if (primaryTexSlot == -1) primaryTexSlot = slot;
+                    }
                 }
             }
 
@@ -207,8 +232,17 @@ namespace axiom {
     void Renderer2D::DrawQuad(const glm::vec3& position, const glm::vec2& size, std::shared_ptr<Texture> texture) {
         std::shared_ptr<Shader> shader = nullptr;
         if (s_DefaultQuadMaterial) shader = s_DefaultQuadMaterial->getShader();
+        if (!shader) {
+            AXIOM_ERROR("No default quad shader available; skipping textured quad");
+            return;
+        }
+
         auto mat = std::make_shared<Material>(shader);
-        if (mat && texture) mat->setTexture("u_Texture", texture, 0);
+        if (texture) {
+            // bind texture to the sampler array used by the shader
+            mat->setTexture("u_Textures[0]", texture, 0);
+            mat->setInt("u_UseTexture", 1);
+        }
         DrawQuad(position, size, 0.0f, mat);
     }
 
