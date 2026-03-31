@@ -1,6 +1,8 @@
 #pragma once
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+// Needed for glm::quat and mat4_cast
+#include <glm/gtc/quaternion.hpp>
 
 namespace axiom {
 
@@ -40,7 +42,7 @@ namespace axiom {
 
     private:
         glm::vec3 m_Position = { 0.0f, 0.0f, 0.0f };
-        glm::quat m_Rotation = { 1.0f, 0.0f, 0.0f, 0.0f };
+        glm::quat m_Rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 
         glm::mat4 m_ViewMatrix = glm::mat4(1.0f);
         glm::mat4 m_ProjectionMatrix = glm::mat4(1.0f);

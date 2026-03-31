@@ -8,6 +8,10 @@ namespace axiom {
 
 	Application* Application::s_Instance = nullptr;
 
+// Fixed update timing state (file scope so all functions can use them)
+static double m_LastFixedUpdate = 0.0f;
+static double m_FixedUpdateInterval = 1.0 / 75.0; // 75 FPS
+
 	Application::Application(std::string AppName, uint32_t width, uint32_t height) {
 		AXIOM_ASSERT(!s_Instance, "Application already exists!");
 		s_Instance = this;
@@ -68,9 +72,9 @@ namespace axiom {
 			{
 				AXIOM_PROFILE_FRAME();
 
-				MainUpdate();
+                MainUpdate();
 				double alpha = (Time::GetTime() - m_LastFixedUpdate) / m_FixedUpdateInterval;
-				Render();
+				Render(alpha);
 			}
 
 			axiom::profiling::Profiler::EndFrame();
@@ -133,9 +137,6 @@ namespace axiom {
 			layer->OnUpdate(dt);
 		}
 	}
-
-	static double m_LastFixedUpdate = 0.0f;
-	static double m_FixedUpdateInterval = 1.0f / 75.0f; // 75 FPS evtl. konfigurierbar machen wie schnéll ddas FixedUpdate ist
 
 	void Application::MainUpdate() {
 
