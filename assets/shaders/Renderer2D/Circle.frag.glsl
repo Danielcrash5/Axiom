@@ -7,9 +7,6 @@ in vec2 v_UV;
 uniform vec4 u_Color;
 uniform float u_Thickness;
 uniform float u_Feather;
-uniform float u_UseTexture;
-uniform sampler2D u_Textures[32];
-
 
 void main()
 {

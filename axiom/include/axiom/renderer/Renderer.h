@@ -15,7 +15,7 @@ namespace axiom {
 
         static void SetRenderState(const RenderState& state);
 
-        static void DrawIndexed(const VertexArray& vao, uint32_t indexCount = 0);
+        static void DrawIndexed(const VertexArray& vao, uint32_t indexCount = 0, uint32_t indexOffset = 0);
 
     private:
         static RenderState s_CurrentState;

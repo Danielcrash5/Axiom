@@ -1,18 +1,20 @@
 #pragma once
-#include <vector>
 #include <glm/glm.hpp>
-#include "Camera.h"
-#include "Material.h"
+#include <memory>
+#include <vector>
 
 namespace axiom {
-
-    
+    class Camera;
     class VertexArray;
     class VertexBuffer;
     class IndexBuffer;
     class Shader;
     class Texture;
+    class Material;
 
+    /**
+     * Simple 2D Renderer with clear, easy-to-understand architecture
+     */
     class Renderer2D {
     public:
         static void Init();
@@ -21,76 +23,56 @@ namespace axiom {
         static void Begin(const Camera& camera);
         static void End();
 
-        static void DrawQuad(const glm::mat4& transform, std::shared_ptr<Material> material);
-        // Helper overloads
-        static void DrawQuad(const glm::vec3& position, const glm::vec2& size, float rotation = 0.0f, std::shared_ptr<Material> material = nullptr);
-        static void DrawQuad(const glm::vec3& position, const glm::vec2& size, std::shared_ptr<Texture> texture);
-        static void DrawQuadOutline(const glm::vec3& position, const glm::vec2& size, float rotation = 0.0f, std::shared_ptr<Material> material = nullptr, float thickness = 0.02f);
+        // Quad drawing
+        static void DrawQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color, int32_t depth = 0);
+        static void DrawQuad(const glm::vec3& position, const glm::vec2& size, std::shared_ptr<Texture> texture, int32_t depth = 0);
 
-        static void DrawCircle(const glm::mat4& transform, std::shared_ptr<Material> material);
-        // Helper overloads
-        static void DrawCircle(const glm::vec3& position, float radius, std::shared_ptr<Material> material = nullptr);
+        // Circle drawing
+        static void DrawCircle(const glm::vec3& position, float radius, const glm::vec4& color, int32_t depth = 0);
 
-        enum class LineJoin {
-            Miter,
-            Bevel,
-            Round
-        };
+        // Line drawing
+        static void DrawLineStrip(const std::vector<glm::vec3>& points, const glm::vec4& color, float thickness = 0.02f, int32_t depth = 0);
 
-        enum class LineCap {
-            Butt,
-            Square,
-            Round
-        };
-
-        static void DrawLine(const glm::vec3& p0, const glm::vec3& p1, std::shared_ptr<Material> material = nullptr, float thickness = 0.02f, LineCap cap = LineCap::Round);
-        static void DrawLineStrip(const std::vector<glm::vec3>& points, std::shared_ptr<Material> material = nullptr, float thickness = 0.02f, LineJoin join = LineJoin::Round, LineCap cap = LineCap::Round);
+        static std::shared_ptr<Shader> GetQuadShader();
 
     private:
-
-        struct QuadVertex {
-            glm::vec3 Position;
-            glm::vec2 UV;
-            glm::vec4 Color;
-            float TexIndex;
+        struct Vertex {
+            glm::vec3 position;
+            glm::vec2 uv;
+            glm::vec4 color;
+            float textureIndex;
         };
 
-        static constexpr uint32_t MaxQuads = 10000;
-        static constexpr uint32_t MaxVertices = MaxQuads * 4;
-        static constexpr uint32_t MaxIndices = MaxQuads * 6;
-
-        static QuadVertex* s_VertexBufferBase;
-        static QuadVertex* s_VertexBufferPtr;
-
-        static uint32_t s_IndexCount;
-
-        static std::shared_ptr<VertexArray> s_QuadVAO;
-        static std::shared_ptr<VertexBuffer> s_VertexBuffer;
-        static std::shared_ptr<IndexBuffer> s_IndexBuffer;
-
-        // Default Materials
-        static std::shared_ptr<Material> s_DefaultQuadMaterial;
-        static std::shared_ptr<Material> s_DefaultCircleMaterial;
-        static std::shared_ptr<Material> s_DefaultLineMaterial;
-        
-        struct RenderItem {
-            glm::mat4 Transform;
-            std::shared_ptr<Material> Material;
-            uint32_t Type; // 0=quad,1=circle,2=line
-            std::vector<glm::vec3> Points; // for lines/strips
-            float Thickness = 0.02f;
-            glm::vec4 Color = glm::vec4(1.0f);
+        struct RenderCommand {
+            std::shared_ptr<Material> material;
+            uint32_t vertexCount;
+            uint32_t vertexOffset;
+            glm::mat4 transform;
+            std::shared_ptr<Texture> texture;
         };
 
-        // Max texture slots supported by the batch (GL spec guarantees at least 16)
-        static constexpr uint32_t MaxTextureSlots = 32;
-        static std::shared_ptr<Texture> s_TextureSlots[MaxTextureSlots];
+        static constexpr uint32_t MAX_VERTICES = 100000;
+        static constexpr uint32_t MAX_INDICES = 150000;
+        static constexpr uint32_t MAX_TEXTURE_SLOTS = 32;
 
-        // Assign a texture to a slot for the current batch. Returns slot index or -1 on failure.
-        static int bindTextureToSlot(std::shared_ptr<Texture> texture);
+        static Vertex* s_VertexBuffer;
+        static Vertex* s_VertexPtr;
+        static uint32_t s_VertexCount;
 
-        static std::vector<RenderItem> s_Items;
+        static std::shared_ptr<VertexArray> s_VAO;
+        static std::shared_ptr<axiom::VertexBuffer> s_VBO;
+        static std::shared_ptr<IndexBuffer> s_IBO;
+
+        static std::shared_ptr<Shader> s_QuadShader;
+        static std::shared_ptr<Material> s_DefaultMaterial;
+
+        static std::vector<RenderCommand> s_Commands;
         static glm::mat4 s_ViewProjection;
-    };
 
+        static std::shared_ptr<Texture> s_TextureSlots[MAX_TEXTURE_SLOTS];
+        static uint32_t s_TextureSlotIndex;
+
+        static int GetTextureSlot(std::shared_ptr<Texture> texture);
+        static void ExecuteCommands();
+    };
 }

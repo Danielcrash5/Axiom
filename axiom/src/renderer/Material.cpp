@@ -24,16 +24,16 @@ namespace axiom {
             if (binding.texture) {
                 uint64_t handle = binding.texture->getBindlessHandle();
                 if (handle) {
-                    // set bindless handle directly to the sampler uniform (e.g. "u_Textures[0]")
+                    // set bindless handle directly to the sampler uniform
                     m_Shader->setTextureHandle(name, handle);
                 } else {
-                    // fallback to regular binding
+                    // fallback to regular binding - bind texture to slot and set uniform
                     binding.texture->bind(binding.slot);
-                    m_Shader->setInt(name, binding.slot);
+                    m_Shader->setInt(name, (int)binding.slot);
                 }
             } else {
                 // no texture object (only slot set), ensure uniform points to slot
-                m_Shader->setInt(name, binding.slot);
+                m_Shader->setInt(name, (int)binding.slot);
             }
         }
 

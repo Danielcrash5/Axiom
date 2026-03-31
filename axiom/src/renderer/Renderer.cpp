@@ -64,9 +64,11 @@ namespace axiom {
         s_CurrentState = state;
     }
 
-    void Renderer::DrawIndexed(const VertexArray& vao, uint32_t count) {
+    void Renderer::DrawIndexed(const VertexArray& vao, uint32_t count, uint32_t indexOffset) {
         vao.bind();
-        glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, nullptr);
+        // indexOffset is number of indices to skip (not bytes). Convert to byte offset for pointer.
+        const void* offsetPtr = reinterpret_cast<const void*>(static_cast<uintptr_t>(indexOffset * sizeof(uint32_t)));
+        glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, offsetPtr);
     }
 
 }
