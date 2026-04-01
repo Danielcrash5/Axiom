@@ -60,7 +60,7 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 - [x] OpenGL Debug Callback aktiviert  
 - [x] Fehler-Logging  
 
-### Render State Handling (neu & kritisch)
+### Render State Handling
 **Ziele:**  
 - [ ] Alle GPU-Zustände zentral verwalten  
 - [ ] Keine redundanten OpenGL-Calls  
