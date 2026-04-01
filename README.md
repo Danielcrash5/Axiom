@@ -95,7 +95,7 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 - [ ] Saubere Bind/Unbind-Implementierung  
 
 ### Vertex-Layout-System
-- [ ] ShaderDataType Enum (Float, Float2, Float3, Float4, Mat3, Mat4, Int, Bool)  
+- [ ] ShaderDataType Enum (Float, Vec2, Vec3, Vec4, Mat3, Mat4, Int, Bool usw.)  
 - [ ] BufferElement-Struktur (Name, Typ, Größe, Offset, Normalized)  
 - [ ] VertexBufferLayout berechnet automatisch Stride/Offset  
 - [ ] Flexibel für 2D und 3D  
