@@ -3,73 +3,10 @@
 #include "axiom/events/Events.h"
 #include "axiom/core/Logger.h"
 #include <format>
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stdexcept>
 
 namespace axiom {
-
-#include <format> // C++20
-#include <string>
-
-	void APIENTRY glDebugOutput(GLenum source, GLenum type, GLuint id,
-								GLenum severity, GLsizei length,
-								const GLchar* message, const void* userParam) {
-		// Optional: bekannte Spam-IDs ignorieren
-		switch (id) {
-		case 131169:
-		case 131185:
-		case 131218:
-		case 131204:
-			return;
-		}
-
-		std::string sourceStr;
-		switch (source) {
-		case GL_DEBUG_SOURCE_API:             sourceStr = "API"; break;
-		case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   sourceStr = "WindowSystem"; break;
-		case GL_DEBUG_SOURCE_SHADER_COMPILER: sourceStr = "ShaderCompiler"; break;
-		case GL_DEBUG_SOURCE_THIRD_PARTY:     sourceStr = "ThirdParty"; break;
-		case GL_DEBUG_SOURCE_APPLICATION:     sourceStr = "Application"; break;
-		case GL_DEBUG_SOURCE_OTHER:           sourceStr = "Other"; break;
-		}
-
-		std::string typeStr;
-		switch (type) {
-		case GL_DEBUG_TYPE_ERROR:               typeStr = "Error"; break;
-		case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typeStr = "Deprecated"; break;
-		case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  typeStr = "UndefinedBehavior"; break;
-		case GL_DEBUG_TYPE_PORTABILITY:         typeStr = "Portability"; break;
-		case GL_DEBUG_TYPE_PERFORMANCE:         typeStr = "Performance"; break;
-		case GL_DEBUG_TYPE_MARKER:              typeStr = "Marker"; break;
-		case GL_DEBUG_TYPE_PUSH_GROUP:          typeStr = "PushGroup"; break;
-		case GL_DEBUG_TYPE_POP_GROUP:           typeStr = "PopGroup"; break;
-		case GL_DEBUG_TYPE_OTHER:               typeStr = "Other"; break;
-		}
-
-		// Mit std::format eine einzelne Nachricht bauen
-		std::string logMsg = std::format("[OpenGL][{}][{}][ID:{}] {}",
-										 sourceStr, typeStr, id, message);
-
-		// Severity Mapping zu deinen Makros
-		switch (severity) {
-		case GL_DEBUG_SEVERITY_HIGH:
-			AXIOM_ERROR("{}", logMsg);
-			break;
-
-		case GL_DEBUG_SEVERITY_MEDIUM:
-			AXIOM_WARN("{}", logMsg);
-			break;
-
-		case GL_DEBUG_SEVERITY_LOW:
-			AXIOM_INFO("{}", logMsg);
-			break;
-
-		case GL_DEBUG_SEVERITY_NOTIFICATION:
-			AXIOM_DEBUG("{}", logMsg);
-			break;
-		}
-	}
 
 	static bool s_GLFWInitialized = false;
 
@@ -115,24 +52,6 @@ namespace axiom {
 
 		// Kontext aktiv machen bevor GL-Funktionen geladen werden
 		glfwMakeContextCurrent(m_Window);
-		if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-			AXIOM_ERROR("Failed to initialize GLAD");
-			return;
-		}
-
-		// Debug Output
-		glEnable(GL_DEBUG_OUTPUT);
-		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-		glDebugMessageCallback(glDebugOutput, nullptr);
-
-		// Optional: weniger Spam
-		glDebugMessageControl(
-			GL_DONT_CARE,
-			GL_DONT_CARE,
-			GL_DEBUG_SEVERITY_NOTIFICATION,
-			0, nullptr,
-			GL_FALSE
-		);
 
 		glfwSetWindowUserPointer(m_Window, this);
 
