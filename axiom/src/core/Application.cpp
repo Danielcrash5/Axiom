@@ -3,16 +3,14 @@
 #include "axiom/core/Logger.h"
 #include "axiom/core/Time.h"
 #include "axiom/profiling/Profiler.h"
-#include "axiom/renderer/Renderer.h"
-#include "axiom/renderer/Renderer2D.h"
 
 namespace axiom {
 
 	Application* Application::s_Instance = nullptr;
 
-// Fixed update timing state (file scope so all functions can use them)
-static double m_LastFixedUpdate = 0.0f;
-static double m_FixedUpdateInterval = 1.0 / 75.0; // 75 FPS
+	// Fixed update timing state (file scope so all functions can use them)
+	static double m_LastFixedUpdate = 0.0f;
+	static double m_FixedUpdateInterval = 1.0 / 75.0; // 75 FPS
 
 	Application::Application(std::string AppName, uint32_t width, uint32_t height) {
 		AXIOM_ASSERT(!s_Instance, "Application already exists!");
@@ -57,12 +55,6 @@ static double m_FixedUpdateInterval = 1.0 / 75.0; // 75 FPS
 
 		m_Input.Init(m_Window->GetNativeHandle());
 		m_InputSystem.Init();
-	// Initialize renderer
-	axiom::Renderer::Init();
-	axiom::Renderer2D::Init();
-
-	// setup a simple orthographic camera for 2D
-	m_Camera.setOrthographic(0.0f, (float)m_Width, 0.0f, (float)m_Height, -1.0f, 1.0f);
 
 		OnInit();
 	}
@@ -80,7 +72,7 @@ static double m_FixedUpdateInterval = 1.0 / 75.0; // 75 FPS
 			{
 				AXIOM_PROFILE_FRAME();
 
-                MainUpdate();
+				MainUpdate();
 				double alpha = (Time::GetTime() - m_LastFixedUpdate) / m_FixedUpdateInterval;
 				Render(alpha);
 			}
@@ -99,24 +91,14 @@ static double m_FixedUpdateInterval = 1.0 / 75.0; // 75 FPS
 	void Application::Render(double alpha) {
 		AXIOM_PROFILE_SCOPE("Render");
 
-	// clear and begin frame
-	axiom::Renderer::Begin({ 0.1f, 0.1f, 0.1f, 1.0f });
+		OnRender(alpha);
 
-	// 2D Renderer frame
-	axiom::Renderer2D::Begin(m_Camera);
+		for (auto& layer : m_LayerStack) {
+			AXIOM_PROFILE_SCOPE(layer->GetName());
+			layer->OnRender(alpha);
+		}
 
-	OnRender(alpha);
-
-	for (auto& layer : m_LayerStack) {
-		AXIOM_PROFILE_SCOPE(layer->GetName());
-		layer->OnRender(alpha);
-	}
-
-	axiom::Renderer2D::End();
-
-	axiom::Renderer::End();
-
-	m_Window->SwapBuffers();
+		m_Window->SwapBuffers();
 	}
 
 	void Application::PreUpdate(double dt) {
@@ -187,8 +169,5 @@ static double m_FixedUpdateInterval = 1.0 / 75.0; // 75 FPS
 		AXIOM_PROFILE_SCOPE("Application::Shutdown");
 		OnShutdown();
 		m_LayerStack.Shutdown();
-
-	axiom::Renderer2D::Shutdown();
-	axiom::Renderer::Shutdown();
 	}
 }

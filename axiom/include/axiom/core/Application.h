@@ -6,7 +6,6 @@
 #include "axiom/input/Input.h"
 #include "axiom/input/InputSystem.h"
 #include <memory>
-#include "axiom/renderer/Camera.h"
 
 namespace axiom {
 
@@ -117,8 +116,6 @@ namespace axiom {
 		LayerStack m_LayerStack;
 		EventBus m_EventBus;
 
-		// Simple default camera for the application renderer
-		axiom::Camera m_Camera;
 	};
 
 }

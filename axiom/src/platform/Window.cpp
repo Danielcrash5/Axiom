@@ -2,6 +2,7 @@
 #include "axiom/events/EventBus.h"
 #include "axiom/events/Events.h"
 #include "axiom/core/Logger.h"
+#include "axiom/renderer/RendererAPI.h"
 #include <format>
 #include <GLFW/glfw3.h>
 #include <stdexcept>
@@ -30,13 +31,15 @@ namespace axiom {
 
 		glfwSetErrorCallback([](int error, const char* description) {
 			AXIOM_ERROR("GLFW Error ({}): {}", error, description);
-		});
+							 });
 
-		// Korrekte Kontext-Hints verwenden
-		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-		glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+		if (RendererAPI::GetAPI() == RendererAPIType::OpenGL) {
+			// Korrekte Kontext-Hints verwenden
+			glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+			glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+			glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+			glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+		}
 
 		// Fenster erstellen
 		m_Window = glfwCreateWindow(props.width, props.height, props.title.c_str(), nullptr, nullptr);
@@ -56,25 +59,25 @@ namespace axiom {
 
 		glfwSetCharCallback(m_Window, [](GLFWwindow* window, unsigned int codepoint) {
 			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			CharEvent event{ codepoint };
+			CharEvent event { codepoint };
 			win->m_EventBus.Publish(event);
 							});
 
 		glfwSetCharModsCallback(m_Window, [](GLFWwindow* window, unsigned int codepoint, int mods) {
 			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			CharModsEvent event{ codepoint, mods };
+			CharModsEvent event { codepoint, mods };
 			win->m_EventBus.Publish(event);
 								});
 
 		glfwSetCursorPosCallback(m_Window, [](GLFWwindow* window, double x, double y) {
 			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			MouseMoveEvent event{ x, y };
+			MouseMoveEvent event { x, y };
 			win->m_EventBus.Publish(event);
 								 });
 
 		glfwSetWindowSizeCallback(m_Window, [](GLFWwindow* window, int width, int height) {
 			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			WindowResizeEvent event{ static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
+			WindowResizeEvent event { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 			win->m_Width = width;
 			win->m_Height = height;
 			win->m_EventBus.Publish(event);
@@ -88,19 +91,19 @@ namespace axiom {
 
 		glfwSetKeyCallback(m_Window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
 			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			KeyEvent event{ key, scancode, action, mods };
+			KeyEvent event { key, scancode, action, mods };
 			win->m_EventBus.Publish(event);
 						   });
 
 		glfwSetScrollCallback(m_Window, [](GLFWwindow* window, double xOffset, double yOffset) {
 			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			MouseScrollEvent event{ xOffset, yOffset };
+			MouseScrollEvent event { xOffset, yOffset };
 			win->m_EventBus.Publish(event);
 							  });
 
 		glfwSetDropCallback(m_Window, [](GLFWwindow* window, int count, const char** paths) {
 			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			FileDropEvent event{ count, paths };
+			FileDropEvent event { count, paths };
 			win->m_EventBus.Publish(event);
 							});
 
@@ -109,7 +112,8 @@ namespace axiom {
 
 		if (m_Vsync) {
 			glfwSwapInterval(1);
-		} else {
+		}
+		else {
 			glfwSwapInterval(0);
 		}
 
