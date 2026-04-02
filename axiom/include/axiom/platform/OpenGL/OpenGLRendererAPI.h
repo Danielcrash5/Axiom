@@ -1,5 +1,6 @@
 #pragma once
 #include "axiom/renderer/RendererAPI.h"
+#include "axiom/renderer/RenderstateCache.h"
 
 class OpenGLRendererAPI : public RendererAPI {
 public:
@@ -9,5 +10,11 @@ public:
     void SetClearColor(const glm::vec4& color) override;
     void Clear() override;
 
+    void SetRenderState(const RenderState& state);
+
     void DrawIndexed(uint32_t count) override;
+
+
+private:
+    RenderStateCache m_Cache;
 };

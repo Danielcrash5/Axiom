@@ -1,5 +1,7 @@
 #pragma once
 #include <cstdint>
+#include <memory>
+#include "BufferLayout.h"
 
 class VertexBuffer {
 public:
@@ -8,5 +10,14 @@ public:
     virtual void Bind() const = 0;
     virtual void Unbind() const = 0;
 
-    static VertexBuffer* Create(float* vertices, uint32_t size);
+    static std::shared_ptr<VertexBuffer> Create(void* vertices, uint32_t size);
+
+    void SetLayout(const BufferLayout& layout) {
+        m_Layout = layout;
+    }
+    const BufferLayout& GetLayout() const {
+        return m_Layout;
+    }
+private:
+    BufferLayout m_Layout;
 };

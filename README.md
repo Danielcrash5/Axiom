@@ -62,12 +62,12 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 
 ### Render State Handling
 **Ziele:**  
-- [ ] Alle GPU-Zustände zentral verwalten  
-- [ ] Keine redundanten OpenGL-Calls  
-- [ ] Standardzustände definieren  
+- Alle GPU-Zustände zentral verwalten  
+- Keine redundanten OpenGL-Calls  
+- Standardzustände definieren  
 
 **Aufgaben:**  
-- [ ] RenderState-Struktur implementieren  
+- [x] RenderState-Struktur implementieren  
   ```cpp
   struct RenderState {
       bool DepthTest;
@@ -76,46 +76,46 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
       // optional: BlendMode, DepthFunc
   };
   ```  
-- [ ] RendererAPI: SetRenderState(RenderState state)  
-- [ ] OpenGL-Mapping:  
+- [x] RendererAPI: SetRenderState(RenderState state)  
+- [x] OpenGL-Mapping:  
   - DepthTest → glEnable/glDisable(GL_DEPTH_TEST)  
   - Blending → glEnable/glDisable(GL_BLEND)  
   - CullFace → glEnable/glDisable(GL_CULL_FACE)  
-- [ ] State-Cache: aktuelle Zustände speichern, nur ändern wenn nötig  
-- [ ] Standardzustand beim Init setzen: Blending=true, DepthTest=false, CullFace=false  
+- [x] State-Cache: aktuelle Zustände speichern, nur ändern wenn nötig  
+- [x] Standardzustand beim Init setzen: Blending=true, DepthTest=false, CullFace=false  
 
-- [ ] Abhaken, wenn keine direkten glEnable/glDisable-Calls mehr im Code vorhanden sind  
+- [x] Abhaken, wenn keine direkten glEnable/glDisable-Calls mehr im Code vorhanden sind  
 
 ### Buffer-System
-- [ ] VertexBuffer (abstrakt)  
-- [ ] OpenGLVertexBuffer  
-- [ ] IndexBuffer (abstrakt)  
-- [ ] OpenGLIndexBuffer  
-- [ ] Korrekte Destruktoren, keine Speicherlecks  
-- [ ] Saubere Bind/Unbind-Implementierung  
+- [x] VertexBuffer (abstrakt)  
+- [x] OpenGLVertexBuffer  
+- [x] IndexBuffer (abstrakt)  
+- [x] OpenGLIndexBuffer  
+- [x] Korrekte Destruktoren, keine Speicherlecks  
+- [x] Saubere Bind/Unbind-Implementierung  
 
 ### Vertex-Layout-System
-- [ ] ShaderDataType Enum (Float, Vec2, Vec3, Vec4, Mat3, Mat4, Int, Bool usw.)  
-- [ ] BufferElement-Struktur (Name, Typ, Größe, Offset, Normalized)  
-- [ ] VertexBufferLayout berechnet automatisch Stride/Offset  
-- [ ] Flexibel für 2D und 3D  
+- [x] ShaderDataType Enum (Float, Vec2, Vec3, Vec4, Mat3, Mat4, Int, Bool usw.)  
+- [x] BufferElement-Struktur (Name, Typ, Größe, Offset, Normalized)  
+- [x] VertexBufferLayout berechnet automatisch Stride/Offset  
+- [x] Flexibel für 2D und 3D  
 - [x] Erledigt, wenn beliebige Vertex-Strukturen korrekt an Shader übergeben werden  
 
 ### VertexArray (VAO)
-- [ ] Interface existiert  
-- [ ] OpenGLVertexArray implementiert  
-- [ ] AddVertexBuffer() funktioniert  
-- [ ] SetIndexBuffer() funktioniert  
-- [ ] OpenGL-Bindings korrekt (glEnableVertexAttribArray, glVertexAttribPointer)  
+- [x] Interface existiert  
+- [x] OpenGLVertexArray implementiert  
+- [x] AddVertexBuffer() funktioniert  
+- [x] SetIndexBuffer() funktioniert  
+- [x] OpenGL-Bindings korrekt (glEnableVertexAttribArray, glVertexAttribPointer)  
 - [x] Erledigt, wenn VertexLayout im Shader korrekt ankommt  
 
 ### Shader-System (Slang)
-- [ ] Interface (Bind(), Unbind())  
-- [ ] Slang-Compiler-Setup (CLI oder API)  
-- [ ] Shader-Pipeline: Slang → GLSL  
-- [ ] Shader-Cache implementiert  
-- [ ] Fehler-Logging  
-- [ ] Laufzeit-Uniform- und Textur-Binding  
+- [x] Interface (Bind(), Unbind())  
+- [x] Slang-Compiler-Setup (CLI oder API)  
+- [x] Shader-Pipeline: Slang → GLSL  
+- [x] Shader-Cache implementiert  
+- [x] Fehler-Logging  
+- [x] Laufzeit-Uniform- und Textur-Binding  
 - [x] Erledigt, wenn Quad mit Slang-Shader korrekt gerendert wird  
 
 ### Pipeline-System

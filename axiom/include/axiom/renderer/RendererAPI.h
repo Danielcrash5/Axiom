@@ -1,5 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
+#include "RenderState.h"
 
 enum class RendererAPIType {
     None = 0,
@@ -15,6 +16,7 @@ public:
 
     virtual void SetClearColor(const glm::vec4& color) = 0;
     virtual void Clear() = 0;
+    virtual void SetRenderState(const RenderState& state) = 0;
 
     virtual void DrawIndexed(uint32_t count) = 0;
 

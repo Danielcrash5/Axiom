@@ -2,10 +2,10 @@
 #include "axiom/renderer/RendererAPI.h"
 #include "axiom/platform/OpenGL/OpenGLVertexBuffer.h"
 
-VertexBuffer* VertexBuffer::Create(float* vertices, uint32_t size) {
-    switch (RendererAPI::GetAPI()) {
-    case RendererAPIType::OpenGL:
-        return new OpenGLVertexBuffer(vertices, size);
-    }
-    return nullptr;
+std::shared_ptr<VertexBuffer> VertexBuffer::Create(void* vertices, uint32_t size) {
+	switch (RendererAPI::GetAPI()) {
+	case RendererAPIType::OpenGL:
+		return  std::make_shared<OpenGLVertexBuffer>(vertices, size);
+	}
+	return nullptr;
 }

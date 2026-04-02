@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 
 class IndexBuffer {
 public:
@@ -8,5 +9,5 @@ public:
     virtual void Bind() const = 0;
     virtual uint32_t GetCount() const = 0;
 
-    static IndexBuffer* Create(uint32_t* indices, uint32_t count);
+    static std::shared_ptr<IndexBuffer> Create(uint32_t* indices, uint32_t count);
 };
