@@ -15,11 +15,6 @@ target_include_directories(axiom_engine
         ${CMAKE_SOURCE_DIR}/thirdparty/glm
 )
 
-# Slang Include
-target_include_directories(axiom_engine PRIVATE
-    ${SLANG_INCLUDE_DIR}
-)
-
 # Compiler-Definitionen
 if(AXIOM_ENABLE_CONSOLE_LOG)
     target_compile_definitions(axiom_engine PUBLIC AXIOM_ENABLE_CONSOLE_LOG)
@@ -30,22 +25,4 @@ target_compile_definitions(axiom_engine PUBLIC GLFW_INCLUDE_NONE)
 find_package(OpenGL REQUIRED)
 target_link_libraries(axiom_engine
     PUBLIC glfw OpenGL::GL glad stb
-)
-
-# Slang statisch linken
-target_link_libraries(axiom_engine PRIVATE
-    ${SLANG_LIB}
-)
-
-# DLL Copy für Laufzeit
-add_custom_command(TARGET axiom_engine POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${SLANG_BIN}/slang.dll
-        $<TARGET_FILE_DIR:axiom_engine>
-)
-
-add_custom_command(TARGET axiom_engine POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${SLANG_BIN}/slang-compiler.dll
-        $<TARGET_FILE_DIR:axiom_engine>
 )

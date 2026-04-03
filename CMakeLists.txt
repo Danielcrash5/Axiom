@@ -18,10 +18,6 @@ set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 
 set(THIRDPARTY_DIR ${CMAKE_SOURCE_DIR}/thirdparty)
 
-set(SLANG_INCLUDE_DIR ${THIRDPARTY_DIR}/slang/include)
-set(SLANG_LIB ${THIRDPARTY_DIR}/slang/lib/slang.lib)
-set(SLANG_BIN ${THIRDPARTY_DIR}/slang/bin)
-
 add_subdirectory(thirdparty/glfw)
 
 # GLAD - OpenGL Loader

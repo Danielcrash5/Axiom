@@ -1,35 +1,75 @@
 #include "axiom/platform/OpenGL/OpenGLShader.h"
-#include "axiom/renderer/SlangCompiler.h"
-#include <glad/glad.h>
+#include "axiom/renderer/ShaderPreprocessor.h"
+
+#include <fstream>
+#include <sstream>
 #include <iostream>
 
-static GLenum ToGL(ShaderStage stage) {
-    switch (stage) {
-    case ShaderStage::Vertex: return GL_VERTEX_SHADER;
-    case ShaderStage::Fragment: return GL_FRAGMENT_SHADER;
-    case ShaderStage::Geometry: return GL_GEOMETRY_SHADER;
-    case ShaderStage::Compute: return GL_COMPUTE_SHADER;
-    case ShaderStage::TessControl: return GL_TESS_CONTROL_SHADER;
-    case ShaderStage::TessEvaluation: return GL_TESS_EVALUATION_SHADER;
-    }
-    return 0;
+static std::string ReadFile(const std::string& path) {
+    std::ifstream file(path);
+    std::stringstream ss;
+    ss << file.rdbuf();
+    return ss.str();
 }
 
-OpenGLShader::OpenGLShader(const std::string& path) {
-    auto sources = CompileSlang(path);
-    Compile(sources);
+OpenGLShader::OpenGLShader(
+    const std::string& path,
+    const std::unordered_set<std::string>& defines) {
+    std::string source = ReadFile(path);
+
+    std::string dir = path.substr(0, path.find_last_of("/\\"));
+
+    source = ShaderPreprocessor::Process(source, dir, defines);
+
+    auto shaders = Parse(source);
+
+    Compile(shaders);
+    Reflect();
 }
 
 OpenGLShader::~OpenGLShader() {
-    glDeleteProgram(m_ID);
+    glDeleteProgram(m_RendererID);
 }
 
-void OpenGLShader::Compile(const ShaderSource& sources) {
-    GLuint program = glCreateProgram();
-    std::vector<GLuint> shaders;
+std::unordered_map<GLenum, std::string>
+OpenGLShader::Parse(const std::string& source) {
+    std::unordered_map<GLenum, std::string> shaders;
 
-    for (auto& [stage, src] : sources.Sources) {
-        GLuint shader = glCreateShader(ToGL(stage));
+    const char* typeToken = "#type";
+    size_t pos = source.find(typeToken, 0);
+
+    while (pos != std::string::npos) {
+        size_t eol = source.find("\n", pos);
+        size_t begin = pos + strlen(typeToken) + 1;
+
+        std::string type = source.substr(begin, eol - begin);
+
+        GLenum glType =
+            type == "vertex" ? GL_VERTEX_SHADER :
+            type == "fragment" ? GL_FRAGMENT_SHADER :
+            type == "compute" ? GL_COMPUTE_SHADER :
+            0;
+
+        size_t nextLine = source.find("\n", eol) + 1;
+        pos = source.find(typeToken, nextLine);
+
+        shaders[glType] = source.substr(
+            nextLine,
+            pos == std::string::npos ? std::string::npos : pos - nextLine
+        );
+    }
+
+    return shaders;
+}
+
+void OpenGLShader::Compile(
+    const std::unordered_map<GLenum, std::string>& shaders) {
+    GLuint program = glCreateProgram();
+
+    std::vector<GLuint> shaderIDs;
+
+    for (auto& [type, src] : shaders) {
+        GLuint shader = glCreateShader(type);
         const char* code = src.c_str();
 
         glShaderSource(shader, 1, &code, nullptr);
@@ -45,19 +85,38 @@ void OpenGLShader::Compile(const ShaderSource& sources) {
         }
 
         glAttachShader(program, shader);
-        shaders.push_back(shader);
+        shaderIDs.push_back(shader);
     }
 
     glLinkProgram(program);
 
-    for (auto s : shaders)
-        glDeleteShader(s);
+    m_RendererID = program;
 
-    m_ID = program;
+    for (auto id : shaderIDs)
+        glDeleteShader(id);
+}
+
+void OpenGLShader::Reflect() {
+    GLint count;
+    glGetProgramiv(m_RendererID, GL_ACTIVE_UNIFORMS, &count);
+
+    for (int i = 0; i < count; i++) {
+        char name[256];
+        GLsizei length;
+        GLint size;
+        GLenum type;
+
+        glGetActiveUniform(m_RendererID, i, 256, &length, &size, &type, name);
+
+        GLint location = glGetUniformLocation(m_RendererID, name);
+
+        std::cout << "[Shader] Uniform: " << name
+            << " | Location: " << location << std::endl;
+    }
 }
 
 void OpenGLShader::Bind() const {
-    glUseProgram(m_ID);
+    glUseProgram(m_RendererID);
 }
 
 void OpenGLShader::Unbind() const {
@@ -65,6 +124,6 @@ void OpenGLShader::Unbind() const {
 }
 
 void OpenGLShader::SetFloat(const std::string& name, float value) {
-    GLint loc = glGetUniformLocation(m_ID, name.c_str());
+    GLint loc = glGetUniformLocation(m_RendererID, name.c_str());
     glUniform1f(loc, value);
 }

@@ -1,6 +1,7 @@
 #pragma once
-#include <memory>
 #include <string>
+#include <memory>
+#include <unordered_set>
 
 class Shader {
 public:
@@ -11,5 +12,8 @@ public:
 
     virtual void SetFloat(const std::string& name, float value) = 0;
 
-    static std::shared_ptr<Shader> Create(const std::string& path);
+    static std::shared_ptr<Shader> Create(
+        const std::string& path,
+        const std::unordered_set<std::string>& defines = {}
+    );
 };

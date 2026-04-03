@@ -1,10 +1,15 @@
 #pragma once
 #include "axiom/renderer/Shader.h"
-#include "axiom/renderer/ShaderSource.h"
+#include <glad/glad.h>
+#include <unordered_map>
 
 class OpenGLShader : public Shader {
 public:
-    OpenGLShader(const std::string& path);
+    OpenGLShader(
+        const std::string& path,
+        const std::unordered_set<std::string>& defines
+    );
+
     ~OpenGLShader();
 
     void Bind() const override;
@@ -13,7 +18,10 @@ public:
     void SetFloat(const std::string& name, float value) override;
 
 private:
-    uint32_t m_ID;
+    uint32_t m_RendererID;
 
-    void Compile(const ShaderSource& sources);
+    void Compile(const std::unordered_map<GLenum, std::string>& shaders);
+    void Reflect();
+
+    std::unordered_map<GLenum, std::string> Parse(const std::string& source);
 };

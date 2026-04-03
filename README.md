@@ -109,14 +109,10 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 - [x] OpenGL-Bindings korrekt (glEnableVertexAttribArray, glVertexAttribPointer)  
 - [x] Erledigt, wenn VertexLayout im Shader korrekt ankommt  
 
-### Shader-System (Slang)
+### Shader-System
 - [x] Interface (Bind(), Unbind())  
-- [x] Slang-Compiler-Setup (CLI oder API)  
-- [x] Shader-Pipeline: Slang → GLSL  
-- [x] Shader-Cache implementiert  
 - [x] Fehler-Logging  
-- [x] Laufzeit-Uniform- und Textur-Binding  
-- [x] Erledigt, wenn Quad mit Slang-Shader korrekt gerendert wird  
+- [x] Laufzeit-Uniform- und Textur-Binding   
 
 ### Pipeline-System
 - [ ] PipelineSpecification: Shader + RenderState + BlendMode  
