@@ -23,6 +23,10 @@ public:
         s_RendererAPI->DrawIndexed(count);
     }
 
+    static void SetRenderState(RenderState& renderstate) {
+        s_RendererAPI->SetRenderState(renderstate);
+    }
+
 private:
     static RendererAPI* s_RendererAPI;
 };
