@@ -1,14 +1,17 @@
 #pragma once
 #include "axiom/renderer/VertexBuffer.h"
 
-class OpenGLVertexBuffer : public VertexBuffer {
-public:
-    OpenGLVertexBuffer(void* vertices, uint32_t size);
-    ~OpenGLVertexBuffer();
+namespace axiom {
 
-    void Bind() const override;
-    void Unbind() const override;
+	class OpenGLVertexBuffer : public VertexBuffer {
+	public:
+		OpenGLVertexBuffer(void* vertices, uint32_t size);
+		~OpenGLVertexBuffer();
 
-private:
-    uint32_t m_RendererID;
-};
+		void Bind() const override;
+		void Unbind() const override;
+
+	private:
+		uint32_t m_RendererID;
+	};
+}

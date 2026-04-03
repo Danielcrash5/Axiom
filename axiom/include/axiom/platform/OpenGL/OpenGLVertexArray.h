@@ -2,24 +2,27 @@
 #pragma once
 #include "axiom/renderer/VertexArray.h"
 
-class OpenGLVertexArray : public VertexArray {
-public:
-    OpenGLVertexArray();
-    ~OpenGLVertexArray();
+namespace axiom {
 
-    void Bind() const override;
-    void Unbind() const override;
+	class OpenGLVertexArray : public VertexArray {
+	public:
+		OpenGLVertexArray();
+		~OpenGLVertexArray();
 
-    void AddVertexBuffer(const std::shared_ptr<VertexBuffer>& vb) override;
-    void SetIndexBuffer(const std::shared_ptr<IndexBuffer>& ib) override;
+		void Bind() const override;
+		void Unbind() const override;
 
-    const std::vector<std::shared_ptr<VertexBuffer>>& GetVertexBuffers() const override {
-        return m_VertexBuffers;
-    }
+		void AddVertexBuffer(const std::shared_ptr<VertexBuffer>& vb) override;
+		void SetIndexBuffer(const std::shared_ptr<IndexBuffer>& ib) override;
 
-private:
-    uint32_t m_ID;
-    uint32_t m_VertexBufferIndex = 0;
+		const std::vector<std::shared_ptr<VertexBuffer>>& GetVertexBuffers() const override {
+			return m_VertexBuffers;
+		}
 
-    std::vector<std::shared_ptr<VertexBuffer>> m_VertexBuffers;
-};
+	private:
+		uint32_t m_ID;
+		uint32_t m_VertexBufferIndex = 0;
+
+		std::vector<std::shared_ptr<VertexBuffer>> m_VertexBuffers;
+	};
+}
