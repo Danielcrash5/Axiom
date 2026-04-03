@@ -67,15 +67,7 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 - Standardzustände definieren  
 
 **Aufgaben:**  
-- [x] RenderState-Struktur implementieren  
-  ```cpp
-  struct RenderState {
-      bool DepthTest;
-      bool Blending;
-      bool CullFace;
-      // optional: BlendMode, DepthFunc
-  };
-  ```  
+- [x] RenderState-Struktur implementieren   
 - [x] RendererAPI: SetRenderState(RenderState state)  
 - [x] OpenGL-Mapping:  
   - DepthTest → glEnable/glDisable(GL_DEPTH_TEST)  
@@ -83,8 +75,6 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
   - CullFace → glEnable/glDisable(GL_CULL_FACE)  
 - [x] State-Cache: aktuelle Zustände speichern, nur ändern wenn nötig  
 - [x] Standardzustand beim Init setzen: Blending=true, DepthTest=false, CullFace=false  
-
-- [x] Abhaken, wenn keine direkten glEnable/glDisable-Calls mehr im Code vorhanden sind  
 
 ### Buffer-System
 - [x] VertexBuffer (abstrakt)  
@@ -113,11 +103,6 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 - [x] Interface (Bind(), Unbind())  
 - [x] Fehler-Logging  
 - [x] Laufzeit-Uniform- und Textur-Binding   
-
-### Pipeline-System
-- [ ] PipelineSpecification: Shader + RenderState + BlendMode  
-- [ ] Pipeline-Interface und OpenGL-Implementierung  
-- [x] Erledigt, wenn Pipeline gebunden werden kann  
 
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
 

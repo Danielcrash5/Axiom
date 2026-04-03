@@ -107,11 +107,22 @@ void OpenGLShader::Reflect() {
         GLenum type;
 
         glGetActiveUniform(m_RendererID, i, 256, &length, &size, &type, name);
-
         GLint location = glGetUniformLocation(m_RendererID, name);
 
+        UniformInfo info;
+        info.Location = location;
+        info.Type = type;
+        info.Size = size;
+        info.IsTexture = (type == GL_SAMPLER_2D || type == GL_SAMPLER_CUBE);
+
+        m_UniformLocationCache[name] = info;
+
         std::cout << "[Shader] Uniform: " << name
-            << " | Location: " << location << std::endl;
+            << " | Location: " << location
+            << " | Type: " << type
+            << " | Size: " << size
+            << " | Texture: " << info.IsTexture
+            << std::endl;
     }
 }
 
@@ -121,9 +132,4 @@ void OpenGLShader::Bind() const {
 
 void OpenGLShader::Unbind() const {
     glUseProgram(0);
-}
-
-void OpenGLShader::SetFloat(const std::string& name, float value) {
-    GLint loc = glGetUniformLocation(m_RendererID, name.c_str());
-    glUniform1f(loc, value);
 }
