@@ -110,9 +110,9 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 
 ## Phase 2 — Asset-System (inkl. Asset Packs)
 **Kern:**  
-- [ ] AssetHandle (UUID)  
-- [ ] Asset-Basisklasse  
-- [ ] AssetType-Enum  
+- [x] AssetHandle (UUID)  
+- [x] Asset-Basisklasse  
+- [x] AssetType-Enum  
 
 **Asset-Manager:**  
 - [ ] LoadAsset(handle)  
