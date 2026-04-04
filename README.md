@@ -109,36 +109,7 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 ---
 
 ## Phase 2 — Asset-System (inkl. Asset Packs)
-**Kern:**  
-- [x] AssetHandle (UUID)  
-- [x] Asset-Basisklasse  
-- [x] AssetType-Enum  
-
-**Asset-Manager:**  
-- [ ] LoadAsset(handle)  
-- [ ] GetAsset<T>()  
-- [ ] UnloadAsset()  
-
-**Asset-Registry:**  
-- [ ] JSON/YAML-Registry-Datei  
-- [ ] Mapping: Handle → Dateipfad + Typ  
-
-**Asset-Loader:**  
-- [ ] Texture-Loader  
-- [ ] Shader-Loader (Slang)  
-- [ ] Audio-Loader  
-
-**Asset-Lebenszyklus:**  
-- [ ] Lazy Loading  
-- [ ] Asset-Cache  
-- [ ] Duplikatvermeidung  
-
-**Asset Packs:**  
-- [ ] AssetPack-Klasse  
-- [ ] Mount-/Unmount-System  
-- [ ] Mehrere Packs gleichzeitig laden  
-- [ ] Override-System (Game > Engine)  
-- [ ] Optional: Binäre Packs, Streaming  
+Abgeschlossen
 
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
 
