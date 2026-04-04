@@ -3,15 +3,24 @@
 
 namespace axiom {
 
-	class OpenGLVertexBuffer : public VertexBuffer {
-	public:
-		OpenGLVertexBuffer(void* vertices, uint32_t size);
-		~OpenGLVertexBuffer();
+    class OpenGLVertexBuffer : public VertexBuffer {
+    public:
+        // Dynamischer Buffer
+        OpenGLVertexBuffer(uint32_t size, BufferUsage usage);
 
-		void Bind() const override;
-		void Unbind() const override;
+        // Statischer Buffer
+        OpenGLVertexBuffer(void* vertices, uint32_t size);
 
-	private:
-		uint32_t m_RendererID;
-	};
+        virtual ~OpenGLVertexBuffer();
+
+        void Bind() const override;
+        void Unbind() const override;
+
+        void SetData(const void* data, uint32_t size) override;
+
+    private:
+        uint32_t m_RendererID = 0;
+        BufferUsage m_Usage;
+    };
+
 }

@@ -1,34 +1,62 @@
 #include "axiom/renderer/Renderer.h"
 
 namespace axiom {
-        void Renderer::BeginScene(const Camera& camera) {
-            s_SceneData.ViewProjection = camera.GetViewProjection();
-        }
+	void Renderer::Init() {
+		RenderCommand::Init();
+	}
 
-        void Renderer::EndScene() {
-            // Optional: Flush Commands, Multithreading später
-        }
+	void Renderer::BeginScene(const std::shared_ptr<Camera>& camera, ClearState clearState) {
+		if (clearState.ClearColor)
+			RenderCommand::SetClearColor(clearState.Color);
 
-        void Renderer::Submit(const std::shared_ptr<Model>& model, const glm::mat4& transform) {
-            auto& meshes = model->GetMeshes();
-            auto& materials = model->GetMaterials();
 
-            for (size_t i = 0; i < meshes.size(); i++) {
-                auto mesh = meshes[i];
-                for (auto& submesh : mesh->GetSubmeshes()) {
-                    auto material = materials[submesh.MaterialIndex];
+		s_SceneData.ViewProjection = camera->GetViewProjection();
+		RenderCommand::Clear();
+	}
 
-                    material->Set("u_ViewProjection", s_SceneData.ViewProjection);
-                    material->Set("u_Transform", transform);
-                    material->Bind();
+	void Renderer::EndScene() {
+		// Optional: Flush Commands, Multithreading später
+	}
 
-                    RenderCommand::SetRenderState(material->GetRenderState());
+	void Renderer::Submit(const std::shared_ptr<Model>& model, const glm::mat4& transform) {
+		auto& meshes = model->GetMeshes();
+		auto& materials = model->GetMaterials();
 
-                    RenderCommand::DrawIndexed(mesh->GetVertexArray(), submesh.IndexCount, submesh.IndexOffset);
-                }
-            }
-        }
+		for (size_t i = 0; i < meshes.size(); i++) {
+			auto mesh = meshes[i];
+			for (auto& submesh : mesh->GetSubmeshes()) {
+				auto material = materials[submesh.MaterialIndex];
 
-    SceneData Renderer::s_SceneData;
+				material->Set("u_ViewProjection", s_SceneData.ViewProjection);
+				material->Set("u_Transform", transform);
+				material->Bind();
+
+				RenderCommand::DrawIndexed(mesh->GetVertexArray(), submesh.IndexCount, submesh.IndexOffset);
+			}
+		}
+	}
+
+	void Renderer::Submit(
+		const std::shared_ptr<VertexArray>& vao,
+		const std::shared_ptr<Material>& material,
+		uint32_t indexCount,
+		const glm::mat4& transform
+	) {
+		material->Set("u_ViewProjection", s_SceneData.ViewProjection);
+		material->Set("u_Transform", transform);
+		material->Bind();
+
+		RenderCommand::DrawIndexed(vao, indexCount);
+	}
+
+	void Renderer::SubmitLines(const std::shared_ptr<VertexArray>& vao,
+							   const std::shared_ptr<Material>& material,
+							   uint32_t indexCount) {
+		material->Set("u_ViewProjection", s_SceneData.ViewProjection);
+		material->Bind();
+		RenderCommand::DrawLinesIndexed(vao, indexCount);
+	}
+
+	SceneData Renderer::s_SceneData;
 
 }

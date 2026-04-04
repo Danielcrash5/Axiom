@@ -3,9 +3,10 @@
 
 namespace axiom {
 	void OpenGLRendererAPI::Init() {
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		SetRenderState({}); //Default Renderstate setzen
+		glEnable(GL_BLEND);									// Alphablending aktivieren
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);	// Default Blendingfunktion setzen
+		SetRenderState({});									// Default Renderstate setzen
+		SetClearState(true, true);							// Default Clerstate setzen
 	}
 
 	void OpenGLRendererAPI::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
@@ -16,8 +17,16 @@ namespace axiom {
 		glClearColor(color.r, color.g, color.b, color.a);
 	}
 
+	void OpenGLRendererAPI::SetClearState(bool Depth, bool Color) {
+		if (Depth)
+			ClearMask |= GL_DEPTH_BUFFER_BIT;
+
+		if (Color)
+			ClearMask |= GL_COLOR_BUFFER_BIT;
+	}
+
 	void OpenGLRendererAPI::Clear() {
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClear(ClearMask);
 	}
 
 	GLenum toGL(DepthFunc depthFunc) {
@@ -109,5 +118,13 @@ namespace axiom {
 		vao->Bind();
 		const void* offsetPtr = reinterpret_cast<const void*>(static_cast<uintptr_t>(offset * sizeof(uint32_t)));
 		glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, offsetPtr);
+	}
+
+	void OpenGLRendererAPI::DrawLinesIndexed(const std::shared_ptr<VertexArray>& vao,
+											 uint32_t count,
+											 uint32_t offset) {
+		vao->Bind();
+		const void* offsetPtr = reinterpret_cast<const void*>(static_cast<uintptr_t>(offset * sizeof(uint32_t)));
+		glDrawElements(GL_LINES, count, GL_UNSIGNED_INT, offsetPtr);
 	}
 }

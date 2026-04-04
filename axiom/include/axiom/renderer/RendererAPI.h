@@ -18,10 +18,12 @@ namespace axiom {
 		virtual void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) = 0;
 
 		virtual void SetClearColor(const glm::vec4& color) = 0;
+		virtual void SetClearState(bool Depth, bool Color) = 0;
 		virtual void Clear() = 0;
 		virtual void SetRenderState(const RenderState& state) = 0;
 
 		virtual void DrawIndexed(const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t offset) = 0;
+		virtual void DrawLinesIndexed(const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t offset) = 0;
 
 		static RendererAPIType GetAPI() {
 			return s_API;

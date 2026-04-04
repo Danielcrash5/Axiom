@@ -5,6 +5,7 @@
 #include "axiom/core/Layerstack.h"
 #include "axiom/input/Input.h"
 #include "axiom/input/InputSystem.h"
+#include "axiom/renderer/Camera.h"
 #include <memory>
 
 namespace axiom {
@@ -109,6 +110,8 @@ namespace axiom {
 		uint32_t m_Width, m_Height;
 
 		static Application* s_Instance;
+
+		std::shared_ptr<Camera> m_MainCamera;
 
 		InputSystem m_InputSystem;
 		Input m_Input;

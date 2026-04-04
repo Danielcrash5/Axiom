@@ -3,6 +3,7 @@
 #include "axiom/core/Logger.h"
 #include "axiom/core/Time.h"
 #include "axiom/profiling/Profiler.h"
+#include "axiom/renderer/Renderer.h"
 
 namespace axiom {
 
@@ -53,8 +54,12 @@ namespace axiom {
 			}
 		);
 
+		m_MainCamera->SetOrthographic(-1.0f, 1.0f, -1.0f, 1.0f, -0.01, 1000.0f); // Temporär Kamera kommt aus ECS Entity
+
 		m_Input.Init(m_Window->GetNativeHandle());
 		m_InputSystem.Init();
+
+		Renderer::Init();
 
 		OnInit();
 	}
@@ -91,13 +96,14 @@ namespace axiom {
 	void Application::Render(double alpha) {
 		AXIOM_PROFILE_SCOPE("Render");
 
+		Renderer::BeginScene(m_MainCamera, {});
 		OnRender(alpha);
 
 		for (auto& layer : m_LayerStack) {
 			AXIOM_PROFILE_SCOPE(layer->GetName());
 			layer->OnRender(alpha);
 		}
-
+		Renderer::EndScene();
 		m_Window->SwapBuffers();
 	}
 

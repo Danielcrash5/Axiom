@@ -5,6 +5,13 @@
 #include "RenderCommand.h"
 
 namespace axiom {
+	struct ClearState {
+		bool ClearColor = true;
+		bool ClearDepth = true;
+
+		glm::vec4 Color = { 0.1f, 0.1f, 0.1f, 1.0f };
+		float Depth = 1.0f;
+	};
 
 	struct SceneData {
 		glm::mat4 ViewProjection;
@@ -12,11 +19,24 @@ namespace axiom {
 
 	class Renderer {
 	public:
-		static void BeginScene(const Camera& camera);
+		static void Init();
+
+		static void BeginScene(const std::shared_ptr<Camera>& camera, ClearState clearState);
 
 		static void EndScene();
 
 		static void Submit(const std::shared_ptr<Model>& model, const glm::mat4& transform);
+		static void Submit(
+			const std::shared_ptr<VertexArray>& vao,
+			const std::shared_ptr<Material>& material,
+			uint32_t indexCount,
+			const glm::mat4& transform
+		);
+		static void SubmitLines(
+			const std::shared_ptr<VertexArray>& vao,
+			const std::shared_ptr<Material>& material,
+			uint32_t indexCount
+		);
 
 	private:
 		static SceneData s_SceneData;
