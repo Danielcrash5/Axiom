@@ -2,12 +2,11 @@
 #include <string>
 #include <memory>
 #include "TextureOptions.h"
-#include "axiom/assetmanager/TypedAsset.h"
 
 namespace axiom {
 
 
-	class Texture2D : public TypedAsset<AssetType::Texture2D> {
+	class Texture2D {
 	public:
 		virtual ~Texture2D() = 0;
 
