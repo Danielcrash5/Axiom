@@ -5,8 +5,27 @@
 #include "axiom/profiling/Profiler.h"
 #include "axiom/renderer/Renderer.h"
 #include "axiom/assets/VFS.h"
+#include <filesystem>
+#include <vector>
 
 namespace axiom {
+
+	namespace {
+		std::string ResolveAssetPath(const std::string& configuredPath, const std::vector<std::string>& fallbackCandidates) {
+			namespace fs = std::filesystem;
+			std::error_code ec;
+
+			if (!configuredPath.empty() && fs::exists(configuredPath, ec))
+				return configuredPath;
+
+			for (const auto& candidate : fallbackCandidates) {
+				if (fs::exists(candidate, ec))
+					return candidate;
+			}
+
+			return configuredPath;
+		}
+	}
 
 	Application* Application::s_Instance = nullptr;
 
@@ -63,8 +82,34 @@ namespace axiom {
 
 		Renderer::Init();
 		VFS::Init();
-		VFS::Mount("engine://", AXIOM_ENGINE_ASSET_PATH, VFS::MountType::Directory);
-		VFS::Mount("game://", AXIOM_GAME_ASSET_PATH, VFS::MountType::Directory);
+		const std::string engineAssetPath = ResolveAssetPath(
+			AXIOM_ENGINE_ASSET_PATH,
+			{
+				"./axiom/assets",
+				"../axiom/assets",
+				"../../axiom/assets",
+				"../../../axiom/assets"
+			}
+		);
+
+		const std::string gameAssetPath = ResolveAssetPath(
+			AXIOM_GAME_ASSET_PATH,
+			{
+				"./testbed/assets",
+				"../testbed/assets",
+				"../../testbed/assets",
+				"../../../testbed/assets",
+				"./assets"
+			}
+		);
+
+		if (engineAssetPath != AXIOM_ENGINE_ASSET_PATH)
+			AXIOM_WARN("Engine asset path fallback is used: {}", engineAssetPath);
+		if (gameAssetPath != AXIOM_GAME_ASSET_PATH)
+			AXIOM_WARN("Game asset path fallback is used: {}", gameAssetPath);
+
+		VFS::Mount("engine://", engineAssetPath, VFS::MountType::Directory);
+		VFS::Mount("game://", gameAssetPath, VFS::MountType::Directory);
 
 		OnInit();
 	}
