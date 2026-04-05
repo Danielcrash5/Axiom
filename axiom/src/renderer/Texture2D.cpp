@@ -16,4 +16,16 @@ namespace axiom {
 			return texture;
 		}
 	}
+
+	std::shared_ptr<Texture2D> Texture2D::CreateFromMemory(
+		const std::vector<uint8_t>& data,
+		const TextureLoadInfo& info
+	) {
+		switch (RendererAPI::GetAPI()) {
+		case RendererAPIType::OpenGL:
+			return OpenGLTexture2D::CreateFromMemory(data, info);
+		}
+		return nullptr;
+	}
+
 }

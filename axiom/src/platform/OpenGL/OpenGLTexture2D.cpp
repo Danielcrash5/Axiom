@@ -1,5 +1,6 @@
 #include "axiom/platform/OpenGL/OpenGLTexture2D.h"
 #include "axiom/core/Logger.h"
+#include "axiom/assets/TextureLoadInfo.h"
 #include <glad/glad.h>
 #include <stb_image.h>
 
@@ -205,5 +206,41 @@ namespace axiom {
 		glGenerateMipmap(GL_TEXTURE_2D);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
+
+	std::shared_ptr<OpenGLTexture2D> OpenGLTexture2D::CreateFromMemory(
+		const std::vector<uint8_t>& data,
+		const TextureLoadInfo& info
+	) {
+		int width, height, channels;
+		stbi_set_flip_vertically_on_load(1);
+		stbi_uc* pixels = stbi_load_from_memory(
+			data.data(), (int)data.size(),
+			&width, &height, &channels, 0
+		);
+		if (!pixels)
+			return nullptr;
+
+		auto tex = std::make_shared<OpenGLTexture2D>(
+			width, height,
+			info.generateMipmaps,
+			info.wrapS, info.wrapT,
+			info.filterMin, info.filterMag
+		);
+
+		TextureFormat format = TextureFormat::RGBA8;
+		if (channels == 3) format = TextureFormat::RGB8;
+		if (channels == 4) format = TextureFormat::RGBA8;
+
+		tex->SetFormat(format);
+		tex->SetData(pixels, width, height, format);
+
+		stbi_image_free(pixels);
+
+		if (info.generateMipmaps)
+			tex->GenerateMipmaps();
+
+		return tex;
+	}
+
 
 } // namespace axiom

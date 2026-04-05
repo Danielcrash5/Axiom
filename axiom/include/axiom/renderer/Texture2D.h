@@ -1,7 +1,9 @@
 #pragma once
 #include <string>
 #include <memory>
+#include <vector>
 #include "TextureOptions.h"
+#include "axiom/assets/TextureLoadInfo.h"
 
 namespace axiom {
 
@@ -24,5 +26,11 @@ namespace axiom {
 
 		static std::shared_ptr<Texture2D> Create(int width, int height, bool generateMipmaps, TextureWrap wraps, TextureWrap wrapT, TextureFilter filterMin, TextureFilter filterMag);
 		static std::shared_ptr<Texture2D> Create(const std::string& path, bool sRGB, bool HDR, bool is16Bit, bool generateMipmaps, TextureWrap wraps, TextureWrap wrapT, TextureFilter filterMin, TextureFilter filterMag);
+		// aus Memory (für Zip)
+		static std::shared_ptr<Texture2D> CreateFromMemory(
+			const std::vector<uint8_t>& data,
+			const TextureLoadInfo& info
+		);
+
 	};
 }

@@ -4,6 +4,7 @@
 #include <axiom/core/Logger.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <axiom/renderer/Renderer2D.h>
 
 
 class InputTestLayer : public axiom::Layer {
@@ -33,10 +34,15 @@ public:
 protected:
 	void OnInit() override {
         PushLayer(std::make_unique<InputTestLayer>());
+		axiom::Renderer2D::Init();
 	}
 
 	void OnRender(double alpha) override {
-		
+		axiom::Renderer2D::BeginScene();
+
+		axiom::Renderer2D::DrawCircle(glm::translate(glm::mat4(1.0f), glm::vec3(100.0f, 100.0f, 0.0f)), 0.0f, glm::vec4(1.0f));
+
+		axiom::Renderer2D::EndScene();
 	}
 
 	void OnUpdate(double dt) override {

@@ -14,12 +14,18 @@ namespace axiom {
 
 	OpenGLShader::OpenGLShader(
 		const std::string& path,
-		const std::unordered_set<std::string>& defines) {
-		std::string source = ReadFile(path);
+		const std::unordered_set<std::string>& defines, bool fromMemory) {
 
-		std::string dir = path.substr(0, path.find_last_of("/\\"));
+		std::string source;
+		if (fromMemory)
+			source = path;
+		else {
+			source = ReadFile(path);
 
-		source = ShaderPreprocessor::Process(source, dir, defines);
+			std::string dir = path.substr(0, path.find_last_of("/\\"));
+
+			source = ShaderPreprocessor::Process(source, dir, defines);
+		}
 
 		auto shaders = Parse(source);
 

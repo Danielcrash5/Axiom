@@ -26,5 +26,11 @@ namespace axiom {
 			const std::string& path,
 			const std::unordered_set<std::string>& defines = {}
 		);
+
+		static std::shared_ptr<Shader> CreateFromMemory(
+			const std::string& source,
+			const std::unordered_set<std::string>& defines = {}
+		);
+
 	};
 }

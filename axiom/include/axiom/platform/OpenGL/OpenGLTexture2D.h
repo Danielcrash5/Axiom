@@ -19,11 +19,19 @@ namespace axiom {
 
 		void GenerateMipmaps();
 
+		static std::shared_ptr<OpenGLTexture2D> CreateFromMemory(
+			const std::vector<uint8_t>& data,
+			const TextureLoadInfo& info
+		);
+
+
 	private:
 		GLuint64 m_BindlessHandle;
 		GLuint m_RendererID;
 		uint32_t m_Width, m_Height;
 		bool m_GenerateMipmaps;
+
+		std::vector<uint8_t> m_data;
 
 		TextureWrap m_WrapS, m_WrapT;
 		TextureFilter m_FilterMin, m_FilterMag;

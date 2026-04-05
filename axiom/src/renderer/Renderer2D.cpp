@@ -1,5 +1,6 @@
 #include "axiom/renderer/Renderer2D.h"
 #include "axiom/renderer/Renderer.h"
+#include "axiom/assets/AssetManager.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -58,6 +59,14 @@ namespace axiom {
             RendererData::MaxVertices * sizeof(LineVertex),
             BufferUsage::Dynamic
         );
+        
+        auto QuadShader = AssetManager::Get<Shader>("engine://shaders/Renderer2D/Quad.glsl");
+        auto LineShader = AssetManager::Get<Shader>("engine://shaders/Renderer2D/Line.glsl");
+        auto CircleShader = AssetManager::Get<Shader>("engine://shaders/Renderer2D/Circle.glsl");
+
+        s_Data->QuadMaterial = std::make_shared<Material>(QuadShader);
+        s_Data->LineMaterial = std::make_shared<Material>(LineShader);
+        s_Data->CircleMaterial = std::make_shared<Material>(CircleShader);
 
         s_Data->LineVBO->SetLayout({
             { ShaderDataType::Vec3, "a_Position" },

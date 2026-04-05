@@ -1,5 +1,6 @@
 #include "axiom/platform/OpenGL/OpenGLVertexArray.h"
 #include "axiom/platform/OpenGL/OpenGLVertexBuffer.h"
+#include "axiom/platform/OpenGL/OpenGLIndexBuffer.h"
 #include <glad/glad.h>
 
 namespace axiom {
@@ -41,5 +42,12 @@ namespace axiom {
 		}
 
 		m_VertexBuffers.push_back(vertexBuffer);
+	}
+
+	void OpenGLVertexArray::SetIndexBuffer(const std::shared_ptr<IndexBuffer>& ib) {
+		m_IndexBuffer = ib;
+		
+		Bind();
+		m_IndexBuffer->Bind();
 	}
 }

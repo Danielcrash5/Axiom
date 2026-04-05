@@ -17,7 +17,8 @@ namespace axiom {
 	public:
 		OpenGLShader(
 			const std::string& path,
-			const std::unordered_set<std::string>& defines
+			const std::unordered_set<std::string>& defines,
+			bool fromMemory = false
 		);
 
 		~OpenGLShader();

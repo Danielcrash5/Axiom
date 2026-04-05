@@ -4,6 +4,7 @@
 #include "axiom/core/Time.h"
 #include "axiom/profiling/Profiler.h"
 #include "axiom/renderer/Renderer.h"
+#include "axiom/assets/VFS.h"
 
 namespace axiom {
 
@@ -54,12 +55,16 @@ namespace axiom {
 			}
 		);
 
+		m_MainCamera = std::make_shared<Camera>();
 		m_MainCamera->SetOrthographic(-1.0f, 1.0f, -1.0f, 1.0f, -0.01, 1000.0f); // Temporär Kamera kommt aus ECS Entity
 
 		m_Input.Init(m_Window->GetNativeHandle());
 		m_InputSystem.Init();
 
 		Renderer::Init();
+		VFS::Init();
+		VFS::Mount("engine://", AXIOM_ENGINE_ASSET_PATH, VFS::MountType::Directory);
+		VFS::Mount("game://", AXIOM_GAME_ASSET_PATH, VFS::MountType::Directory);
 
 		OnInit();
 	}
@@ -175,5 +180,6 @@ namespace axiom {
 		AXIOM_PROFILE_SCOPE("Application::Shutdown");
 		OnShutdown();
 		m_LayerStack.Shutdown();
+		VFS::Shutdown();
 	}
 }
