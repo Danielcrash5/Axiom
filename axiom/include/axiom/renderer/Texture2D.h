@@ -23,5 +23,6 @@ namespace axiom {
 		virtual void GenerateMipmaps() = 0;
 
 		static std::shared_ptr<Texture2D> Create(int width, int height, bool generateMipmaps, TextureWrap wraps, TextureWrap wrapT, TextureFilter filterMin, TextureFilter filterMag);
+		static std::shared_ptr<Texture2D> Create(const std::string& path, bool sRGB, bool HDR, bool is16Bit, bool generateMipmaps, TextureWrap wraps, TextureWrap wrapT, TextureFilter filterMin, TextureFilter filterMag);
 	};
 }
