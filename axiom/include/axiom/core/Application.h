@@ -6,6 +6,7 @@
 #include "axiom/input/Input.h"
 #include "axiom/input/InputSystem.h"
 #include "axiom/renderer/Camera.h"
+#include "axiom/renderer/RenderCommand.h"
 #include <memory>
 
 namespace axiom {
@@ -99,6 +100,7 @@ namespace axiom {
 		bool OnWindowResize(WindowResizeEvent& e) {
 			m_Width = e.width;
 			m_Height = e.height;
+			RenderCommand::SetViewport(0, 0, e.width, e.height);
 			return false; // Return false to allow other listeners to handle the event as well
 		}
 

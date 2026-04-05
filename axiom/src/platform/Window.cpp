@@ -5,6 +5,7 @@
 #include "axiom/renderer/RendererAPI.h"
 #include <format>
 #include <GLFW/glfw3.h>
+#include <glad/glad.h>
 #include <stdexcept>
 
 namespace axiom {
@@ -39,6 +40,7 @@ namespace axiom {
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 			glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+
 		}
 
 		// Fenster erstellen
@@ -54,6 +56,12 @@ namespace axiom {
 
 		// Kontext aktiv machen bevor GL-Funktionen geladen werden
 		glfwMakeContextCurrent(m_Window);
+
+		if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+			AXIOM_ERROR("Failed to initialize GLAD!");
+			return;
+		}
+
 
 		glfwSetWindowUserPointer(m_Window, this);
 

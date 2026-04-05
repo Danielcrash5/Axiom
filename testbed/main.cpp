@@ -40,7 +40,9 @@ protected:
 	void OnRender(double alpha) override {
 		axiom::Renderer2D::BeginScene();
 
-		axiom::Renderer2D::DrawCircle(glm::translate(glm::mat4(1.0f), glm::vec3(100.0f, 100.0f, 0.0f)), 0.0f, glm::vec4(1.0f));
+		axiom::Renderer2D::DrawQuad(glm::vec2(1.0f), glm::vec2(50.0f), glm::vec4(1.0f));
+
+		axiom::Renderer2D::DrawCircle(glm::mat4(1.0f), 0.0f, glm::vec4(1.0f));
 
 		axiom::Renderer2D::EndScene();
 	}
@@ -50,7 +52,7 @@ protected:
 	}
 
 	void OnShutdown() override {
-		
+		axiom::Renderer2D::Shutdown();
 	}
 
 	

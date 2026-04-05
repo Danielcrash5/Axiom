@@ -10,7 +10,7 @@ namespace axiom {
 
 	class Texture2D {
 	public:
-		virtual ~Texture2D() = 0;
+		~Texture2D() = default;
 
 		virtual void Bind(int slot) const = 0;
 		virtual uint64_t GetBindlessHandle() const = 0;

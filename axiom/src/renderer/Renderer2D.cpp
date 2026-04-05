@@ -11,6 +11,16 @@ namespace axiom {
     void Renderer2D::Init() {
         s_Data = new RendererData();
 
+        auto WhiteTexture = Texture2D::Create(1, 1, false,
+                                              TextureWrap::ClampToEdge, TextureWrap::ClampToEdge,
+                                              TextureFilter::Linear, TextureFilter::Linear);
+        uint32_t white = 0xffffffff;
+        WhiteTexture->SetData(&white, 1, 1, TextureFormat::RGBA8);
+
+        s_Data->TextureSlots[0] = WhiteTexture;
+        s_Data->TextureSlotIndex = 1;
+
+
         // -------------------------
         // Quad Setup
         // -------------------------

@@ -56,7 +56,7 @@ namespace axiom {
 		);
 
 		m_MainCamera = std::make_shared<Camera>();
-		m_MainCamera->SetOrthographic(-1.0f, 1.0f, -1.0f, 1.0f, -0.01, 1000.0f); // Temporär Kamera kommt aus ECS Entity
+		m_MainCamera->SetOrthographic(-100.0f, 100.0f, -100.0f, 100.0f, -0.01, 1000.0f); // Temporär Kamera kommt aus ECS Entity
 
 		m_Input.Init(m_Window->GetNativeHandle());
 		m_InputSystem.Init();
