@@ -18,6 +18,10 @@ namespace axiom {
 		// Optional: Flush Commands, Multithreading später
 	}
 
+	const glm::mat4& Renderer::GetViewProjection() {
+		return s_SceneData.ViewProjection;
+	}
+
 	void Renderer::Submit(const std::shared_ptr<Model>& model, const glm::mat4& transform) {
 		auto& meshes = model->GetMeshes();
 		auto& materials = model->GetMaterials();

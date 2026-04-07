@@ -24,6 +24,7 @@ namespace axiom {
 		static void BeginScene(const std::shared_ptr<Camera>& camera, ClearState clearState);
 
 		static void EndScene();
+		static const glm::mat4& GetViewProjection();
 
 		static void Submit(const std::shared_ptr<Model>& model, const glm::mat4& transform);
 		static void Submit(

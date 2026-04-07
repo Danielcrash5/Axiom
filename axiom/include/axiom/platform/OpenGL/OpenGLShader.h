@@ -55,14 +55,11 @@ namespace axiom {
 		}
 
 		void SetTexture(const std::string& name, const std::shared_ptr<axiom::Texture2D>& texture, uint32_t slot) override {
-			auto it = m_UniformLocationCache.find(name);
-			if (it == m_UniformLocationCache.end()) {
+			GLint location = GetUniformLocation(name);
+			if (location < 0) {
 				AXIOM_ERROR("[Shader] Uniform not found: {}", name);
 				return;
 			}
-
-			GLint location = it->second.Location;
-			GLenum type = it->second.Type;
 
 			if (!texture)
 				return;
@@ -87,10 +84,21 @@ namespace axiom {
 		mutable std::unordered_map<std::string, UniformInfo> m_UniformLocationCache;
 
 		int GetUniformLocation(const std::string& name) const {
-			if (m_UniformLocationCache.find(name) != m_UniformLocationCache.end())
-				return m_UniformLocationCache[name].Location;
-			else
-				throw std::runtime_error("Unknown Uniform");
+			auto it = m_UniformLocationCache.find(name);
+			if (it != m_UniformLocationCache.end())
+				return it->second.Location;
+
+			GLint location = glGetUniformLocation(m_RendererID, name.c_str());
+			if (location < 0)
+				return location;
+
+			UniformInfo info {};
+			info.Location = location;
+			info.Type = GL_NONE;
+			info.Size = 1;
+			info.IsTexture = false;
+			m_UniformLocationCache[name] = info;
+			return location;
 		}
 
 		void Compile(const std::unordered_map<GLenum, std::string>& shaders);
