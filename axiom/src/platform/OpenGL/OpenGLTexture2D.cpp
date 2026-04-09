@@ -64,13 +64,19 @@ namespace axiom {
 		}
 	}
 
-	GLenum toGL(TextureFilter filter) {
+	GLenum toGL(TextureFilter filter, bool Mipmaps) {
 		switch (filter) {
 		case axiom::TextureFilter::Nearest:
-			return GL_NEAREST;
+			if (Mipmaps)
+				return GL_NEAREST_MIPMAP_NEAREST;
+			else
+				return GL_NEAREST;
 			break;
 		case axiom::TextureFilter::Linear:
-			return GL_LINEAR;
+			if (Mipmaps)
+				return GL_LINEAR_MIPMAP_LINEAR;
+			else
+				return GL_LINEAR;
 			break;
 		default:
 			break;
@@ -201,8 +207,7 @@ namespace axiom {
 			float* floatData = stbi_loadf(path.c_str(), &width, &height, &channels, 0);
 			data = floatData;
 			m_TextureFormat = TextureFormat::RGBA16F; // oder RGBA32F bei Bedarf
-		}
-		else {
+		} else {
 			stbi_set_flip_vertically_on_load(1);
 			unsigned char* imgData = stbi_load(path.c_str(), &width, &height, &channels, 4);
 			data = imgData;
@@ -238,8 +243,8 @@ namespace axiom {
 
 	void OpenGLTexture2D::SetFilter(TextureFilter filterMin, TextureFilter filterMag) {
 		glBindTexture(GL_TEXTURE_2D, m_RendererID);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, toGL(filterMin));
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, toGL(filterMag));
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, toGL(filterMin, m_GenerateMipmaps));
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, toGL(filterMag, m_GenerateMipmaps));
 		glBindTexture(GL_TEXTURE_2D, 0);
 
 		m_FilterMin = filterMin;
