@@ -17,6 +17,7 @@ namespace axiom {
 		void SetClearState(bool Depth, bool Color);
 
 		void DrawIndexed(const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t offset = 0) override;
+		void DrawArrays(const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t offset = 0) override;
 		void DrawLinesIndexed(const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t offset) override;
 
 

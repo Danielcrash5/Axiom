@@ -120,6 +120,11 @@ namespace axiom {
 		glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, offsetPtr);
 	}
 
+	void OpenGLRendererAPI::DrawArrays(const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t offset) {
+		vao->Bind();
+		glDrawArrays(GL_TRIANGLES, static_cast<GLint>(offset), static_cast<GLsizei>(count));
+	}
+
 	void OpenGLRendererAPI::DrawLinesIndexed(const std::shared_ptr<VertexArray>& vao,
 											 uint32_t count,
 											 uint32_t offset) {

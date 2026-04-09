@@ -29,9 +29,8 @@ namespace axiom {
 
 	Application* Application::s_Instance = nullptr;
 
-	// Fixed update timing state (file scope so all functions can use them)
 	static double m_LastFixedUpdate = 0.0f;
-	static double m_FixedUpdateInterval = 1.0 / 75.0; // 75 FPS
+	static double m_FixedUpdateInterval = 1.0 / 75.0;
 
 	Application::Application(std::string AppName, uint32_t width, uint32_t height) {
 		AXIOM_ASSERT(!s_Instance, "Application already exists!");
@@ -39,9 +38,7 @@ namespace axiom {
 		m_AppName = AppName;
 		m_Height = height;
 		m_Width = width;
-
 	}
-
 
 	void Application::Run() {
 		Init();
@@ -75,12 +72,14 @@ namespace axiom {
 		);
 
 		m_MainCamera = std::make_shared<Camera>();
-		m_MainCamera->SetOrthographic(-100.0f, 100.0f, -100.0f, 100.0f, -0.01, 1000.0f); // Temporär Kamera kommt aus ECS Entity
+		const float aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
+		m_MainCamera->SetOrthographic(-100.0f * aspect, 100.0f * aspect, -100.0f, 100.0f, -0.01f, 1000.0f);
 
 		m_Input.Init(m_Window->GetNativeHandle());
 		m_InputSystem.Init();
 
 		Renderer::Init();
+		RenderCommand::SetViewport(0, 0, m_Width, m_Height);
 		VFS::Init();
 		const std::string engineAssetPath = ResolveAssetPath(
 			AXIOM_ENGINE_ASSET_PATH,
@@ -88,7 +87,8 @@ namespace axiom {
 				"./axiom/assets",
 				"../axiom/assets",
 				"../../axiom/assets",
-				"../../../axiom/assets"
+				"../../../axiom/assets",
+				"../../../../axiom/assets"
 			}
 		);
 
@@ -99,6 +99,7 @@ namespace axiom {
 				"../testbed/assets",
 				"../../testbed/assets",
 				"../../../testbed/assets",
+				"../../../../testbed/assets",
 				"./assets"
 			}
 		);
@@ -115,13 +116,10 @@ namespace axiom {
 	}
 
 	void Application::MainLoop() {
-
 		double printTimer = 0.0f;
 
 		while (m_Running) {
-
 			Time::Update();
-
 			axiom::profiling::Profiler::BeginFrame();
 
 			{
@@ -195,7 +193,6 @@ namespace axiom {
 	}
 
 	void Application::MainUpdate() {
-
 		AXIOM_PROFILE_SCOPE("Application::MainUpdate");
 
 		m_Window->PollEvents();
@@ -208,7 +205,6 @@ namespace axiom {
 		PreUpdate(dt);
 		Update(dt);
 
-		// -------- Fixed Update --------
 		int maxSteps = 5;
 		int steps = 0;
 

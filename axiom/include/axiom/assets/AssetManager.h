@@ -1,15 +1,16 @@
 // AssetManager.h
 #pragma once
-#include <unordered_map>
-#include <string>
 #include <memory>
-#include <vector>
 #include <stdexcept>
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+#include <vector>
 
 #include "VFS.h"
-#include "axiom/renderer/Texture2D.h"
-#include "axiom/renderer/Shader.h"
 #include "TextureLoadInfo.h"
+#include "axiom/renderer/Shader.h"
+#include "axiom/renderer/Texture2D.h"
 
 namespace axiom {
 
@@ -24,7 +25,6 @@ namespace axiom {
                 return std::static_pointer_cast<T>(it->second);
 
             auto asset = LoadAsset<T>(virtualPath, std::forward<Args>(args)...);
-
             s_assets[virtualPath] = asset;
             return asset;
         }
@@ -42,11 +42,23 @@ namespace axiom {
         }
 
         template<typename T, typename... Args>
-        static std::shared_ptr<T> LoadAsset(const std::string& virtualPath, Args&&... args);
+        static std::shared_ptr<T> LoadAsset(const std::string& virtualPath, Args&&... args) {
+            if constexpr (std::is_same_v<T, Texture2D>) {
+                if constexpr (sizeof...(Args) == 0) {
+                    return LoadTextureAsset(virtualPath, TexturePresets::Albedo());
+                } else {
+                    static_assert(sizeof...(Args) == 1, "Texture2D assets accept zero or one TextureLoadInfo argument");
+                    return LoadTextureAsset(virtualPath, std::forward<Args>(args)...);
+                }
+            } else if constexpr (std::is_same_v<T, Shader>) {
+                static_assert(sizeof...(Args) == 0, "Shader assets do not accept extra arguments");
+                return LoadShaderAsset(virtualPath);
+            } else {
+                static_assert(!sizeof(T), "Unsupported asset type");
+            }
+        }
 
-        // -------- Texture2D Spezialisierung --------
-        template<>
-        static std::shared_ptr<Texture2D> LoadAsset<Texture2D>(
+        static std::shared_ptr<Texture2D> LoadTextureAsset(
             const std::string& virtualPath,
             const TextureLoadInfo& info
         ) {
@@ -57,17 +69,7 @@ namespace axiom {
             return Texture2D::CreateFromMemory(data, info);
         }
 
-        template<>
-        static std::shared_ptr<Texture2D> LoadAsset<Texture2D>(
-            const std::string& virtualPath
-        ) {
-            TextureLoadInfo defaults = TexturePresets::Albedo();
-            return LoadAsset<Texture2D>(virtualPath, defaults);
-        }
-
-        // -------- Shader Spezialisierung --------
-        template<>
-        static std::shared_ptr<Shader> LoadAsset<Shader>(
+        static std::shared_ptr<Shader> LoadShaderAsset(
             const std::string& virtualPath
         ) {
             std::vector<uint8_t> data;

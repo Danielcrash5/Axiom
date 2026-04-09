@@ -10,7 +10,7 @@ target_link_libraries(testbed
 # Output-Verzeichnis und Debug-Verzeichnis
 set_target_properties(testbed PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/testbed"
-    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/testbed"
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
 # Optional: Win32 Executable ohne Console

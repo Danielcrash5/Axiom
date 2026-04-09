@@ -18,6 +18,18 @@ namespace axiom {
     public:
         static constexpr uint32_t MaxBones = 64;
 
+        enum class LineCap {
+            Butt,
+            Square,
+            Round
+        };
+
+        enum class LineJoin {
+            Miter,
+            Bevel,
+            Round
+        };
+
         struct SkeletonPose2D {
             std::array<glm::mat4, MaxBones> BoneTransforms{};
             uint32_t BoneCount = 0;
@@ -76,9 +88,20 @@ namespace axiom {
                                 const std::shared_ptr<Material>& materialOverride = nullptr);
 
         static void DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color);
-        static void DrawRect(const glm::vec3& pos, const glm::vec2& size, const glm::vec4& color, float z = 0.0f);
-        static void DrawRect(const glm::mat4& transform, const glm::vec4& color);
+        static void DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color, float thickness);
+        static void DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color, float thickness, LineCap cap);
+        static void DrawLineStrip(const std::vector<glm::vec3>& points,
+                                  const glm::vec4& color,
+                                  float thickness,
+                                  bool closed = false,
+                                  LineCap cap = LineCap::Butt,
+                                  LineJoin join = LineJoin::Miter,
+                                  float miterLimit = 4.0f);
+        static void DrawRect(const glm::vec3& pos, const glm::vec2& size, const glm::vec4& color, float z = 0.0f, float thickness = 1.5f);
+        static void DrawRect(const glm::mat4& transform, const glm::vec4& color, float thickness = 1.5f);
 
+        static void DrawCircle(const glm::vec2& pos, float radius, float thickness, const glm::vec4& color, float z = 0.0f);
+        static void DrawCircle(const glm::vec3& pos, float radius, float thickness, const glm::vec4& color);
         static void DrawCircle(const glm::mat4& transform, float thickness, const glm::vec4& color);
 
     private:
@@ -91,6 +114,12 @@ namespace axiom {
         static void EnsureLineCapacity(uint32_t vertexCount = 2);
         static void EnsureCircleCapacity(uint32_t circleCount = 1);
         static float AcquireTextureSlot(const std::shared_ptr<Texture2D>& texture);
+        static void Configure2DMaterial(const std::shared_ptr<Material>& material);
+        static void SubmitImmediateQuadDefault(const glm::mat4& transform,
+                                               const glm::vec2* texCoords,
+                                               const std::shared_ptr<Texture2D>& texture,
+                                               float tiling,
+                                               const glm::vec4& tint);
         static void SubmitImmediateQuad(const glm::mat4& transform,
                                         const glm::vec2* texCoords,
                                         const std::shared_ptr<Texture2D>& texture,
@@ -113,6 +142,7 @@ namespace axiom {
 
         struct CircleVertex {
             glm::vec3 Position;
+            glm::vec3 LocalPosition;
             glm::vec4 Color;
             float Thickness;
         };
@@ -124,6 +154,8 @@ namespace axiom {
             static constexpr uint32_t MaxTextureSlots = 32;
 
             std::shared_ptr<Material> QuadMaterial;
+            std::shared_ptr<Material> ImmediateColorMaterial;
+            std::shared_ptr<Material> ImmediateQuadMaterial;
             std::shared_ptr<Material> LineMaterial;
             std::shared_ptr<Material> CircleMaterial;
             std::shared_ptr<Material> SkinnedMaterial;
@@ -131,6 +163,9 @@ namespace axiom {
             std::shared_ptr<VertexArray> QuadVAO;
             std::shared_ptr<VertexBuffer> QuadVBO;
             std::shared_ptr<IndexBuffer> QuadIBO;
+            std::shared_ptr<VertexArray> ImmediateQuadVAO;
+            std::shared_ptr<VertexBuffer> ImmediateQuadVBO;
+            std::shared_ptr<IndexBuffer> ImmediateQuadIBO;
             QuadVertex* QuadBufferBase = nullptr;
             QuadVertex* QuadBufferPtr = nullptr;
 

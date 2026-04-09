@@ -21,6 +21,7 @@ namespace axiom {
 		virtual void SetUniformMat3(const std::string& name, const glm::mat3& value) = 0;
 		virtual void SetUniformMat4(const std::string& name, const glm::mat4& value) = 0;
 		virtual void SetTexture(const std::string& name, const std::shared_ptr<axiom::Texture2D>& texture, uint32_t slot) = 0;
+		virtual bool HasUniform(const std::string& name) const = 0;
 
 		static std::shared_ptr<Shader> Create(
 			const std::string& path,

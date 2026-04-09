@@ -6,6 +6,64 @@
 
 
 namespace axiom {
+	GLenum toGLDataFormat(TextureFormat format) {
+		switch (format) {
+		case TextureFormat::R8:
+		case TextureFormat::R16:
+		case TextureFormat::R16F:
+		case TextureFormat::R32F:
+			return GL_RED;
+		case TextureFormat::RG8:
+		case TextureFormat::RG16:
+		case TextureFormat::RG16F:
+		case TextureFormat::RG32F:
+			return GL_RG;
+		case TextureFormat::RGB8:
+		case TextureFormat::RGB16:
+		case TextureFormat::RGB16F:
+		case TextureFormat::RGB32F:
+		case TextureFormat::SRGB8:
+			return GL_RGB;
+		case TextureFormat::RGBA8:
+		case TextureFormat::RGBA16:
+		case TextureFormat::RGBA16F:
+		case TextureFormat::RGBA32F:
+		case TextureFormat::SRGB8_ALPHA8:
+			return GL_RGBA;
+		case TextureFormat::Depth16:
+		case TextureFormat::Depth24:
+		case TextureFormat::Depth32:
+		case TextureFormat::Depth32F:
+			return GL_DEPTH_COMPONENT;
+		case TextureFormat::Depth24Stencil8:
+		case TextureFormat::Depth32FStencil8:
+			return GL_DEPTH_STENCIL;
+		default:
+			return GL_RGBA;
+		}
+	}
+
+	GLenum toGLDataType(TextureFormat format) {
+		switch (format) {
+		case TextureFormat::R16F:
+		case TextureFormat::RG16F:
+		case TextureFormat::RGB16F:
+		case TextureFormat::RGBA16F:
+		case TextureFormat::R32F:
+		case TextureFormat::RG32F:
+		case TextureFormat::RGB32F:
+		case TextureFormat::RGBA32F:
+		case TextureFormat::Depth32F:
+			return GL_FLOAT;
+		case TextureFormat::Depth24Stencil8:
+			return GL_UNSIGNED_INT_24_8;
+		case TextureFormat::Depth32FStencil8:
+			return GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
+		default:
+			return GL_UNSIGNED_BYTE;
+		}
+	}
+
 	GLenum toGL(TextureFilter filter) {
 		switch (filter) {
 		case axiom::TextureFilter::Nearest:
@@ -76,7 +134,7 @@ namespace axiom {
 			return GL_CLAMP_TO_BORDER;
 			break;
 		case axiom::TextureWrap::MirroredRepeat:
-			return GL_CLAMP_TO_BORDER;
+			return GL_MIRRORED_REPEAT;
 			break;
 		default:
 			break;
@@ -102,21 +160,16 @@ namespace axiom {
 
 		glBindTexture(GL_TEXTURE_2D, 0);
 
-		// Bindless
-		if (GLAD_GL_ARB_bindless_texture) {
-			m_BindlessHandle = glGetTextureHandleARB(m_RendererID);
-			glMakeTextureHandleResidentARB(m_BindlessHandle);
-		}
+		m_BindlessHandle = 0;
 	}
 
 	OpenGLTexture2D::~OpenGLTexture2D() {
-		if (m_BindlessHandle)
-			glMakeTextureHandleNonResidentARB(m_BindlessHandle);
 		glDeleteTextures(1, &m_RendererID);
 	}
 
 	void OpenGLTexture2D::Bind(int slot) const {
-		glBindTextureUnit(slot, m_RendererID);
+		glActiveTexture(GL_TEXTURE0 + slot);
+		glBindTexture(GL_TEXTURE_2D, m_RendererID);
 	}
 
 	uint64_t OpenGLTexture2D::GetBindlessHandle() const {
@@ -130,7 +183,9 @@ namespace axiom {
 	void OpenGLTexture2D::SetData(const void* Data, uint32_t width, uint32_t height, TextureFormat format) {
 		glBindTexture(GL_TEXTURE_2D, m_RendererID);
 		GLenum glFormat = toGL(format);
-		glTexImage2D(GL_TEXTURE_2D, 0, glFormat, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Data);
+		GLenum glDataFormat = toGLDataFormat(format);
+		GLenum glDataType = toGLDataType(format);
+		glTexImage2D(GL_TEXTURE_2D, 0, glFormat, width, height, 0, glDataFormat, glDataType, Data);
 
 		if (m_GenerateMipmaps)
 			glGenerateMipmap(GL_TEXTURE_2D);
@@ -149,13 +204,10 @@ namespace axiom {
 		}
 		else {
 			stbi_set_flip_vertically_on_load(1);
-			unsigned char* imgData = stbi_load(path.c_str(), &width, &height, &channels, 0);
+			unsigned char* imgData = stbi_load(path.c_str(), &width, &height, &channels, 4);
 			data = imgData;
-
-			if (is16Bit)
-				m_TextureFormat = TextureFormat::RGBA16;
-			else
-				m_TextureFormat = sRGB ? TextureFormat::SRGB8_ALPHA8 : TextureFormat::RGBA8;
+			channels = 4;
+			m_TextureFormat = TextureFormat::RGBA8;
 		}
 
 		if (!data) {
@@ -215,11 +267,14 @@ namespace axiom {
 		stbi_set_flip_vertically_on_load(1);
 		stbi_uc* pixels = stbi_load_from_memory(
 			data.data(), (int)data.size(),
-			&width, &height, &channels, 0
+			&width, &height, &channels, 4
 		);
-		if (!pixels)
+		if (!pixels) {
+			AXIOM_ERROR("[Texture2D] stbi_load_from_memory failed: {}", stbi_failure_reason() ? stbi_failure_reason() : "unknown");
 			return nullptr;
+		}
 
+		channels = 4;
 		auto tex = std::make_shared<OpenGLTexture2D>(
 			width, height,
 			info.generateMipmaps,
@@ -228,10 +283,7 @@ namespace axiom {
 		);
 
 		TextureFormat format = TextureFormat::RGBA8;
-		if (channels == 3) format = TextureFormat::RGB8;
-		if (channels == 4) format = TextureFormat::RGBA8;
 
-		tex->SetFormat(format);
 		tex->SetData(pixels, width, height, format);
 
 		stbi_image_free(pixels);

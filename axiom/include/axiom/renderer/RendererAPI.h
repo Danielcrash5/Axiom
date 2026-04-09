@@ -23,6 +23,7 @@ namespace axiom {
 		virtual void SetRenderState(const RenderState& state) = 0;
 
 		virtual void DrawIndexed(const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t offset) = 0;
+		virtual void DrawArrays(const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t offset) = 0;
 		virtual void DrawLinesIndexed(const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t offset) = 0;
 
 		static RendererAPIType GetAPI() {

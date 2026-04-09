@@ -2,6 +2,7 @@
 #include "axiom/renderer/Shader.h"
 #include "axiom/renderer/Texture2D.h"
 #include "axiom/renderer/RenderCommand.h"
+#include <stdexcept>
 
 namespace axiom {
 
@@ -26,6 +27,9 @@ namespace axiom {
 	}
 
 	void Material::Bind() {
+		if (!m_Shader)
+			throw std::runtime_error("Material::Bind called without a valid shader");
+
 		m_Shader->Bind();
 
 		// --- 1. Uniforms ---

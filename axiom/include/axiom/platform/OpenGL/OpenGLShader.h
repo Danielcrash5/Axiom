@@ -64,19 +64,13 @@ namespace axiom {
 			if (!texture)
 				return;
 
-			if (texture->SupportsBindless()) {
-				// Bindless Textures
-				GLuint64 handle = texture->GetBindlessHandle();
-				glUniformHandleui64ARB(location, handle);
-			}
-			else {
-				// Standard Texture Binding
-				glActiveTexture(GL_TEXTURE0 + slot);
-				texture->Bind(slot);
+			glActiveTexture(GL_TEXTURE0 + slot);
+			texture->Bind(slot);
+			glUniform1i(location, slot);
+		}
 
-				// Sampler uniform muss den Slot setzen
-				glUniform1i(location, slot);
-			}
+		bool HasUniform(const std::string& name) const override {
+			return GetUniformLocation(name) >= 0;
 		}
 	private:
 		uint32_t m_RendererID;

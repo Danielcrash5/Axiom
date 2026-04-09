@@ -3,12 +3,110 @@
 #include "axiom/renderer/RenderCommand.h"
 #include "axiom/assets/AssetManager.h"
 
+#include <algorithm>
+#include <cstddef>
+#include <cmath>
+#include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <string>
 
 namespace axiom {
 
     Renderer2D::RendererData* Renderer2D::s_Data = nullptr;
+
+    namespace {
+        constexpr float kEpsilon = 0.0001f;
+
+        glm::vec2 Perpendicular(const glm::vec2& v) {
+            return glm::vec2(-v.y, v.x);
+        }
+
+        float Cross(const glm::vec2& a, const glm::vec2& b) {
+            return a.x * b.y - a.y * b.x;
+        }
+
+        std::shared_ptr<Material> CreateImmediateColorMaterial() {
+            static const char* source = R"(#type vertex
+#version 460 core
+
+layout(location = 0) in vec3 a_Position;
+layout(location = 1) in vec4 a_Color;
+layout(location = 2) in vec2 a_TexCoord;
+layout(location = 3) in float a_TexIndex;
+layout(location = 4) in float a_TilingFactor;
+
+uniform mat4 u_ViewProjection;
+uniform mat4 u_Transform;
+
+out vec4 v_Color;
+
+void main()
+{
+    v_Color = a_Color;
+    gl_Position = u_ViewProjection * u_Transform * vec4(a_Position, 1.0);
+}
+
+#type fragment
+#version 460 core
+
+layout(location = 0) out vec4 FragColor;
+
+in vec4 v_Color;
+
+void main()
+{
+    FragColor = v_Color;
+}
+)";
+
+            return std::make_shared<Material>(Shader::CreateFromMemory(source));
+        }
+
+        std::shared_ptr<Material> CreateImmediateQuadMaterial() {
+            static const char* source = R"(#type vertex
+#version 460 core
+
+layout(location = 0) in vec3 a_Position;
+layout(location = 1) in vec4 a_Color;
+layout(location = 2) in vec2 a_TexCoord;
+layout(location = 3) in float a_TexIndex;
+layout(location = 4) in float a_TilingFactor;
+
+uniform mat4 u_ViewProjection;
+uniform mat4 u_Transform;
+
+out vec4 v_Color;
+out vec2 v_TexCoord;
+out float v_TilingFactor;
+
+void main()
+{
+    v_Color = a_Color;
+    v_TexCoord = a_TexCoord;
+    v_TilingFactor = a_TilingFactor;
+    gl_Position = u_ViewProjection * u_Transform * vec4(a_Position, 1.0);
+}
+
+#type fragment
+#version 460 core
+
+layout(location = 0) out vec4 FragColor;
+
+in vec4 v_Color;
+in vec2 v_TexCoord;
+in float v_TilingFactor;
+
+uniform sampler2D u_Texture;
+
+void main()
+{
+    FragColor = texture(u_Texture, v_TexCoord * v_TilingFactor) * v_Color;
+}
+)";
+
+            return std::make_shared<Material>(Shader::CreateFromMemory(source));
+        }
+    }
 
     void Renderer2D::Init() {
         s_Data = new RendererData();
@@ -27,13 +125,13 @@ namespace axiom {
             RendererData::MaxVertices * sizeof(QuadVertex),
             BufferUsage::Dynamic
         );
-        s_Data->QuadVBO->SetLayout({
-            { ShaderDataType::Vec3, "a_Position" },
-            { ShaderDataType::Vec4, "a_Color" },
-            { ShaderDataType::Vec2, "a_TexCoord" },
-            { ShaderDataType::Float, "a_TexIndex" },
-            { ShaderDataType::Float, "a_TilingFactor" }
-        });
+        s_Data->QuadVBO->SetLayout(BufferLayout(sizeof(QuadVertex), {
+            { ShaderDataType::Vec3, "a_Position", static_cast<uint32_t>(offsetof(QuadVertex, Position)), false },
+            { ShaderDataType::Vec4, "a_Color", static_cast<uint32_t>(offsetof(QuadVertex, Color)), false },
+            { ShaderDataType::Vec2, "a_TexCoord", static_cast<uint32_t>(offsetof(QuadVertex, TexCoord)), false },
+            { ShaderDataType::Float, "a_TexIndex", static_cast<uint32_t>(offsetof(QuadVertex, TexIndex)), false },
+            { ShaderDataType::Float, "a_TilingFactor", static_cast<uint32_t>(offsetof(QuadVertex, TilingFactor)), false }
+        }));
         s_Data->QuadVAO->AddVertexBuffer(s_Data->QuadVBO);
 
         uint32_t* quadIndices = new uint32_t[RendererData::MaxIndices];
@@ -52,15 +150,33 @@ namespace axiom {
         delete[] quadIndices;
         s_Data->QuadBufferBase = new QuadVertex[RendererData::MaxVertices];
 
+        s_Data->ImmediateQuadVAO = VertexArray::Create();
+        s_Data->ImmediateQuadVBO = VertexBuffer::Create(
+            6 * sizeof(QuadVertex),
+            BufferUsage::Dynamic
+        );
+        s_Data->ImmediateQuadVBO->SetLayout(BufferLayout(sizeof(QuadVertex), {
+            { ShaderDataType::Vec3, "a_Position", static_cast<uint32_t>(offsetof(QuadVertex, Position)), false },
+            { ShaderDataType::Vec4, "a_Color", static_cast<uint32_t>(offsetof(QuadVertex, Color)), false },
+            { ShaderDataType::Vec2, "a_TexCoord", static_cast<uint32_t>(offsetof(QuadVertex, TexCoord)), false },
+            { ShaderDataType::Float, "a_TexIndex", static_cast<uint32_t>(offsetof(QuadVertex, TexIndex)), false },
+            { ShaderDataType::Float, "a_TilingFactor", static_cast<uint32_t>(offsetof(QuadVertex, TilingFactor)), false }
+        }));
+        s_Data->ImmediateQuadVAO->AddVertexBuffer(s_Data->ImmediateQuadVBO);
+
+        uint32_t immediateQuadIndices[6] = { 0, 1, 2, 3, 4, 5 };
+        s_Data->ImmediateQuadIBO = IndexBuffer::Create(immediateQuadIndices, 6);
+        s_Data->ImmediateQuadVAO->SetIndexBuffer(s_Data->ImmediateQuadIBO);
+
         s_Data->LineVAO = VertexArray::Create();
         s_Data->LineVBO = VertexBuffer::Create(
             RendererData::MaxVertices * sizeof(LineVertex),
             BufferUsage::Dynamic
         );
-        s_Data->LineVBO->SetLayout({
-            { ShaderDataType::Vec3, "a_Position" },
-            { ShaderDataType::Vec4, "a_Color" }
-        });
+        s_Data->LineVBO->SetLayout(BufferLayout(sizeof(LineVertex), {
+            { ShaderDataType::Vec3, "a_Position", static_cast<uint32_t>(offsetof(LineVertex, Position)), false },
+            { ShaderDataType::Vec4, "a_Color", static_cast<uint32_t>(offsetof(LineVertex, Color)), false }
+        }));
         s_Data->LineVAO->AddVertexBuffer(s_Data->LineVBO);
 
         uint32_t* lineIndices = new uint32_t[RendererData::MaxVertices];
@@ -77,11 +193,12 @@ namespace axiom {
             RendererData::MaxVertices * sizeof(CircleVertex),
             BufferUsage::Dynamic
         );
-        s_Data->CircleVBO->SetLayout({
-            { ShaderDataType::Vec3, "a_Position" },
-            { ShaderDataType::Vec4, "a_Color" },
-            { ShaderDataType::Float, "a_Thickness" }
-        });
+        s_Data->CircleVBO->SetLayout(BufferLayout(sizeof(CircleVertex), {
+            { ShaderDataType::Vec3, "a_Position", static_cast<uint32_t>(offsetof(CircleVertex, Position)), false },
+            { ShaderDataType::Vec3, "a_LocalPosition", static_cast<uint32_t>(offsetof(CircleVertex, LocalPosition)), false },
+            { ShaderDataType::Vec4, "a_Color", static_cast<uint32_t>(offsetof(CircleVertex, Color)), false },
+            { ShaderDataType::Float, "a_Thickness", static_cast<uint32_t>(offsetof(CircleVertex, Thickness)), false }
+        }));
         s_Data->CircleVAO->AddVertexBuffer(s_Data->CircleVBO);
         s_Data->CircleVAO->SetIndexBuffer(s_Data->QuadIBO);
         s_Data->CircleBufferBase = new CircleVertex[RendererData::MaxVertices];
@@ -91,13 +208,13 @@ namespace axiom {
             RendererData::MaxVertices * sizeof(SkinnedVertex2D),
             BufferUsage::Dynamic
         );
-        s_Data->SkinnedVBO->SetLayout({
-            { ShaderDataType::Vec3, "a_Position" },
-            { ShaderDataType::Vec4, "a_Color" },
-            { ShaderDataType::Vec2, "a_TexCoord" },
-            { ShaderDataType::Vec4, "a_BoneIndices" },
-            { ShaderDataType::Vec4, "a_BoneWeights" }
-        });
+        s_Data->SkinnedVBO->SetLayout(BufferLayout(sizeof(SkinnedVertex2D), {
+            { ShaderDataType::Vec3, "a_Position", static_cast<uint32_t>(offsetof(SkinnedVertex2D, Position)), false },
+            { ShaderDataType::Vec4, "a_Color", static_cast<uint32_t>(offsetof(SkinnedVertex2D, Color)), false },
+            { ShaderDataType::Vec2, "a_TexCoord", static_cast<uint32_t>(offsetof(SkinnedVertex2D, TexCoord)), false },
+            { ShaderDataType::Vec4, "a_BoneIndices", static_cast<uint32_t>(offsetof(SkinnedVertex2D, BoneIndices)), false },
+            { ShaderDataType::Vec4, "a_BoneWeights", static_cast<uint32_t>(offsetof(SkinnedVertex2D, BoneWeights)), false }
+        }));
         s_Data->SkinnedVAO->AddVertexBuffer(s_Data->SkinnedVBO);
 
         auto quadShader = AssetManager::Get<Shader>("engine://shaders/Renderer2D/Quad.glsl");
@@ -106,9 +223,18 @@ namespace axiom {
         auto skinnedShader = AssetManager::Get<Shader>("engine://shaders/Renderer2D/Skinned.glsl");
 
         s_Data->QuadMaterial = std::make_shared<Material>(quadShader);
+        s_Data->ImmediateColorMaterial = CreateImmediateColorMaterial();
+        s_Data->ImmediateQuadMaterial = CreateImmediateQuadMaterial();
         s_Data->LineMaterial = std::make_shared<Material>(lineShader);
         s_Data->CircleMaterial = std::make_shared<Material>(circleShader);
         s_Data->SkinnedMaterial = std::make_shared<Material>(skinnedShader);
+
+        Configure2DMaterial(s_Data->QuadMaterial);
+        Configure2DMaterial(s_Data->ImmediateColorMaterial);
+        Configure2DMaterial(s_Data->ImmediateQuadMaterial);
+        Configure2DMaterial(s_Data->LineMaterial);
+        Configure2DMaterial(s_Data->CircleMaterial);
+        Configure2DMaterial(s_Data->SkinnedMaterial);
 
         quadShader->Bind();
         for (uint32_t i = 0; i < RendererData::MaxTextureSlots; i++) {
@@ -195,6 +321,67 @@ namespace axiom {
         return static_cast<float>(slot);
     }
 
+    void Renderer2D::Configure2DMaterial(const std::shared_ptr<Material>& material) {
+        if (!material) {
+            return;
+        }
+
+        auto& state = material->GetRenderState();
+        state.DepthTest = false;
+        state.DepthWrite = false;
+        state.Blending = true;
+        state.BlendSrc = BlendFactor::SrcAlpha;
+        state.BlendDst = BlendFactor::OneMinusSrcAlpha;
+        state.CullFace = false;
+    }
+
+    void Renderer2D::SubmitImmediateQuadDefault(const glm::mat4& transform,
+                                                const glm::vec2* texCoords,
+                                                const std::shared_ptr<Texture2D>& texture,
+                                                float tiling,
+                                                const glm::vec4& tint) {
+        FlushAll();
+
+        QuadVertex quadVertices[4];
+        const float texIndex = texture ? 1.0f : 0.0f;
+        for (int i = 0; i < 4; i++) {
+            quadVertices[i].Position = transform * s_Data->QuadVertexPositions[i];
+            quadVertices[i].Color = tint;
+            quadVertices[i].TexCoord = texCoords[i];
+            quadVertices[i].TexIndex = texIndex;
+            quadVertices[i].TilingFactor = tiling;
+        }
+
+        QuadVertex vertices[6] = {
+            quadVertices[0], quadVertices[1], quadVertices[2],
+            quadVertices[2], quadVertices[3], quadVertices[0]
+        };
+        s_Data->ImmediateQuadVBO->SetData(vertices, sizeof(vertices));
+
+        if (texture) {
+            Configure2DMaterial(s_Data->ImmediateQuadMaterial);
+            RenderCommand::SetRenderState(s_Data->ImmediateQuadMaterial->GetRenderState());
+
+            auto shader = s_Data->ImmediateQuadMaterial->GetShader();
+            shader->Bind();
+            shader->SetUniformMat4("u_ViewProjection", Renderer::GetViewProjection());
+            shader->SetUniformMat4("u_Transform", glm::mat4(1.0f));
+            texture->Bind(0);
+            shader->SetUniform1i("u_Texture", 0);
+        }
+        else {
+            Configure2DMaterial(s_Data->ImmediateColorMaterial);
+            RenderCommand::SetRenderState(s_Data->ImmediateColorMaterial->GetRenderState());
+
+            auto shader = s_Data->ImmediateColorMaterial->GetShader();
+            shader->Bind();
+            shader->SetUniformMat4("u_ViewProjection", Renderer::GetViewProjection());
+            shader->SetUniformMat4("u_Transform", glm::mat4(1.0f));
+        }
+
+        RenderCommand::DrawArrays(s_Data->ImmediateQuadVAO, 6);
+    }
+
     void Renderer2D::SubmitImmediateQuad(const glm::mat4& transform,
                                          const glm::vec2* texCoords,
                                          const std::shared_ptr<Texture2D>& texture,
@@ -207,25 +394,30 @@ namespace axiom {
 
         FlushAll();
 
-        QuadVertex vertices[4];
+        QuadVertex quadVertices[4];
         for (int i = 0; i < 4; i++) {
-            vertices[i].Position = transform * s_Data->QuadVertexPositions[i];
-            vertices[i].Color = tint;
-            vertices[i].TexCoord = texCoords[i];
-            vertices[i].TexIndex = 0.0f;
-            vertices[i].TilingFactor = tiling;
+            quadVertices[i].Position = transform * s_Data->QuadVertexPositions[i];
+            quadVertices[i].Color = tint;
+            quadVertices[i].TexCoord = texCoords[i];
+            quadVertices[i].TexIndex = 0.0f;
+            quadVertices[i].TilingFactor = tiling;
         }
 
-        s_Data->QuadVBO->SetData(vertices, sizeof(vertices));
+        QuadVertex vertices[6] = {
+            quadVertices[0], quadVertices[1], quadVertices[2],
+            quadVertices[2], quadVertices[3], quadVertices[0]
+        };
+        s_Data->ImmediateQuadVBO->SetData(vertices, sizeof(vertices));
 
+        Configure2DMaterial(material);
         material->Set("u_ViewProjection", Renderer::GetViewProjection());
         material->Set("u_Transform", glm::mat4(1.0f));
-        if (texture) {
+        if (texture && material->GetShader() && material->GetShader()->HasUniform("u_Texture")) {
             material->SetTexture("u_Texture", texture);
         }
         material->Bind();
 
-        RenderCommand::DrawIndexed(s_Data->QuadVAO, 6);
+        RenderCommand::DrawArrays(s_Data->ImmediateQuadVAO, 6);
     }
 
     void Renderer2D::FlushQuads() {
@@ -297,16 +489,14 @@ namespace axiom {
     }
 
     void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color) {
-        EnsureQuadCapacity();
+        static const glm::vec2 texCoords[4] = {
+            { 0.0f, 0.0f },
+            { 1.0f, 0.0f },
+            { 1.0f, 1.0f },
+            { 0.0f, 1.0f }
+        };
 
-        for (int i = 0; i < 4; i++) {
-            s_Data->QuadBufferPtr->Position = transform * s_Data->QuadVertexPositions[i];
-            s_Data->QuadBufferPtr->Color = color;
-            s_Data->QuadBufferPtr->TexCoord = { (i == 1 || i == 2) ? 1.0f : 0.0f, (i >= 2) ? 1.0f : 0.0f };
-            s_Data->QuadBufferPtr->TexIndex = 0.0f;
-            s_Data->QuadBufferPtr->TilingFactor = 1.0f;
-            s_Data->QuadBufferPtr++;
-        }
+        SubmitImmediateQuadDefault(transform, texCoords, nullptr, 1.0f, color);
     }
 
     void Renderer2D::DrawQuad(const glm::vec2& pos,
@@ -334,17 +524,14 @@ namespace axiom {
                               const std::shared_ptr<Texture2D>& texture,
                               float tiling,
                               const glm::vec4& tint) {
-        EnsureQuadCapacity();
-        const float texIndex = AcquireTextureSlot(texture);
+        static const glm::vec2 texCoords[4] = {
+            { 0.0f, 0.0f },
+            { 1.0f, 0.0f },
+            { 1.0f, 1.0f },
+            { 0.0f, 1.0f }
+        };
 
-        for (int i = 0; i < 4; i++) {
-            s_Data->QuadBufferPtr->Position = transform * s_Data->QuadVertexPositions[i];
-            s_Data->QuadBufferPtr->Color = tint;
-            s_Data->QuadBufferPtr->TexCoord = { (i == 1 || i == 2) ? 1.0f : 0.0f, (i >= 2) ? 1.0f : 0.0f };
-            s_Data->QuadBufferPtr->TexIndex = texIndex;
-            s_Data->QuadBufferPtr->TilingFactor = tiling;
-            s_Data->QuadBufferPtr++;
-        }
+        SubmitImmediateQuadDefault(transform, texCoords, texture, tiling, tint);
     }
 
     void Renderer2D::DrawQuad(const glm::mat4& transform,
@@ -368,9 +555,6 @@ namespace axiom {
     }
 
     void Renderer2D::DrawSprite(const glm::mat4& transform, const Sprite& sprite, const glm::vec4& tint) {
-        EnsureQuadCapacity();
-        const float texIndex = AcquireTextureSlot(sprite.Texture);
-
         const glm::vec2 uv[4] = {
             { sprite.UVMin.x, sprite.UVMin.y },
             { sprite.UVMax.x, sprite.UVMin.y },
@@ -378,14 +562,7 @@ namespace axiom {
             { sprite.UVMin.x, sprite.UVMax.y }
         };
 
-        for (int i = 0; i < 4; i++) {
-            s_Data->QuadBufferPtr->Position = transform * s_Data->QuadVertexPositions[i];
-            s_Data->QuadBufferPtr->Color = tint;
-            s_Data->QuadBufferPtr->TexCoord = uv[i];
-            s_Data->QuadBufferPtr->TexIndex = texIndex;
-            s_Data->QuadBufferPtr->TilingFactor = 1.0f;
-            s_Data->QuadBufferPtr++;
-        }
+        SubmitImmediateQuadDefault(transform, uv, sprite.Texture, 1.0f, tint);
     }
 
     void Renderer2D::DrawSprite(const glm::mat4& transform,
@@ -432,58 +609,138 @@ namespace axiom {
         s_Data->SkinnedVAO->SetIndexBuffer(s_Data->SkinnedIBO);
 
         auto material = materialOverride ? materialOverride : s_Data->SkinnedMaterial;
-        material->Set("u_ViewProjection", Renderer::GetViewProjection());
-        material->Set("u_Transform", transform);
-        if (mesh.Texture) {
-            material->SetTexture("u_Texture", mesh.Texture);
-        }
+        Configure2DMaterial(material);
 
         auto shader = material->GetShader();
+        RenderCommand::SetRenderState(material->GetRenderState());
         shader->Bind();
+        shader->SetUniformMat4("u_ViewProjection", Renderer::GetViewProjection());
+        shader->SetUniformMat4("u_Transform", transform);
 
         const uint32_t boneCount = pose.BoneCount < MaxBones ? pose.BoneCount : MaxBones;
         for (uint32_t i = 0; i < boneCount; i++) {
             shader->SetUniformMat4("u_BoneTransforms[" + std::to_string(i) + "]", pose.BoneTransforms[i]);
         }
 
-        material->Bind();
+        if (mesh.Texture && shader->HasUniform("u_Texture")) {
+            mesh.Texture->Bind(0);
+            shader->SetUniform1i("u_Texture", 0);
+        }
+
+        if (materialOverride) {
+            material->Bind();
+        }
         RenderCommand::DrawIndexed(s_Data->SkinnedVAO, static_cast<uint32_t>(mesh.Indices.size()));
     }
 
     void Renderer2D::DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color) {
-        EnsureLineCapacity();
-
-        s_Data->LineBufferPtr->Position = p0;
-        s_Data->LineBufferPtr->Color = color;
-        s_Data->LineBufferPtr++;
-
-        s_Data->LineBufferPtr->Position = p1;
-        s_Data->LineBufferPtr->Color = color;
-        s_Data->LineBufferPtr++;
+        DrawLine(p0, p1, color, 1.5f);
     }
 
-    void Renderer2D::DrawRect(const glm::vec3& pos, const glm::vec2& size, const glm::vec4& color, float z) {
+    void Renderer2D::DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color, float thickness) {
+        DrawLine(p0, p1, color, thickness, LineCap::Butt);
+    }
+
+    void Renderer2D::DrawLine(const glm::vec3& p0,
+                              const glm::vec3& p1,
+                              const glm::vec4& color,
+                              float thickness,
+                              LineCap cap) {
+        if (thickness <= 0.0f) {
+            return;
+        }
+
+        const glm::vec2 delta = glm::vec2(p1) - glm::vec2(p0);
+        const float length = glm::length(delta);
+        if (length <= kEpsilon) {
+            DrawCircle(p0, thickness * 0.5f, 0.0f, color);
+            return;
+        }
+
+        glm::vec3 start = p0;
+        glm::vec3 end = p1;
+        const glm::vec2 dir = delta / length;
+        const float halfThickness = thickness * 0.5f;
+
+        if (cap == LineCap::Square) {
+            start -= glm::vec3(dir * halfThickness, 0.0f);
+            end += glm::vec3(dir * halfThickness, 0.0f);
+        }
+
+        const glm::vec2 finalDelta = glm::vec2(end) - glm::vec2(start);
+        const float finalLength = glm::length(finalDelta);
+        const glm::vec3 center = (start + end) * 0.5f;
+        const float angle = std::atan2(finalDelta.y, finalDelta.x);
+
+        glm::mat4 transform =
+            glm::translate(glm::mat4(1.0f), center) *
+            glm::rotate(glm::mat4(1.0f), angle, glm::vec3(0.0f, 0.0f, 1.0f)) *
+            glm::scale(glm::mat4(1.0f), glm::vec3(finalLength, thickness, 1.0f));
+
+        DrawQuad(transform, color);
+
+        if (cap == LineCap::Round) {
+            DrawCircle(p0, halfThickness, 0.0f, color);
+            DrawCircle(p1, halfThickness, 0.0f, color);
+        }
+    }
+
+    void Renderer2D::DrawLineStrip(const std::vector<glm::vec3>& points,
+                                   const glm::vec4& color,
+                                   float thickness,
+                                   bool closed,
+                                   LineCap cap,
+                                   LineJoin join,
+                                   float miterLimit) {
+        if (points.size() < 2 || thickness <= 0.0f) {
+            return;
+        }
+
+        const size_t pointCount = points.size();
+        const size_t segmentCount = closed ? pointCount : pointCount - 1;
+        const LineCap segmentCap = closed ? LineCap::Butt : cap;
+
+        for (size_t i = 0; i < segmentCount; i++) {
+            const glm::vec3& pointA = points[i];
+            const glm::vec3& pointB = points[(i + 1) % pointCount];
+            DrawLine(pointA, pointB, color, thickness, segmentCap);
+        }
+    }
+
+    void Renderer2D::DrawRect(const glm::vec3& pos, const glm::vec2& size, const glm::vec4& color, float z, float thickness) {
         glm::vec3 p0 = pos + glm::vec3(0.0f, 0.0f, z);
         glm::vec3 p1 = pos + glm::vec3(size.x, 0.0f, z);
         glm::vec3 p2 = pos + glm::vec3(size.x, size.y, z);
         glm::vec3 p3 = pos + glm::vec3(0.0f, size.y, z);
 
-        DrawLine(p0, p1, color);
-        DrawLine(p1, p2, color);
-        DrawLine(p2, p3, color);
-        DrawLine(p3, p0, color);
+        DrawLine(p0, p1, color, thickness, LineCap::Butt);
+        DrawLine(p1, p2, color, thickness, LineCap::Butt);
+        DrawLine(p2, p3, color, thickness, LineCap::Butt);
+        DrawLine(p3, p0, color, thickness, LineCap::Butt);
     }
 
-    void Renderer2D::DrawRect(const glm::mat4& transform, const glm::vec4& color) {
-        glm::vec3 p[4];
+    void Renderer2D::DrawRect(const glm::mat4& transform, const glm::vec4& color, float thickness) {
+        glm::vec3 points[4];
         for (int i = 0; i < 4; i++) {
-            p[i] = transform * s_Data->QuadVertexPositions[i];
+            points[i] = transform * s_Data->QuadVertexPositions[i];
         }
 
-        DrawLine(p[0], p[1], color);
-        DrawLine(p[1], p[2], color);
-        DrawLine(p[2], p[3], color);
-        DrawLine(p[3], p[0], color);
+        DrawLine(points[0], points[1], color, thickness, LineCap::Butt);
+        DrawLine(points[1], points[2], color, thickness, LineCap::Butt);
+        DrawLine(points[2], points[3], color, thickness, LineCap::Butt);
+        DrawLine(points[3], points[0], color, thickness, LineCap::Butt);
+    }
+
+    void Renderer2D::DrawCircle(const glm::vec2& pos, float radius, float thickness, const glm::vec4& color, float z) {
+        DrawCircle(glm::vec3(pos, z), radius, thickness, color);
+    }
+
+    void Renderer2D::DrawCircle(const glm::vec3& pos, float radius, float thickness, const glm::vec4& color) {
+        glm::mat4 transform =
+            glm::translate(glm::mat4(1.0f), pos) *
+            glm::scale(glm::mat4(1.0f), glm::vec3(radius * 2.0f, radius * 2.0f, 1.0f));
+
+        DrawCircle(transform, thickness, color);
     }
 
     void Renderer2D::DrawCircle(const glm::mat4& transform, float thickness, const glm::vec4& color) {
@@ -491,6 +748,7 @@ namespace axiom {
 
         for (int i = 0; i < 4; i++) {
             s_Data->CircleBufferPtr->Position = transform * s_Data->QuadVertexPositions[i];
+            s_Data->CircleBufferPtr->LocalPosition = glm::vec3(glm::vec2(s_Data->QuadVertexPositions[i]) * 2.0f, 0.0f);
             s_Data->CircleBufferPtr->Color = color;
             s_Data->CircleBufferPtr->Thickness = thickness;
             s_Data->CircleBufferPtr++;

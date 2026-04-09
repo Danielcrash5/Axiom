@@ -62,6 +62,10 @@ namespace axiom {
 			return m_InputSystem;
 		}
 
+		std::shared_ptr<Camera> GetMainCamera() const {
+			return m_MainCamera;
+		}
+
 	protected:
 
 		// Virtual Gamehooks - Override these in your application subclass to implement game-specific behavior
@@ -100,6 +104,10 @@ namespace axiom {
 		bool OnWindowResize(WindowResizeEvent& e) {
 			m_Width = e.width;
 			m_Height = e.height;
+			if (m_MainCamera && e.height > 0) {
+				const float aspect = static_cast<float>(e.width) / static_cast<float>(e.height);
+				m_MainCamera->SetOrthographic(-100.0f * aspect, 100.0f * aspect, -100.0f, 100.0f, -0.01f, 1000.0f);
+			}
 			RenderCommand::SetViewport(0, 0, e.width, e.height);
 			return false; // Return false to allow other listeners to handle the event as well
 		}

@@ -4,6 +4,8 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <algorithm>
+#include <cctype>
 namespace axiom {
 	static std::string ReadFile(const std::string& path) {
 		std::ifstream file(path);
@@ -49,12 +51,18 @@ namespace axiom {
 			size_t begin = pos + strlen(typeToken) + 1;
 
 			std::string type = source.substr(begin, eol - begin);
+			type.erase(std::remove_if(type.begin(), type.end(), [](unsigned char c) {
+				return std::isspace(c) != 0;
+			}), type.end());
 
 			GLenum glType =
 				type == "vertex" ? GL_VERTEX_SHADER :
 				type == "fragment" ? GL_FRAGMENT_SHADER :
 				type == "compute" ? GL_COMPUTE_SHADER :
 				0;
+
+			if (glType == 0)
+				throw std::runtime_error("Unknown shader stage type: " + type);
 
 			size_t nextLine = source.find("\n", eol) + 1;
 			pos = source.find(typeToken, nextLine);
@@ -70,6 +78,12 @@ namespace axiom {
 
 	void OpenGLShader::Compile(
 		const std::unordered_map<GLenum, std::string>& shaders) {
+		if (shaders.find(GL_VERTEX_SHADER) == shaders.end())
+			throw std::runtime_error("Shader program is missing a vertex shader stage");
+		if (shaders.find(GL_FRAGMENT_SHADER) == shaders.end() &&
+			shaders.find(GL_COMPUTE_SHADER) == shaders.end())
+			throw std::runtime_error("Shader program is missing a fragment or compute shader stage");
+
 		GLuint program = glCreateProgram();
 
 		std::vector<GLuint> shaderIDs;
@@ -87,7 +101,9 @@ namespace axiom {
 			if (!success) {
 				char log[1024];
 				glGetShaderInfoLog(shader, 1024, nullptr, log);
-				std::cout << log << std::endl;
+				glDeleteShader(shader);
+				glDeleteProgram(program);
+				throw std::runtime_error(std::string("Shader compile failed: ") + log);
 			}
 
 			glAttachShader(program, shader);
@@ -95,6 +111,17 @@ namespace axiom {
 		}
 
 		glLinkProgram(program);
+
+		int success = 0;
+		glGetProgramiv(program, GL_LINK_STATUS, &success);
+		if (!success) {
+			char log[1024];
+			glGetProgramInfoLog(program, 1024, nullptr, log);
+			for (auto id : shaderIDs)
+				glDeleteShader(id);
+			glDeleteProgram(program);
+			throw std::runtime_error(std::string("Shader link failed: ") + log);
+		}
 
 		m_RendererID = program;
 
