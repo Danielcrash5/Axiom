@@ -31,6 +31,19 @@ namespace axiom {
             return i;
         }
 
+        static TextureLoadInfo Sprite() {
+            TextureLoadInfo i;
+            i.sRGB = true;
+            i.HDR = false;
+            i.is16Bit = false;
+            i.generateMipmaps = true;
+            i.wrapS = TextureWrap::ClampToEdge;
+            i.wrapT = TextureWrap::ClampToEdge;
+            i.filterMin = TextureFilter::Nearest;
+            i.filterMag = TextureFilter::Nearest;
+            return i;
+		}
+
         static TextureLoadInfo NormalMap() {
             TextureLoadInfo i;
             i.sRGB = false;

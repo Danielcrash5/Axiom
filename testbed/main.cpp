@@ -19,7 +19,7 @@
 
 namespace {
 	std::shared_ptr<axiom::Texture2D> LoadGameTexture(const std::string& virtualPath) {
-		auto info = axiom::TexturePresets::Albedo();
+		auto info = axiom::TexturePresets::Sprite();
 		return axiom::AssetManager::Get<axiom::Texture2D>(virtualPath, info);
 	}
 
