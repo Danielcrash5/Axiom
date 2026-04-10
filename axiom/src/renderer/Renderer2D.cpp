@@ -1,7 +1,15 @@
+// Renderer2D.cpp
 #include "axiom/renderer/Renderer2D.h"
 #include "axiom/renderer/Renderer.h"
 #include "axiom/renderer/RenderCommand.h"
 #include "axiom/assets/AssetManager.h"
+#include "axiom/renderer/Texture2D.h"
+#include "axiom/renderer/Material.h"
+#include "axiom/renderer/Shader.h"
+#include "axiom/renderer/Sprite.h"
+#include "axiom/renderer/VertexArray.h"
+#include "axiom/renderer/VertexBuffer.h"
+#include "axiom/renderer/IndexBuffer.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -16,14 +24,6 @@ namespace axiom {
 
     namespace {
         constexpr float kEpsilon = 0.0001f;
-
-        glm::vec2 Perpendicular(const glm::vec2& v) {
-            return glm::vec2(-v.y, v.x);
-        }
-
-        float Cross(const glm::vec2& a, const glm::vec2& b) {
-            return a.x * b.y - a.y * b.x;
-        }
 
         std::shared_ptr<Material> CreateImmediateColorMaterial() {
             static const char* source = R"(#type vertex
@@ -78,12 +78,14 @@ uniform mat4 u_Transform;
 out vec4 v_Color;
 out vec2 v_TexCoord;
 out float v_TilingFactor;
+out float v_TexIndex;
 
 void main()
 {
     v_Color = a_Color;
     v_TexCoord = a_TexCoord;
     v_TilingFactor = a_TilingFactor;
+    v_TexIndex = a_TexIndex;
     gl_Position = u_ViewProjection * u_Transform * vec4(a_Position, 1.0);
 }
 
@@ -95,12 +97,15 @@ layout(location = 0) out vec4 FragColor;
 in vec4 v_Color;
 in vec2 v_TexCoord;
 in float v_TilingFactor;
+in float v_TexIndex;
 
-uniform sampler2D u_Texture;
+uniform sampler2D u_Textures[32];
 
 void main()
 {
-    FragColor = texture(u_Texture, v_TexCoord * v_TilingFactor) * v_Color;
+    int index = int(v_TexIndex);
+    vec4 tex = texture(u_Textures[index], v_TexCoord * v_TilingFactor);
+    FragColor = tex * v_Color;
 }
 )";
 
@@ -120,6 +125,7 @@ void main()
         s_Data->TextureSlots[0] = whiteTexture;
         s_Data->TextureSlotIndex = 1;
 
+        // Quad
         s_Data->QuadVAO = VertexArray::Create();
         s_Data->QuadVBO = VertexBuffer::Create(
             RendererData::MaxVertices * sizeof(QuadVertex),
@@ -131,7 +137,7 @@ void main()
             { ShaderDataType::Vec2, "a_TexCoord", static_cast<uint32_t>(offsetof(QuadVertex, TexCoord)), false },
             { ShaderDataType::Float, "a_TexIndex", static_cast<uint32_t>(offsetof(QuadVertex, TexIndex)), false },
             { ShaderDataType::Float, "a_TilingFactor", static_cast<uint32_t>(offsetof(QuadVertex, TilingFactor)), false }
-        }));
+                                                }));
         s_Data->QuadVAO->AddVertexBuffer(s_Data->QuadVBO);
 
         uint32_t* quadIndices = new uint32_t[RendererData::MaxIndices];
@@ -150,44 +156,7 @@ void main()
         delete[] quadIndices;
         s_Data->QuadBufferBase = new QuadVertex[RendererData::MaxVertices];
 
-        s_Data->ImmediateQuadVAO = VertexArray::Create();
-        s_Data->ImmediateQuadVBO = VertexBuffer::Create(
-            6 * sizeof(QuadVertex),
-            BufferUsage::Dynamic
-        );
-        s_Data->ImmediateQuadVBO->SetLayout(BufferLayout(sizeof(QuadVertex), {
-            { ShaderDataType::Vec3, "a_Position", static_cast<uint32_t>(offsetof(QuadVertex, Position)), false },
-            { ShaderDataType::Vec4, "a_Color", static_cast<uint32_t>(offsetof(QuadVertex, Color)), false },
-            { ShaderDataType::Vec2, "a_TexCoord", static_cast<uint32_t>(offsetof(QuadVertex, TexCoord)), false },
-            { ShaderDataType::Float, "a_TexIndex", static_cast<uint32_t>(offsetof(QuadVertex, TexIndex)), false },
-            { ShaderDataType::Float, "a_TilingFactor", static_cast<uint32_t>(offsetof(QuadVertex, TilingFactor)), false }
-        }));
-        s_Data->ImmediateQuadVAO->AddVertexBuffer(s_Data->ImmediateQuadVBO);
-
-        uint32_t immediateQuadIndices[6] = { 0, 1, 2, 3, 4, 5 };
-        s_Data->ImmediateQuadIBO = IndexBuffer::Create(immediateQuadIndices, 6);
-        s_Data->ImmediateQuadVAO->SetIndexBuffer(s_Data->ImmediateQuadIBO);
-
-        s_Data->LineVAO = VertexArray::Create();
-        s_Data->LineVBO = VertexBuffer::Create(
-            RendererData::MaxVertices * sizeof(LineVertex),
-            BufferUsage::Dynamic
-        );
-        s_Data->LineVBO->SetLayout(BufferLayout(sizeof(LineVertex), {
-            { ShaderDataType::Vec3, "a_Position", static_cast<uint32_t>(offsetof(LineVertex, Position)), false },
-            { ShaderDataType::Vec4, "a_Color", static_cast<uint32_t>(offsetof(LineVertex, Color)), false }
-        }));
-        s_Data->LineVAO->AddVertexBuffer(s_Data->LineVBO);
-
-        uint32_t* lineIndices = new uint32_t[RendererData::MaxVertices];
-        for (uint32_t i = 0; i < RendererData::MaxVertices; i++) {
-            lineIndices[i] = i;
-        }
-        s_Data->LineIBO = IndexBuffer::Create(lineIndices, RendererData::MaxVertices);
-        s_Data->LineVAO->SetIndexBuffer(s_Data->LineIBO);
-        delete[] lineIndices;
-        s_Data->LineBufferBase = new LineVertex[RendererData::MaxVertices];
-
+        // Circle
         s_Data->CircleVAO = VertexArray::Create();
         s_Data->CircleVBO = VertexBuffer::Create(
             RendererData::MaxVertices * sizeof(CircleVertex),
@@ -198,11 +167,12 @@ void main()
             { ShaderDataType::Vec3, "a_LocalPosition", static_cast<uint32_t>(offsetof(CircleVertex, LocalPosition)), false },
             { ShaderDataType::Vec4, "a_Color", static_cast<uint32_t>(offsetof(CircleVertex, Color)), false },
             { ShaderDataType::Float, "a_Thickness", static_cast<uint32_t>(offsetof(CircleVertex, Thickness)), false }
-        }));
+                                                  }));
         s_Data->CircleVAO->AddVertexBuffer(s_Data->CircleVBO);
         s_Data->CircleVAO->SetIndexBuffer(s_Data->QuadIBO);
         s_Data->CircleBufferBase = new CircleVertex[RendererData::MaxVertices];
 
+        // Skinned
         s_Data->SkinnedVAO = VertexArray::Create();
         s_Data->SkinnedVBO = VertexBuffer::Create(
             RendererData::MaxVertices * sizeof(SkinnedVertex2D),
@@ -214,25 +184,18 @@ void main()
             { ShaderDataType::Vec2, "a_TexCoord", static_cast<uint32_t>(offsetof(SkinnedVertex2D, TexCoord)), false },
             { ShaderDataType::Vec4, "a_BoneIndices", static_cast<uint32_t>(offsetof(SkinnedVertex2D, BoneIndices)), false },
             { ShaderDataType::Vec4, "a_BoneWeights", static_cast<uint32_t>(offsetof(SkinnedVertex2D, BoneWeights)), false }
-        }));
+                                                   }));
         s_Data->SkinnedVAO->AddVertexBuffer(s_Data->SkinnedVBO);
 
         auto quadShader = AssetManager::Get<Shader>("engine://shaders/Renderer2D/Quad.glsl");
-        auto lineShader = AssetManager::Get<Shader>("engine://shaders/Renderer2D/Line.glsl");
         auto circleShader = AssetManager::Get<Shader>("engine://shaders/Renderer2D/Circle.glsl");
         auto skinnedShader = AssetManager::Get<Shader>("engine://shaders/Renderer2D/Skinned.glsl");
 
         s_Data->QuadMaterial = std::make_shared<Material>(quadShader);
-        s_Data->ImmediateColorMaterial = CreateImmediateColorMaterial();
-        s_Data->ImmediateQuadMaterial = CreateImmediateQuadMaterial();
-        s_Data->LineMaterial = std::make_shared<Material>(lineShader);
         s_Data->CircleMaterial = std::make_shared<Material>(circleShader);
         s_Data->SkinnedMaterial = std::make_shared<Material>(skinnedShader);
 
         Configure2DMaterial(s_Data->QuadMaterial);
-        Configure2DMaterial(s_Data->ImmediateColorMaterial);
-        Configure2DMaterial(s_Data->ImmediateQuadMaterial);
-        Configure2DMaterial(s_Data->LineMaterial);
         Configure2DMaterial(s_Data->CircleMaterial);
         Configure2DMaterial(s_Data->SkinnedMaterial);
 
@@ -241,17 +204,16 @@ void main()
             quadShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", static_cast<int>(i));
         }
 
-        s_Data->QuadVertexPositions[0] = { -0.5f, -0.5f, 0.0f, 1.0f };
-        s_Data->QuadVertexPositions[1] = { 0.5f, -0.5f, 0.0f, 1.0f };
-        s_Data->QuadVertexPositions[2] = { 0.5f, 0.5f, 0.0f, 1.0f };
-        s_Data->QuadVertexPositions[3] = { -0.5f, 0.5f, 0.0f, 1.0f };
+        s_Data->QuadVertexPositions[0] = {-0.5f, -0.5f, 0.0f, 1.0f};
+        s_Data->QuadVertexPositions[1] = {0.5f, -0.5f, 0.0f, 1.0f};
+        s_Data->QuadVertexPositions[2] = {0.5f,  0.5f, 0.0f, 1.0f};
+        s_Data->QuadVertexPositions[3] = {-0.5f,  0.5f, 0.0f, 1.0f};
 
         StartBatch();
     }
 
     void Renderer2D::Shutdown() {
         delete[] s_Data->QuadBufferBase;
-        delete[] s_Data->LineBufferBase;
         delete[] s_Data->CircleBufferBase;
         delete s_Data;
         s_Data = nullptr;
@@ -267,14 +229,12 @@ void main()
 
     void Renderer2D::StartBatch() {
         s_Data->QuadBufferPtr = s_Data->QuadBufferBase;
-        s_Data->LineBufferPtr = s_Data->LineBufferBase;
         s_Data->CircleBufferPtr = s_Data->CircleBufferBase;
         s_Data->TextureSlotIndex = 1;
     }
 
     void Renderer2D::FlushAll() {
         FlushQuads();
-        FlushLines();
         FlushCircles();
         StartBatch();
     }
@@ -282,13 +242,6 @@ void main()
     void Renderer2D::EnsureQuadCapacity(uint32_t quadCount) {
         const uint32_t usedVertices = static_cast<uint32_t>(s_Data->QuadBufferPtr - s_Data->QuadBufferBase);
         if (usedVertices + quadCount * 4 > RendererData::MaxVertices) {
-            FlushAll();
-        }
-    }
-
-    void Renderer2D::EnsureLineCapacity(uint32_t vertexCount) {
-        const uint32_t usedVertices = static_cast<uint32_t>(s_Data->LineBufferPtr - s_Data->LineBufferBase);
-        if (usedVertices + vertexCount > RendererData::MaxVertices) {
             FlushAll();
         }
     }
@@ -327,97 +280,12 @@ void main()
         }
 
         auto& state = material->GetRenderState();
-        state.DepthTest = false;
-        state.DepthWrite = false;
+        state.DepthTest = true;
+        state.DepthWrite = true;
         state.Blending = true;
         state.BlendSrc = BlendFactor::SrcAlpha;
         state.BlendDst = BlendFactor::OneMinusSrcAlpha;
         state.CullFace = false;
-    }
-
-    void Renderer2D::SubmitImmediateQuadDefault(const glm::mat4& transform,
-                                                const glm::vec2* texCoords,
-                                                const std::shared_ptr<Texture2D>& texture,
-                                                float tiling,
-                                                const glm::vec4& tint) {
-        FlushAll();
-
-        QuadVertex quadVertices[4];
-        const float texIndex = texture ? 1.0f : 0.0f;
-        for (int i = 0; i < 4; i++) {
-            quadVertices[i].Position = transform * s_Data->QuadVertexPositions[i];
-            quadVertices[i].Color = tint;
-            quadVertices[i].TexCoord = texCoords[i];
-            quadVertices[i].TexIndex = texIndex;
-            quadVertices[i].TilingFactor = tiling;
-        }
-
-        QuadVertex vertices[6] = {
-            quadVertices[0], quadVertices[1], quadVertices[2],
-            quadVertices[2], quadVertices[3], quadVertices[0]
-        };
-        s_Data->ImmediateQuadVBO->SetData(vertices, sizeof(vertices));
-
-        if (texture) {
-            Configure2DMaterial(s_Data->ImmediateQuadMaterial);
-            RenderCommand::SetRenderState(s_Data->ImmediateQuadMaterial->GetRenderState());
-
-            auto shader = s_Data->ImmediateQuadMaterial->GetShader();
-            shader->Bind();
-            shader->SetUniformMat4("u_ViewProjection", Renderer::GetViewProjection());
-            shader->SetUniformMat4("u_Transform", glm::mat4(1.0f));
-            texture->Bind(0);
-            shader->SetUniform1i("u_Texture", 0);
-        }
-        else {
-            Configure2DMaterial(s_Data->ImmediateColorMaterial);
-            RenderCommand::SetRenderState(s_Data->ImmediateColorMaterial->GetRenderState());
-
-            auto shader = s_Data->ImmediateColorMaterial->GetShader();
-            shader->Bind();
-            shader->SetUniformMat4("u_ViewProjection", Renderer::GetViewProjection());
-            shader->SetUniformMat4("u_Transform", glm::mat4(1.0f));
-        }
-
-        RenderCommand::DrawArrays(s_Data->ImmediateQuadVAO, 6);
-    }
-
-    void Renderer2D::SubmitImmediateQuad(const glm::mat4& transform,
-                                         const glm::vec2* texCoords,
-                                         const std::shared_ptr<Texture2D>& texture,
-                                         float tiling,
-                                         const glm::vec4& tint,
-                                         const std::shared_ptr<Material>& material) {
-        if (!material) {
-            return;
-        }
-
-        FlushAll();
-
-        QuadVertex quadVertices[4];
-        for (int i = 0; i < 4; i++) {
-            quadVertices[i].Position = transform * s_Data->QuadVertexPositions[i];
-            quadVertices[i].Color = tint;
-            quadVertices[i].TexCoord = texCoords[i];
-            quadVertices[i].TexIndex = 0.0f;
-            quadVertices[i].TilingFactor = tiling;
-        }
-
-        QuadVertex vertices[6] = {
-            quadVertices[0], quadVertices[1], quadVertices[2],
-            quadVertices[2], quadVertices[3], quadVertices[0]
-        };
-        s_Data->ImmediateQuadVBO->SetData(vertices, sizeof(vertices));
-
-        Configure2DMaterial(material);
-        material->Set("u_ViewProjection", Renderer::GetViewProjection());
-        material->Set("u_Transform", glm::mat4(1.0f));
-        if (texture && material->GetShader() && material->GetShader()->HasUniform("u_Texture")) {
-            material->SetTexture("u_Texture", texture);
-        }
-        material->Bind();
-
-        RenderCommand::DrawArrays(s_Data->ImmediateQuadVAO, 6);
     }
 
     void Renderer2D::FlushQuads() {
@@ -435,28 +303,14 @@ void main()
             }
         }
 
-        Renderer::Submit(
-            s_Data->QuadVAO,
-            s_Data->QuadMaterial,
-            (vertexCount / 4) * 6,
-            glm::mat4(1.0f)
-        );
-    }
+        auto material = s_Data->QuadMaterial;
+        Configure2DMaterial(material);
+        material->Set("u_ViewProjection", Renderer::GetViewProjection());
+        material->Set("u_Transform", glm::mat4(1.0f));
+        material->Bind();
 
-    void Renderer2D::FlushLines() {
-        const uint32_t vertexCount = static_cast<uint32_t>(s_Data->LineBufferPtr - s_Data->LineBufferBase);
-        if (vertexCount == 0) {
-            return;
-        }
-
-        const uint32_t size = vertexCount * sizeof(LineVertex);
-        s_Data->LineVBO->SetData(s_Data->LineBufferBase, size);
-
-        Renderer::SubmitLines(
-            s_Data->LineVAO,
-            s_Data->LineMaterial,
-            vertexCount
-        );
+        const uint32_t indexCount = (vertexCount / 4) * 6;
+        RenderCommand::DrawIndexed(s_Data->QuadVAO, indexCount);
     }
 
     void Renderer2D::FlushCircles() {
@@ -468,27 +322,37 @@ void main()
         const uint32_t size = vertexCount * sizeof(CircleVertex);
         s_Data->CircleVBO->SetData(s_Data->CircleBufferBase, size);
 
-        Renderer::Submit(
-            s_Data->CircleVAO,
-            s_Data->CircleMaterial,
-            (vertexCount / 4) * 6,
-            glm::mat4(1.0f)
-        );
+        auto material = s_Data->CircleMaterial;
+        Configure2DMaterial(material);
+        material->Set("u_ViewProjection", Renderer::GetViewProjection());
+        material->Set("u_Transform", glm::mat4(1.0f));
+        material->Bind();
+
+        const uint32_t indexCount = (vertexCount / 4) * 6;
+        RenderCommand::DrawIndexed(s_Data->CircleVAO, indexCount);
     }
 
-    void Renderer2D::DrawQuad(const glm::vec2& pos, const glm::vec2& size, const glm::vec4& color, float z) {
+    // --- Quads ---
+
+    void Renderer2D::DrawQuad(const glm::vec2& pos,
+                              const glm::vec2& size,
+                              const glm::vec4& color,
+                              float z) {
         DrawQuad(glm::vec3(pos, z), size, color);
     }
 
-    void Renderer2D::DrawQuad(const glm::vec3& pos, const glm::vec2& size, const glm::vec4& color) {
+    void Renderer2D::DrawQuad(const glm::vec3& pos,
+                              const glm::vec2& size,
+                              const glm::vec4& color) {
         glm::mat4 transform =
             glm::translate(glm::mat4(1.0f), pos) *
-            glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
+            glm::scale(glm::mat4(1.0f), {size.x, size.y, 1.0f});
 
         DrawQuad(transform, color);
     }
 
-    void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color) {
+    void Renderer2D::DrawQuad(const glm::mat4& transform,
+                              const glm::vec4& color) {
         static const glm::vec2 texCoords[4] = {
             { 0.0f, 0.0f },
             { 1.0f, 0.0f },
@@ -496,7 +360,19 @@ void main()
             { 0.0f, 1.0f }
         };
 
-        SubmitImmediateQuadDefault(transform, texCoords, nullptr, 1.0f, color);
+        EnsureQuadCapacity();
+
+        const float texIndex = 0.0f;
+        const float tiling = 1.0f;
+
+        for (int i = 0; i < 4; i++) {
+            s_Data->QuadBufferPtr->Position = transform * s_Data->QuadVertexPositions[i];
+            s_Data->QuadBufferPtr->Color = color;
+            s_Data->QuadBufferPtr->TexCoord = texCoords[i];
+            s_Data->QuadBufferPtr->TexIndex = texIndex;
+            s_Data->QuadBufferPtr->TilingFactor = tiling;
+            s_Data->QuadBufferPtr++;
+        }
     }
 
     void Renderer2D::DrawQuad(const glm::vec2& pos,
@@ -515,7 +391,7 @@ void main()
                               const glm::vec4& tint) {
         glm::mat4 transform =
             glm::translate(glm::mat4(1.0f), pos) *
-            glm::scale(glm::mat4(1.0f), { size.x, size.y, 1.0f });
+            glm::scale(glm::mat4(1.0f), {size.x, size.y, 1.0f});
 
         DrawQuad(transform, texture, tiling, tint);
     }
@@ -531,7 +407,18 @@ void main()
             { 0.0f, 1.0f }
         };
 
-        SubmitImmediateQuadDefault(transform, texCoords, texture, tiling, tint);
+        EnsureQuadCapacity();
+
+        const float texIndex = AcquireTextureSlot(texture);
+
+        for (int i = 0; i < 4; i++) {
+            s_Data->QuadBufferPtr->Position = transform * s_Data->QuadVertexPositions[i];
+            s_Data->QuadBufferPtr->Color = tint;
+            s_Data->QuadBufferPtr->TexCoord = texCoords[i];
+            s_Data->QuadBufferPtr->TexIndex = texIndex;
+            s_Data->QuadBufferPtr->TilingFactor = tiling;
+            s_Data->QuadBufferPtr++;
+        }
     }
 
     void Renderer2D::DrawQuad(const glm::mat4& transform,
@@ -539,6 +426,13 @@ void main()
                               const std::shared_ptr<Material>& materialOverride,
                               float tiling,
                               const glm::vec4& tint) {
+        if (!materialOverride) {
+            DrawQuad(transform, texture, tiling, tint);
+            return;
+        }
+
+        FlushAll();
+
         static const glm::vec2 texCoords[4] = {
             { 0.0f, 0.0f },
             { 1.0f, 0.0f },
@@ -546,15 +440,34 @@ void main()
             { 0.0f, 1.0f }
         };
 
-        if (!materialOverride) {
-            DrawQuad(transform, texture, tiling, tint);
-            return;
+        QuadVertex quadVertices[4];
+        const float texIndex = 0.0f;
+        for (int i = 0; i < 4; i++) {
+            quadVertices[i].Position = transform * s_Data->QuadVertexPositions[i];
+            quadVertices[i].Color = tint;
+            quadVertices[i].TexCoord = texCoords[i];
+            quadVertices[i].TexIndex = texIndex;
+            quadVertices[i].TilingFactor = tiling;
         }
 
-        SubmitImmediateQuad(transform, texCoords, texture, tiling, tint, materialOverride);
+        s_Data->QuadVBO->SetData(quadVertices, sizeof(quadVertices));
+
+        Configure2DMaterial(materialOverride);
+        materialOverride->Set("u_ViewProjection", Renderer::GetViewProjection());
+        materialOverride->Set("u_Transform", glm::mat4(1.0f));
+        if (texture && materialOverride->GetShader() && materialOverride->GetShader()->HasUniform("u_Texture")) {
+            materialOverride->SetTexture("u_Texture", texture);
+        }
+        materialOverride->Bind();
+
+        RenderCommand::DrawIndexed(s_Data->QuadVAO, 6);
     }
 
-    void Renderer2D::DrawSprite(const glm::mat4& transform, const Sprite& sprite, const glm::vec4& tint) {
+    // --- Sprites ---
+
+    void Renderer2D::DrawSprite(const glm::mat4& transform,
+                                const Sprite& sprite,
+                                const glm::vec4& tint) {
         const glm::vec2 uv[4] = {
             { sprite.UVMin.x, sprite.UVMin.y },
             { sprite.UVMax.x, sprite.UVMin.y },
@@ -562,13 +475,32 @@ void main()
             { sprite.UVMin.x, sprite.UVMax.y }
         };
 
-        SubmitImmediateQuadDefault(transform, uv, sprite.Texture, 1.0f, tint);
+        EnsureQuadCapacity();
+
+        const float texIndex = AcquireTextureSlot(sprite.Texture);
+        const float tiling = 1.0f;
+
+        for (int i = 0; i < 4; i++) {
+            s_Data->QuadBufferPtr->Position = transform * s_Data->QuadVertexPositions[i];
+            s_Data->QuadBufferPtr->Color = tint;
+            s_Data->QuadBufferPtr->TexCoord = uv[i];
+            s_Data->QuadBufferPtr->TexIndex = texIndex;
+            s_Data->QuadBufferPtr->TilingFactor = tiling;
+            s_Data->QuadBufferPtr++;
+        }
     }
 
     void Renderer2D::DrawSprite(const glm::mat4& transform,
                                 const Sprite& sprite,
                                 const glm::vec4& tint,
                                 const std::shared_ptr<Material>& materialOverride) {
+        if (!materialOverride) {
+            DrawSprite(transform, sprite, tint);
+            return;
+        }
+
+        FlushAll();
+
         const glm::vec2 uv[4] = {
             { sprite.UVMin.x, sprite.UVMin.y },
             { sprite.UVMax.x, sprite.UVMin.y },
@@ -576,13 +508,32 @@ void main()
             { sprite.UVMin.x, sprite.UVMax.y }
         };
 
-        if (!materialOverride) {
-            DrawSprite(transform, sprite, tint);
-            return;
+        QuadVertex quadVertices[4];
+        const float texIndex = 0.0f;
+        const float tiling = 1.0f;
+
+        for (int i = 0; i < 4; i++) {
+            quadVertices[i].Position = transform * s_Data->QuadVertexPositions[i];
+            quadVertices[i].Color = tint;
+            quadVertices[i].TexCoord = uv[i];
+            quadVertices[i].TexIndex = texIndex;
+            quadVertices[i].TilingFactor = tiling;
         }
 
-        SubmitImmediateQuad(transform, uv, sprite.Texture, 1.0f, tint, materialOverride);
+        s_Data->QuadVBO->SetData(quadVertices, sizeof(quadVertices));
+
+        Configure2DMaterial(materialOverride);
+        materialOverride->Set("u_ViewProjection", Renderer::GetViewProjection());
+        materialOverride->Set("u_Transform", glm::mat4(1.0f));
+        if (sprite.Texture && materialOverride->GetShader() && materialOverride->GetShader()->HasUniform("u_Texture")) {
+            materialOverride->SetTexture("u_Texture", sprite.Texture);
+        }
+        materialOverride->Bind();
+
+        RenderCommand::DrawIndexed(s_Data->QuadVAO, 6);
     }
+
+    // --- Skinned ---
 
     void Renderer2D::DrawSkinned(const glm::mat4& transform,
                                  const SkinnedMesh2D& mesh,
@@ -633,11 +584,18 @@ void main()
         RenderCommand::DrawIndexed(s_Data->SkinnedVAO, static_cast<uint32_t>(mesh.Indices.size()));
     }
 
-    void Renderer2D::DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color) {
+    // --- Lines / Rects / Circles ---
+
+    void Renderer2D::DrawLine(const glm::vec3& p0,
+                              const glm::vec3& p1,
+                              const glm::vec4& color) {
         DrawLine(p0, p1, color, 1.5f);
     }
 
-    void Renderer2D::DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color, float thickness) {
+    void Renderer2D::DrawLine(const glm::vec3& p0,
+                              const glm::vec3& p1,
+                              const glm::vec4& color,
+                              float thickness) {
         DrawLine(p0, p1, color, thickness, LineCap::Butt);
     }
 
@@ -701,13 +659,40 @@ void main()
         const LineCap segmentCap = closed ? LineCap::Butt : cap;
 
         for (size_t i = 0; i < segmentCount; i++) {
-            const glm::vec3& pointA = points[i];
-            const glm::vec3& pointB = points[(i + 1) % pointCount];
-            DrawLine(pointA, pointB, color, thickness, segmentCap);
+            const glm::vec3& a = points[i];
+            const glm::vec3& b = points[(i + 1) % pointCount];
+            DrawLine(a, b, color, thickness, segmentCap);
+
+            if (i + 1 < pointCount || closed) {
+                const glm::vec3& c = points[(i + 2) % pointCount];
+                glm::vec2 v1 = glm::normalize(glm::vec2(b) - glm::vec2(a));
+                glm::vec2 v2 = glm::normalize(glm::vec2(c) - glm::vec2(b));
+                float dot = glm::clamp(glm::dot(v1, v2), -1.0f, 1.0f);
+                float angle = std::acos(dot);
+
+                switch (join) {
+                case LineJoin::Round:
+                    DrawCircle(b, thickness * 0.5f, 0.0f, color);
+                    break;
+                case LineJoin::Bevel:
+                    // Bevel: nothing extra, segments already overlap visually
+                    break;
+                case LineJoin::Miter:
+                    if (angle < glm::pi<float>() * 0.5f && miterLimit > 0.0f) {
+                        // Simple miter: small circle hint
+                        DrawCircle(b, thickness * 0.35f, 0.0f, color);
+                    }
+                    break;
+                }
+            }
         }
     }
 
-    void Renderer2D::DrawRect(const glm::vec3& pos, const glm::vec2& size, const glm::vec4& color, float z, float thickness) {
+    void Renderer2D::DrawRect(const glm::vec3& pos,
+                              const glm::vec2& size,
+                              const glm::vec4& color,
+                              float z,
+                              float thickness) {
         glm::vec3 p0 = pos + glm::vec3(0.0f, 0.0f, z);
         glm::vec3 p1 = pos + glm::vec3(size.x, 0.0f, z);
         glm::vec3 p2 = pos + glm::vec3(size.x, size.y, z);
@@ -719,7 +704,9 @@ void main()
         DrawLine(p3, p0, color, thickness, LineCap::Butt);
     }
 
-    void Renderer2D::DrawRect(const glm::mat4& transform, const glm::vec4& color, float thickness) {
+    void Renderer2D::DrawRect(const glm::mat4& transform,
+                              const glm::vec4& color,
+                              float thickness) {
         glm::vec3 points[4];
         for (int i = 0; i < 4; i++) {
             points[i] = transform * s_Data->QuadVertexPositions[i];
@@ -731,11 +718,18 @@ void main()
         DrawLine(points[3], points[0], color, thickness, LineCap::Butt);
     }
 
-    void Renderer2D::DrawCircle(const glm::vec2& pos, float radius, float thickness, const glm::vec4& color, float z) {
+    void Renderer2D::DrawCircle(const glm::vec2& pos,
+                                float radius,
+                                float thickness,
+                                const glm::vec4& color,
+                                float z) {
         DrawCircle(glm::vec3(pos, z), radius, thickness, color);
     }
 
-    void Renderer2D::DrawCircle(const glm::vec3& pos, float radius, float thickness, const glm::vec4& color) {
+    void Renderer2D::DrawCircle(const glm::vec3& pos,
+                                float radius,
+                                float thickness,
+                                const glm::vec4& color) {
         glm::mat4 transform =
             glm::translate(glm::mat4(1.0f), pos) *
             glm::scale(glm::mat4(1.0f), glm::vec3(radius * 2.0f, radius * 2.0f, 1.0f));
@@ -743,7 +737,9 @@ void main()
         DrawCircle(transform, thickness, color);
     }
 
-    void Renderer2D::DrawCircle(const glm::mat4& transform, float thickness, const glm::vec4& color) {
+    void Renderer2D::DrawCircle(const glm::mat4& transform,
+                                float thickness,
+                                const glm::vec4& color) {
         EnsureCircleCapacity();
 
         for (int i = 0; i < 4; i++) {

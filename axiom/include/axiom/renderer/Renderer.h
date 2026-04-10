@@ -1,6 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
-#include "Camera.h"
+#include "axiom/ecs/Camera/Camera.h"
 #include "Model.h"
 #include "RenderCommand.h"
 

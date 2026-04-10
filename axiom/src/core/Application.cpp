@@ -1,3 +1,4 @@
+// ===== axiom/src/core/Application.cpp =====
 #include "axiom/core/Application.h"
 #include "axiom/platform/Window.h"
 #include "axiom/core/Logger.h"
@@ -5,222 +6,243 @@
 #include "axiom/profiling/Profiler.h"
 #include "axiom/renderer/Renderer.h"
 #include "axiom/assets/VFS.h"
+
+#include "axiom/ecs/Systems/CameraSystem.h"
+#include "axiom/ecs/Systems/TransformSystem.h"
+#include "axiom/ecs/Systems/SpriteAnimationSystem.h"
+#include "axiom/ecs/Systems/AnimationTimelineSystem.h"
+#include "axiom/ecs/Systems/RenderSystem.h"
+#include "axiom/ecs/Systems/SkinnedMesh2DRenderSystem.h"
+
 #include <filesystem>
 #include <vector>
 
 namespace axiom {
 
-	namespace {
-		std::string ResolveAssetPath(const std::string& configuredPath, const std::vector<std::string>& fallbackCandidates) {
-			namespace fs = std::filesystem;
-			std::error_code ec;
+    namespace {
+        std::string ResolveAssetPath(const std::string& configuredPath, const std::vector<std::string>& fallbackCandidates) {
+            namespace fs = std::filesystem;
+            std::error_code ec;
 
-			if (!configuredPath.empty() && fs::exists(configuredPath, ec))
-				return configuredPath;
+            if (!configuredPath.empty() && fs::exists(configuredPath, ec))
+                return configuredPath;
 
-			for (const auto& candidate : fallbackCandidates) {
-				if (fs::exists(candidate, ec))
-					return candidate;
-			}
+            for (const auto& candidate : fallbackCandidates) {
+                if (fs::exists(candidate, ec))
+                    return candidate;
+            }
 
-			return configuredPath;
-		}
-	}
+            return configuredPath;
+        }
+    }
 
-	Application* Application::s_Instance = nullptr;
+    Application* Application::s_Instance = nullptr;
 
-	static double m_LastFixedUpdate = 0.0f;
-	static double m_FixedUpdateInterval = 1.0 / 75.0;
+    static double m_LastFixedUpdate = 0.0f;
+    static double m_FixedUpdateInterval = 1.0 / 75.0;
 
-	Application::Application(std::string AppName, uint32_t width, uint32_t height) {
-		AXIOM_ASSERT(!s_Instance, "Application already exists!");
-		s_Instance = this;
-		m_AppName = AppName;
-		m_Height = height;
-		m_Width = width;
-	}
+    Application::Application(std::string AppName, uint32_t width, uint32_t height) {
+        AXIOM_ASSERT(!s_Instance, "Application already exists!");
+        s_Instance = this;
+        m_AppName = AppName;
+        m_Height = height;
+        m_Width = width;
+    }
 
-	void Application::Run() {
-		Init();
-		MainLoop();
-		Shutdown();
-	}
+    void Application::Run() {
+        Init();
+        MainLoop();
+        Shutdown();
+    }
 
-	void Application::Init() {
-		AXIOM_PROFILE_SCOPE("Application::Init");
-		Window::Props props;
-		props.height = m_Height;
-		props.width = m_Width;
-		props.title = m_AppName;
-		m_Window = std::make_unique<Window>(props, m_EventBus);
+    void Application::Init() {
+        AXIOM_PROFILE_SCOPE("Application::Init");
+        Window::Props props;
+        props.height = m_Height;
+        props.width = m_Width;
+        props.title = m_AppName;
+        m_Window = std::make_unique<Window>(props, m_EventBus);
 
 #ifdef AXIOM_ENABLE_CONSOLE_LOG
-		Logger::Get().AddSink(
-			std::make_unique<ConsoleSink>()
-		);
+        Logger::Get().AddSink(std::make_unique<ConsoleSink>());
 #endif
-		m_EventBus.Subscribe<WindowCloseEvent>(
-			[this](WindowCloseEvent& e) {
-				return OnWindowClose(e);
-			}
-		);
 
-		m_EventBus.Subscribe<WindowResizeEvent>(
-			[this](WindowResizeEvent& e) {
-				return OnWindowResize(e);
-			}
-		);
+        m_EventBus.Subscribe<WindowCloseEvent>(
+            [this](WindowCloseEvent& e) {
+                return OnWindowClose(e);
+            }
+        );
 
-		m_MainCamera = std::make_shared<Camera>();
-		const float aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
-		m_MainCamera->SetOrthographic(-100.0f * aspect, 100.0f * aspect, -100.0f, 100.0f, -0.01f, 1000.0f);
+        m_EventBus.Subscribe<WindowResizeEvent>(
+            [this](WindowResizeEvent& e) {
+                return OnWindowResize(e);
+            }
+        );
 
-		m_Input.Init(m_Window->GetNativeHandle());
-		m_InputSystem.Init();
+        m_Input.Init(m_Window->GetNativeHandle());
+        m_InputSystem.Init();
 
-		Renderer::Init();
-		RenderCommand::SetViewport(0, 0, m_Width, m_Height);
-		VFS::Init();
-		const std::string engineAssetPath = ResolveAssetPath(
-			AXIOM_ENGINE_ASSET_PATH,
-			{
-				"./axiom/assets",
-				"../axiom/assets",
-				"../../axiom/assets",
-				"../../../axiom/assets",
-				"../../../../axiom/assets"
-			}
-		);
+        Renderer::Init();
+        RenderCommand::SetViewport(0, 0, m_Width, m_Height);
 
-		const std::string gameAssetPath = ResolveAssetPath(
-			AXIOM_GAME_ASSET_PATH,
-			{
-				"./testbed/assets",
-				"../testbed/assets",
-				"../../testbed/assets",
-				"../../../testbed/assets",
-				"../../../../testbed/assets",
-				"./assets"
-			}
-		);
+        VFS::Init();
+        const std::string engineAssetPath = ResolveAssetPath(
+            AXIOM_ENGINE_ASSET_PATH,
+            {
+                "./axiom/assets",
+                "../axiom/assets",
+                "../../axiom/assets",
+                "../../../axiom/assets",
+                "../../../../axiom/assets"
+            }
+        );
 
-		if (engineAssetPath != AXIOM_ENGINE_ASSET_PATH)
-			AXIOM_WARN("Engine asset path fallback is used: {}", engineAssetPath);
-		if (gameAssetPath != AXIOM_GAME_ASSET_PATH)
-			AXIOM_WARN("Game asset path fallback is used: {}", gameAssetPath);
+        const std::string gameAssetPath = ResolveAssetPath(
+            AXIOM_GAME_ASSET_PATH,
+            {
+                "./testbed/assets",
+                "../testbed/assets",
+                "../../testbed/assets",
+                "../../../testbed/assets",
+                "../../../../testbed/assets",
+                "./assets"
+            }
+        );
 
-		VFS::Mount("engine://", engineAssetPath, VFS::MountType::Directory);
-		VFS::Mount("game://", gameAssetPath, VFS::MountType::Directory);
+        if (engineAssetPath != AXIOM_ENGINE_ASSET_PATH)
+            AXIOM_WARN("Engine asset path fallback is used: {}", engineAssetPath);
+        if (gameAssetPath != AXIOM_GAME_ASSET_PATH)
+            AXIOM_WARN("Game asset path fallback is used: {}", gameAssetPath);
 
-		OnInit();
-	}
+        VFS::Mount("engine://", engineAssetPath, VFS::MountType::Directory);
+        VFS::Mount("game://", gameAssetPath, VFS::MountType::Directory);
 
-	void Application::MainLoop() {
-		double printTimer = 0.0f;
+        m_ActiveScene = std::make_unique<Scene>();
 
-		while (m_Running) {
-			Time::Update();
-			axiom::profiling::Profiler::BeginFrame();
+        OnInit();
+    }
 
-			{
-				AXIOM_PROFILE_FRAME();
+    void Application::MainLoop() {
+        double printTimer = 0.0f;
 
-				MainUpdate();
-				double alpha = (Time::GetTime() - m_LastFixedUpdate) / m_FixedUpdateInterval;
-				Render(alpha);
-			}
+        while (m_Running) {
+            Time::Update();
+            axiom::profiling::Profiler::BeginFrame();
 
-			axiom::profiling::Profiler::EndFrame();
+            {
+                AXIOM_PROFILE_FRAME();
 
-			printTimer += Time::GetDeltaTime();
+                MainUpdate();
+                double alpha = (Time::GetTime() - m_LastFixedUpdate) / m_FixedUpdateInterval;
+                Render(alpha);
+            }
 
-			if (printTimer > 1.0f) {
-				axiom::profiling::Profiler::PrintLastFrame();
-				printTimer = 0.0f;
-			}
-		}
-	}
+            axiom::profiling::Profiler::EndFrame();
 
-	void Application::Render(double alpha) {
-		AXIOM_PROFILE_SCOPE("Render");
+            printTimer += Time::GetDeltaTime();
 
-		Renderer::BeginScene(m_MainCamera, {});
-		OnRender(alpha);
+            if (printTimer > 1.0f) {
+                axiom::profiling::Profiler::PrintLastFrame();
+                printTimer = 0.0f;
+            }
+        }
+    }
 
-		for (auto& layer : m_LayerStack) {
-			AXIOM_PROFILE_SCOPE(layer->GetName());
-			layer->OnRender(alpha);
-		}
-		Renderer::EndScene();
-		m_Window->SwapBuffers();
-	}
+    void Application::Render(double alpha) {
+        AXIOM_PROFILE_SCOPE("Render");
 
-	void Application::PreUpdate(double dt) {
-		AXIOM_PROFILE_SCOPE("PreUpdate");
+        // ECS Camera
+        CameraSystem::Update(*m_ActiveScene);
 
-		OnPreUpdate(dt);
-		for (auto& layer : m_LayerStack) {
-			AXIOM_PROFILE_SCOPE(layer->GetName());
-			layer->OnPreUpdate(dt);
-		}
-	}
+        // User render
+        OnRender(alpha);
 
-	void Application::PostUpdate(double dt) {
-		AXIOM_PROFILE_SCOPE("PostUpdate");
-		OnPostUpdate(dt);
-		for (auto& layer : m_LayerStack) {
-			AXIOM_PROFILE_SCOPE(layer->GetName());
-			layer->OnPostUpdate(dt);
-		}
-	}
+        // Layer rendering
+        for (auto& layer : m_LayerStack) {
+            AXIOM_PROFILE_SCOPE(layer->GetName());
+            layer->OnRender(alpha);
+        }
 
-	void Application::FixedUpdate(double dt) {
-		AXIOM_PROFILE_SCOPE("FixedUpdate");
-		OnFixedUpdate(dt);
-		for (auto& layer : m_LayerStack) {
-			AXIOM_PROFILE_SCOPE(layer->GetName());
-			layer->OnFixedUpdate(dt);
-		}
-	}
+        // ECS Rendering
+        RenderSystem::Render(*m_ActiveScene, alpha);
+        SkinnedMesh2DRenderSystem::Render(*m_ActiveScene, alpha);
 
-	void Application::Update(double dt) {
-		AXIOM_PROFILE_SCOPE("Update");
-		OnUpdate(dt);
-		for (auto& layer : m_LayerStack) {
-			AXIOM_PROFILE_SCOPE(layer->GetName());
-			layer->OnUpdate(dt);
-		}
-	}
+        Renderer::EndScene();
+        m_Window->SwapBuffers();
+    }
 
-	void Application::MainUpdate() {
-		AXIOM_PROFILE_SCOPE("Application::MainUpdate");
+    void Application::PreUpdate(double dt) {
+        AXIOM_PROFILE_SCOPE("PreUpdate");
 
-		m_Window->PollEvents();
-		m_EventBus.DispatchQueued();
+        OnPreUpdate(dt);
+        for (auto& layer : m_LayerStack) {
+            AXIOM_PROFILE_SCOPE(layer->GetName());
+            layer->OnPreUpdate(dt);
+        }
+    }
 
-		m_InputSystem.Update();
+    void Application::PostUpdate(double dt) {
+        AXIOM_PROFILE_SCOPE("PostUpdate");
+        OnPostUpdate(dt);
+        for (auto& layer : m_LayerStack) {
+            AXIOM_PROFILE_SCOPE(layer->GetName());
+            layer->OnPostUpdate(dt);
+        }
+    }
 
-		double dt = Time::GetDeltaTime();
+    void Application::FixedUpdate(double dt) {
+        AXIOM_PROFILE_SCOPE("FixedUpdate");
+        OnFixedUpdate(dt);
+        for (auto& layer : m_LayerStack) {
+            AXIOM_PROFILE_SCOPE(layer->GetName());
+            layer->OnFixedUpdate(dt);
+        }
+    }
 
-		PreUpdate(dt);
-		Update(dt);
+    void Application::Update(double dt) {
+        AXIOM_PROFILE_SCOPE("Update");
+        OnUpdate(dt);
+        for (auto& layer : m_LayerStack) {
+            AXIOM_PROFILE_SCOPE(layer->GetName());
+            layer->OnUpdate(dt);
+        }
+    }
 
-		int maxSteps = 5;
-		int steps = 0;
+    void Application::MainUpdate() {
+        AXIOM_PROFILE_SCOPE("Application::MainUpdate");
 
-		while (Time::GetTime() - m_LastFixedUpdate >= m_FixedUpdateInterval && steps < maxSteps) {
-			FixedUpdate(m_FixedUpdateInterval);
-			m_LastFixedUpdate += m_FixedUpdateInterval;
-			steps++;
-		}
+        m_Window->PollEvents();
+        m_EventBus.DispatchQueued();
 
-		PostUpdate(dt);
-	}
+        m_InputSystem.Update();
 
-	void Application::Shutdown() {
-		AXIOM_PROFILE_SCOPE("Application::Shutdown");
-		OnShutdown();
-		m_LayerStack.Shutdown();
-		VFS::Shutdown();
-	}
-}
+        double dt = Time::GetDeltaTime();
+
+        PreUpdate(dt);
+        Update(dt);
+
+        // ECS Update
+        TransformSystem::Update(*m_ActiveScene);
+        SpriteAnimationSystem::Update(*m_ActiveScene, static_cast<float>(dt));
+        AnimationTimelineSystem::Update(*m_ActiveScene, static_cast<float>(dt));
+
+        int maxSteps = 5;
+        int steps = 0;
+
+        while (Time::GetTime() - m_LastFixedUpdate >= m_FixedUpdateInterval && steps < maxSteps) {
+            FixedUpdate(m_FixedUpdateInterval);
+            m_LastFixedUpdate += m_FixedUpdateInterval;
+            steps++;
+        }
+
+        PostUpdate(dt);
+    }
+
+    void Application::Shutdown() {
+        AXIOM_PROFILE_SCOPE("Application::Shutdown");
+        OnShutdown();
+        m_LayerStack.Shutdown();
+        VFS::Shutdown();
+    }
+
+} // namespace axiom

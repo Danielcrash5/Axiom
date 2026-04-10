@@ -8,6 +8,7 @@ namespace axiom {
 	void Renderer::BeginScene(const std::shared_ptr<Camera>& camera, ClearState clearState) {
 		if (clearState.ClearColor)
 			RenderCommand::SetClearColor(clearState.Color);
+		RenderCommand::SetClearState(clearState.ClearDepth, clearState.ClearColor);
 
 
 		s_SceneData.ViewProjection = camera->GetViewProjection();

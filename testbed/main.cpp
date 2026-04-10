@@ -1,16 +1,18 @@
+// main.cpp
 #include <axiom/core/Application.h>
 #include <axiom/core/Layer.h>
-#include <axiom/input/KeyCodes.h>
 #include <axiom/core/Logger.h>
 #include <axiom/core/Time.h>
+#include <axiom/input/KeyCodes.h>
+#include <axiom/input/Input.h>
 #include <axiom/assets/AssetManager.h>
 #include <axiom/assets/TextureLoadInfo.h>
-#include <axiom/events/Events.h>
+#include <axiom/renderer/Renderer.h>
 #include <axiom/renderer/Renderer2D.h>
+#include <axiom/renderer/Texture2D.h>
 #include <axiom/renderer/Material.h>
 #include <axiom/renderer/Shader.h>
 #include <axiom/renderer/Sprite.h>
-#include <axiom/renderer/Texture2D.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -18,13 +20,13 @@
 #include <vector>
 
 namespace {
-	std::shared_ptr<axiom::Texture2D> LoadGameTexture(const std::string& virtualPath) {
-		auto info = axiom::TexturePresets::Sprite();
-		return axiom::AssetManager::Get<axiom::Texture2D>(virtualPath, info);
-	}
+    std::shared_ptr<axiom::Texture2D> LoadGameTexture(const std::string& virtualPath) {
+        auto info = axiom::TexturePresets::Sprite();
+        return axiom::AssetManager::Get<axiom::Texture2D>(virtualPath, info);
+    }
 
-	std::shared_ptr<axiom::Material> CreateTexturedOverrideMaterial() {
-		static const char* source = R"(#type vertex
+    std::shared_ptr<axiom::Material> CreateTexturedOverrideMaterial() {
+        static const char* source = R"(#type vertex
 #version 460 core
 
 layout(location = 0) in vec3 a_Position;
@@ -63,11 +65,11 @@ void main()
 }
 )";
 
-		return std::make_shared<axiom::Material>(axiom::Shader::CreateFromMemory(source));
-	}
+        return std::make_shared<axiom::Material>(axiom::Shader::CreateFromMemory(source));
+    }
 
-	std::shared_ptr<axiom::Material> CreateSkinnedColorOverrideMaterial() {
-		static const char* source = R"(#type vertex
+    std::shared_ptr<axiom::Material> CreateSkinnedColorOverrideMaterial() {
+        static const char* source = R"(#type vertex
 #version 460 core
 
 layout(location = 0) in vec3 a_Position;
@@ -107,273 +109,277 @@ void main()
 }
 )";
 
-		return std::make_shared<axiom::Material>(axiom::Shader::CreateFromMemory(source));
-	}
+        return std::make_shared<axiom::Material>(axiom::Shader::CreateFromMemory(source));
+    }
 
-	axiom::Renderer2D::SkinnedMesh2D CreateRibbonSkinnedMesh(const std::shared_ptr<axiom::Texture2D>& texture) {
-		axiom::Renderer2D::SkinnedMesh2D mesh;
-		mesh.Texture = texture;
+    axiom::SkinnedMesh2D CreateRibbonSkinnedMesh(const std::shared_ptr<axiom::Texture2D>& texture) {
+        axiom::SkinnedMesh2D mesh;
+        mesh.Texture = texture;
 
-		const int columns = 12;
-		mesh.Vertices.reserve((columns + 1) * 2);
-		mesh.Indices.reserve(columns * 6);
+        const int columns = 12;
+        mesh.Vertices.reserve((columns + 1) * 2);
+        mesh.Indices.reserve(columns * 6);
 
-		for (int x = 0; x <= columns; ++x) {
-			const float u = static_cast<float>(x) / static_cast<float>(columns);
-			const float px = -0.5f + u;
-			const float weightBone1 = glm::smoothstep(0.25f, 1.0f, u);
-			const float weightBone0 = 1.0f - weightBone1;
+        for (int x = 0; x <= columns; ++x) {
+            const float u = static_cast<float>(x) / static_cast<float>(columns);
+            const float px = -0.5f + u;
+            const float weightBone1 = glm::smoothstep(0.25f, 1.0f, u);
+            const float weightBone0 = 1.0f - weightBone1;
 
-			const glm::vec4 boneIndices = { 0.0f, 1.0f, 0.0f, 0.0f };
-			const glm::vec4 boneWeights = { weightBone0, weightBone1, 0.0f, 0.0f };
+            const glm::vec4 boneIndices = {0.0f, 1.0f, 0.0f, 0.0f};
+            const glm::vec4 boneWeights = {weightBone0, weightBone1, 0.0f, 0.0f};
 
-			mesh.Vertices.push_back({
-				{ px, -0.5f, 0.0f },
-				{ 1.0f, 0.4f + 0.5f * u, 0.4f, 1.0f },
-				{ u, 0.0f },
-				boneIndices,
-				boneWeights
-			});
-			mesh.Vertices.push_back({
-				{ px, 0.5f, 0.0f },
-				{ 0.4f, 0.7f, 1.0f - 0.4f * u, 1.0f },
-				{ u, 1.0f },
-				boneIndices,
-				boneWeights
-			});
-		}
+            mesh.Vertices.push_back({
+                { px, -0.5f, 0.0f },
+                { 1.0f, 0.4f + 0.5f * u, 0.4f, 1.0f },
+                { u, 0.0f },
+                boneIndices,
+                boneWeights
+                                    });
+            mesh.Vertices.push_back({
+                { px, 0.5f, 0.0f },
+                { 0.4f, 0.7f, 1.0f - 0.4f * u, 1.0f },
+                { u, 1.0f },
+                boneIndices,
+                boneWeights
+                                    });
+        }
 
-		for (int x = 0; x < columns; ++x) {
-			const uint32_t i0 = static_cast<uint32_t>(x * 2);
-			const uint32_t i1 = i0 + 1;
-			const uint32_t i2 = i0 + 2;
-			const uint32_t i3 = i0 + 3;
+        for (int x = 0; x < columns; ++x) {
+            const uint32_t i0 = static_cast<uint32_t>(x * 2);
+            const uint32_t i1 = i0 + 1;
+            const uint32_t i2 = i0 + 2;
+            const uint32_t i3 = i0 + 3;
 
-			mesh.Indices.push_back(i0);
-			mesh.Indices.push_back(i2);
-			mesh.Indices.push_back(i3);
-			mesh.Indices.push_back(i3);
-			mesh.Indices.push_back(i1);
-			mesh.Indices.push_back(i0);
-		}
+            mesh.Indices.push_back(i0);
+            mesh.Indices.push_back(i2);
+            mesh.Indices.push_back(i3);
+            mesh.Indices.push_back(i3);
+            mesh.Indices.push_back(i1);
+            mesh.Indices.push_back(i0);
+        }
 
-		return mesh;
-	}
+        return mesh;
+    }
 }
-
-class InputTestLayer : public axiom::Layer {
-public:
-	InputTestLayer() :
-		Layer("InputTestLayer") {}
-
-	void OnAttach() override {
-		AXIOM_INFO("InputTestLayer attached!");
-	}
-
-	void OnFixedUpdate(double dt) override {
-		(void)dt;
-		auto input = GetMainInput();
-		if (input.IsKeyPressed(axiom::Key::Space)) {
-			AXIOM_INFO("Space key is pressed!");
-		}
-	}
-
-	void OnDetach() override {
-		AXIOM_INFO("InputTestLayer detached!");
-	}
-};
 
 class Testbed : public axiom::Application {
 public:
-	Testbed() :
-		Application("testbed") {
-	}
+    Testbed() :
+        Application("testbed") {
+    }
 
 protected:
-	void OnInit() override {
-		PushLayer(std::make_unique<InputTestLayer>());
-		axiom::Renderer2D::Init();
+    void OnInit() override {
+        axiom::Renderer2D::Init();
 
-		m_Texture = LoadGameTexture("game://textures/Purple/texture_01.png");
-		m_SkinnedTexture = LoadGameTexture("game://textures/Orange/texture_01.png");
-		m_Sprite = axiom::Sprite(m_Texture, { 0.0f, 0.0f }, { 1.0f, 1.0f });
-		m_OverrideMaterial = CreateTexturedOverrideMaterial();
-		m_SkinnedDebugMaterial = CreateSkinnedColorOverrideMaterial();
+        m_Texture = LoadGameTexture("game://textures/Purple/texture_01.png");
+        m_SkinnedTexture = LoadGameTexture("game://textures/Orange/texture_01.png");
+        m_Sprite = axiom::Sprite(m_Texture, {0.0f, 0.0f}, {1.0f, 1.0f});
+        m_OverrideMaterial = CreateTexturedOverrideMaterial();
+        m_SkinnedDebugMaterial = CreateSkinnedColorOverrideMaterial();
 
-		m_SkinnedMesh = CreateRibbonSkinnedMesh(m_SkinnedTexture);
+        m_SkinnedMesh = CreateRibbonSkinnedMesh(m_SkinnedTexture);
 
-		m_Pose.BoneCount = 2;
-		m_Pose.BoneTransforms[0] = glm::mat4(1.0f);
-		m_Pose.BoneTransforms[1] = glm::mat4(1.0f);
+        m_Pose.BoneCount = 2;
+        m_Pose.BoneTransforms[0] = glm::mat4(1.0f);
+        m_Pose.BoneTransforms[1] = glm::mat4(1.0f);
 
-		m_MouseScrollListener = GetMainEventBus().Subscribe<axiom::MouseScrollEvent>(
-			[this](axiom::MouseScrollEvent& e) {
-				m_CameraZoom = glm::clamp(m_CameraZoom + static_cast<float>(e.yOffset) * 0.15f, 0.2f, 4.0f);
-				ApplyDebugCamera();
-				return false;
-			}
-		);
+        m_MouseScrollListener = GetMainEventBus().Subscribe<axiom::MouseScrollEvent>(
+            [this](axiom::MouseScrollEvent& e) {
+                m_CameraZoom = glm::clamp(m_CameraZoom + static_cast<float>(e.yOffset) * 0.15f, 0.2f, 4.0f);
+                return false;
+            }
+        );
+    }
 
-		ApplyDebugCamera();
-	}
+    void OnUpdate(double dt) override {
+        const float moveSpeed = 90.0f / m_CameraZoom;
+        const float zoomSpeed = 1.5f;
+        bool cameraChanged = false;
 
-	void OnUpdate(double dt) override {
-		const float moveSpeed = 90.0f / m_CameraZoom;
-		const float zoomSpeed = 1.5f;
-		bool cameraChanged = false;
+        auto& input = GetMainInput();
 
-		auto& input = GetMainInput();
+        if (input.IsKeyPressed(axiom::Key::A) || input.IsKeyPressed(axiom::Key::Left)) {
+            m_CameraPosition.x -= moveSpeed * static_cast<float>(dt);
+            cameraChanged = true;
+        }
+        if (input.IsKeyPressed(axiom::Key::D) || input.IsKeyPressed(axiom::Key::Right)) {
+            m_CameraPosition.x += moveSpeed * static_cast<float>(dt);
+            cameraChanged = true;
+        }
+        if (input.IsKeyPressed(axiom::Key::W) || input.IsKeyPressed(axiom::Key::Up)) {
+            m_CameraPosition.y += moveSpeed * static_cast<float>(dt);
+            cameraChanged = true;
+        }
+        if (input.IsKeyPressed(axiom::Key::S) || input.IsKeyPressed(axiom::Key::Down)) {
+            m_CameraPosition.y -= moveSpeed * static_cast<float>(dt);
+            cameraChanged = true;
+        }
+        if (input.IsKeyPressed(axiom::Key::Q)) {
+            m_CameraZoom = glm::max(0.2f, m_CameraZoom - zoomSpeed * static_cast<float>(dt));
+            cameraChanged = true;
+        }
+        if (input.IsKeyPressed(axiom::Key::E)) {
+            m_CameraZoom = glm::min(4.0f, m_CameraZoom + zoomSpeed * static_cast<float>(dt));
+            cameraChanged = true;
+        }
+        if (input.IsKeyPressed(axiom::Key::R)) {
+            m_CameraPosition = glm::vec3(0.0f);
+            m_CameraZoom = 1.0f;
+            cameraChanged = true;
+        }
 
-		if (input.IsKeyPressed(axiom::Key::A) || input.IsKeyPressed(axiom::Key::Left)) {
-			m_CameraPosition.x -= moveSpeed * static_cast<float>(dt);
-			cameraChanged = true;
-		}
-		if (input.IsKeyPressed(axiom::Key::D) || input.IsKeyPressed(axiom::Key::Right)) {
-			m_CameraPosition.x += moveSpeed * static_cast<float>(dt);
-			cameraChanged = true;
-		}
-		if (input.IsKeyPressed(axiom::Key::W) || input.IsKeyPressed(axiom::Key::Up)) {
-			m_CameraPosition.y += moveSpeed * static_cast<float>(dt);
-			cameraChanged = true;
-		}
-		if (input.IsKeyPressed(axiom::Key::S) || input.IsKeyPressed(axiom::Key::Down)) {
-			m_CameraPosition.y -= moveSpeed * static_cast<float>(dt);
-			cameraChanged = true;
-		}
-		if (input.IsKeyPressed(axiom::Key::Q)) {
-			m_CameraZoom = glm::max(0.2f, m_CameraZoom - zoomSpeed * static_cast<float>(dt));
-			cameraChanged = true;
-		}
-		if (input.IsKeyPressed(axiom::Key::E)) {
-			m_CameraZoom = glm::min(4.0f, m_CameraZoom + zoomSpeed * static_cast<float>(dt));
-			cameraChanged = true;
-		}
-		if (input.IsKeyPressed(axiom::Key::R)) {
-			m_CameraPosition = glm::vec3(0.0f);
-			m_CameraZoom = 1.0f;
-			cameraChanged = true;
-		}
+        if (cameraChanged)
+            ApplyDebugCamera();
+    }
 
-		if (cameraChanged)
-			ApplyDebugCamera();
-	}
+    void OnRender(double alpha) override {
+        (void)alpha;
 
-	void OnRender(double alpha) override {
-		(void)alpha;
-		const float t = static_cast<float>(Time::GetTime());
-		const float swing = sinf(t * 2.6f) * 1.25f;
-		const float bendLift = cosf(t * 1.9f) * 0.12f;
-		const float pivotX = 0.15f;
-		m_Pose.BoneTransforms[0] = glm::mat4(1.0f);
-		m_Pose.BoneTransforms[1] =
-			glm::translate(glm::mat4(1.0f), glm::vec3(pivotX, bendLift, 0.0f)) *
-			glm::rotate(glm::mat4(1.0f), swing, glm::vec3(0.0f, 0.0f, 1.0f)) *
-			glm::translate(glm::mat4(1.0f), glm::vec3(-pivotX, 0.0f, 0.0f));
+        const float t = static_cast<float>(axiom::Time::GetTime());
+        const float swing = sinf(t * 2.6f) * 1.25f;
+        const float bendLift = cosf(t * 1.9f) * 0.12f;
+        const float pivotX = 0.15f;
+        m_Pose.BoneTransforms[0] = glm::mat4(1.0f);
+        m_Pose.BoneTransforms[1] =
+            glm::translate(glm::mat4(1.0f), glm::vec3(pivotX, bendLift, 0.0f)) *
+            glm::rotate(glm::mat4(1.0f), swing, glm::vec3(0.0f, 0.0f, 1.0f)) *
+            glm::translate(glm::mat4(1.0f), glm::vec3(-pivotX, 0.0f, 0.0f));
 
-		axiom::Renderer2D::BeginScene();
+        axiom::Renderer2D::BeginScene();
 
-		axiom::Renderer2D::DrawQuad(glm::vec2(-130.0f, 65.0f), glm::vec2(18.0f, 18.0f), glm::vec4(0.95f, 0.35f, 0.35f, 1.0f));
-		axiom::Renderer2D::DrawQuad(glm::vec3(-100.0f, 65.0f, 0.0f), glm::vec2(18.0f, 24.0f), glm::vec4(0.35f, 0.95f, 0.35f, 0.85f));
+        // Z-Layer Test
+        axiom::Renderer2D::DrawQuad(glm::vec2(-130.0f, 65.0f), glm::vec2(18.0f, 18.0f), glm::vec4(0.95f, 0.35f, 0.35f, 1.0f), -0.5f);
+        axiom::Renderer2D::DrawQuad(glm::vec3(-100.0f, 65.0f, 0.2f), glm::vec2(18.0f, 24.0f), glm::vec4(0.35f, 0.95f, 0.35f, 0.85f));
 
-		glm::mat4 coloredTransform =
-			glm::translate(glm::mat4(1.0f), glm::vec3(-68.0f, 65.0f, 0.0f)) *
-			glm::rotate(glm::mat4(1.0f), glm::radians(22.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
-			glm::scale(glm::mat4(1.0f), glm::vec3(22.0f, 14.0f, 1.0f));
-		axiom::Renderer2D::DrawQuad(coloredTransform, glm::vec4(0.35f, 0.65f, 1.0f, 0.9f));
+        glm::mat4 coloredTransform =
+            glm::translate(glm::mat4(1.0f), glm::vec3(-68.0f, 65.0f, 0.1f)) *
+            glm::rotate(glm::mat4(1.0f), glm::radians(22.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
+            glm::scale(glm::mat4(1.0f), glm::vec3(22.0f, 14.0f, 1.0f));
+        axiom::Renderer2D::DrawQuad(coloredTransform, glm::vec4(0.35f, 0.65f, 1.0f, 0.9f));
 
-		axiom::Renderer2D::DrawQuad(glm::vec2(-130.0f, 20.0f), glm::vec2(32.0f, 32.0f), m_Texture, 1.0f, glm::vec4(1.0f));
-		axiom::Renderer2D::DrawQuad(glm::vec3(-86.0f, 20.0f, 0.0f), glm::vec2(36.0f, 24.0f), m_Texture, 1.0f, glm::vec4(1.0f, 1.0f, 1.0f, 0.85f));
+        // Textured
+        axiom::Renderer2D::DrawQuad(glm::vec2(-130.0f, 20.0f), glm::vec2(32.0f, 32.0f), m_Texture, 1.0f, glm::vec4(1.0f), -0.1f);
+        axiom::Renderer2D::DrawQuad(glm::vec3(-86.0f, 20.0f, 0.1f), glm::vec2(36.0f, 24.0f), m_Texture, 1.0f, glm::vec4(1.0f, 1.0f, 1.0f, 0.85f));
 
-		glm::mat4 texturedTransform =
-			glm::translate(glm::mat4(1.0f), glm::vec3(-40.0f, 20.0f, 0.0f)) *
-			glm::rotate(glm::mat4(1.0f), glm::radians(-18.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
-			glm::scale(glm::mat4(1.0f), glm::vec3(34.0f, 34.0f, 1.0f));
-		axiom::Renderer2D::DrawQuad(texturedTransform, m_Texture, 1.0f, glm::vec4(1.0f));
+        glm::mat4 texturedTransform =
+            glm::translate(glm::mat4(1.0f), glm::vec3(-40.0f, 20.0f, 0.0f)) *
+            glm::rotate(glm::mat4(1.0f), glm::radians(-18.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
+            glm::scale(glm::mat4(1.0f), glm::vec3(34.0f, 34.0f, 1.0f));
+        axiom::Renderer2D::DrawQuad(texturedTransform, m_Texture, 1.0f, glm::vec4(1.0f));
 
-		glm::mat4 overrideQuadTransform =
-			glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 20.0f, 0.0f)) *
-			glm::scale(glm::mat4(1.0f), glm::vec3(34.0f, 34.0f, 1.0f));
-		axiom::Renderer2D::DrawQuad(overrideQuadTransform, m_Texture, m_OverrideMaterial, 1.0f, glm::vec4(1.0f, 0.9f, 0.9f, 0.95f));
+        glm::mat4 overrideQuadTransform =
+            glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 20.0f, 0.2f)) *
+            glm::scale(glm::mat4(1.0f), glm::vec3(34.0f, 34.0f, 1.0f));
+        axiom::Renderer2D::DrawQuad(overrideQuadTransform, m_Texture, m_OverrideMaterial, 1.0f, glm::vec4(1.0f, 0.9f, 0.9f, 0.95f));
 
-		glm::mat4 spriteTransform =
-			glm::translate(glm::mat4(1.0f), glm::vec3(45.0f, 65.0f, 0.0f)) *
-			glm::scale(glm::mat4(1.0f), glm::vec3(34.0f, 34.0f, 1.0f));
-		axiom::Renderer2D::DrawSprite(spriteTransform, m_Sprite, glm::vec4(1.0f));
+        // Sprites
+        glm::mat4 spriteTransform =
+            glm::translate(glm::mat4(1.0f), glm::vec3(45.0f, 65.0f, 0.0f)) *
+            glm::scale(glm::mat4(1.0f), glm::vec3(34.0f, 34.0f, 1.0f));
+        axiom::Renderer2D::DrawSprite(spriteTransform, m_Sprite, glm::vec4(1.0f));
 
-		glm::mat4 spriteOverrideTransform =
-			glm::translate(glm::mat4(1.0f), glm::vec3(92.0f, 65.0f, 0.0f)) *
-			glm::rotate(glm::mat4(1.0f), glm::radians(12.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
-			glm::scale(glm::mat4(1.0f), glm::vec3(34.0f, 34.0f, 1.0f));
-		axiom::Renderer2D::DrawSprite(spriteOverrideTransform, m_Sprite, glm::vec4(1.0f, 0.85f, 0.85f, 1.0f), m_OverrideMaterial);
+        glm::mat4 spriteOverrideTransform =
+            glm::translate(glm::mat4(1.0f), glm::vec3(92.0f, 65.0f, 0.1f)) *
+            glm::rotate(glm::mat4(1.0f), glm::radians(12.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
+            glm::scale(glm::mat4(1.0f), glm::vec3(34.0f, 34.0f, 1.0f));
+        axiom::Renderer2D::DrawSprite(spriteOverrideTransform, m_Sprite, glm::vec4(1.0f, 0.85f, 0.85f, 1.0f), m_OverrideMaterial);
 
-		glm::mat4 skinnedTransform =
-			glm::translate(glm::mat4(1.0f), glm::vec3(132.0f, 46.0f, 0.0f)) *
-			glm::scale(glm::mat4(1.0f), glm::vec3(70.0f, 42.0f, 1.0f));
-		axiom::Renderer2D::DrawSkinned(skinnedTransform, m_SkinnedMesh, m_Pose, glm::vec4(1.0f));
+        // Skinned
+        glm::mat4 skinnedTransform =
+            glm::translate(glm::mat4(1.0f), glm::vec3(132.0f, 46.0f, 0.0f)) *
+            glm::scale(glm::mat4(1.0f), glm::vec3(70.0f, 42.0f, 1.0f));
+        axiom::Renderer2D::DrawSkinned(skinnedTransform, m_SkinnedMesh, m_Pose, glm::vec4(1.0f));
 
-		glm::mat4 skinnedDebugTransform =
-			glm::translate(glm::mat4(1.0f), glm::vec3(132.0f, 12.0f, 0.0f)) *
-			glm::scale(glm::mat4(1.0f), glm::vec3(70.0f, 42.0f, 1.0f));
-		axiom::Renderer2D::DrawSkinned(skinnedDebugTransform, m_SkinnedMesh, m_Pose, glm::vec4(1.0f), m_SkinnedDebugMaterial);
+        glm::mat4 skinnedDebugTransform =
+            glm::translate(glm::mat4(1.0f), glm::vec3(132.0f, 12.0f, 0.1f)) *
+            glm::scale(glm::mat4(1.0f), glm::vec3(70.0f, 42.0f, 1.0f));
+        axiom::Renderer2D::DrawSkinned(skinnedDebugTransform, m_SkinnedMesh, m_Pose, glm::vec4(1.0f), m_SkinnedDebugMaterial);
 
-		axiom::Renderer2D::DrawLine(glm::vec3(-145.0f, -5.0f, 0.0f), glm::vec3(-108.0f, -28.0f, 0.0f), glm::vec4(1.0f, 0.9f, 0.2f, 1.0f), 3.0f);
-		axiom::Renderer2D::DrawRect(glm::vec3(-82.0f, -30.0f, 0.0f), glm::vec2(34.0f, 22.0f), glm::vec4(0.2f, 0.95f, 0.95f, 1.0f), 0.0f, 2.5f);
+        // Lines / Rects / Circles
+        axiom::Renderer2D::DrawLine(glm::vec3(-145.0f, -5.0f, 0.0f), glm::vec3(-108.0f, -28.0f, 0.0f), glm::vec4(1.0f, 0.9f, 0.2f, 1.0f), 3.0f, axiom::LineCap::Round);
+        axiom::Renderer2D::DrawRect(glm::vec3(-82.0f, -30.0f, 0.0f), glm::vec2(34.0f, 22.0f), glm::vec4(0.2f, 0.95f, 0.95f, 1.0f), 0.0f, 2.5f);
 
-		glm::mat4 rectTransform =
-			glm::translate(glm::mat4(1.0f), glm::vec3(-25.0f, -22.0f, 0.0f)) *
-			glm::rotate(glm::mat4(1.0f), glm::radians(28.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
-			glm::scale(glm::mat4(1.0f), glm::vec3(30.0f, 18.0f, 1.0f));
-		axiom::Renderer2D::DrawRect(rectTransform, glm::vec4(1.0f, 0.55f, 0.15f, 1.0f), 2.0f);
+        glm::mat4 rectTransform =
+            glm::translate(glm::mat4(1.0f), glm::vec3(-25.0f, -22.0f, 0.0f)) *
+            glm::rotate(glm::mat4(1.0f), glm::radians(28.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
+            glm::scale(glm::mat4(1.0f), glm::vec3(30.0f, 18.0f, 1.0f));
+        axiom::Renderer2D::DrawRect(rectTransform, glm::vec4(1.0f, 0.55f, 0.15f, 1.0f), 2.0f);
 
-		axiom::Renderer2D::DrawCircle(glm::vec2(35.0f, -20.0f), 13.0f, 0.0f, glm::vec4(0.95f, 0.2f, 0.2f, 1.0f));
-		axiom::Renderer2D::DrawCircle(glm::vec3(72.0f, -20.0f, 0.0f), 13.0f, 0.2f, glm::vec4(0.2f, 0.95f, 0.2f, 1.0f));
+        axiom::Renderer2D::DrawCircle(glm::vec2(35.0f, -20.0f), 13.0f, 0.0f, glm::vec4(0.95f, 0.2f, 0.2f, 1.0f));
+        axiom::Renderer2D::DrawCircle(glm::vec3(72.0f, -20.0f, 0.1f), 13.0f, 0.2f, glm::vec4(0.2f, 0.95f, 0.2f, 1.0f));
 
-		glm::mat4 circleTransform =
-			glm::translate(glm::mat4(1.0f), glm::vec3(115.0f, -20.0f, 0.0f)) *
-			glm::scale(glm::mat4(1.0f), glm::vec3(26.0f, 26.0f, 1.0f));
-		axiom::Renderer2D::DrawCircle(circleTransform, 0.35f, glm::vec4(0.25f, 0.5f, 1.0f, 1.0f));
+        glm::mat4 circleTransform =
+            glm::translate(glm::mat4(1.0f), glm::vec3(115.0f, -20.0f, 0.0f)) *
+            glm::scale(glm::mat4(1.0f), glm::vec3(26.0f, 26.0f, 1.0f));
+        axiom::Renderer2D::DrawCircle(circleTransform, 0.35f, glm::vec4(0.25f, 0.5f, 1.0f, 1.0f));
 
-		axiom::Renderer2D::EndScene();
-	}
+        // LineStrip Test
+        std::vector<glm::vec3> polyline = {
+            { -40.0f, -60.0f, 0.0f },
+            { -10.0f, -80.0f, 0.0f },
+            {  20.0f, -60.0f, 0.0f },
+            {  50.0f, -80.0f, 0.0f }
+        };
+        axiom::Renderer2D::DrawLineStrip(polyline, glm::vec4(0.9f, 0.7f, 0.2f, 1.0f), 4.0f, false, axiom::LineCap::Round, axiom::LineJoin::Round, 4.0f);
 
-	void OnShutdown() override {
-		if (m_MouseScrollListener != 0)
-			GetMainEventBus().Unsubscribe<axiom::MouseScrollEvent>(m_MouseScrollListener);
-		m_SkinnedDebugMaterial.reset();
-		m_OverrideMaterial.reset();
-		m_Texture.reset();
-		m_SkinnedTexture.reset();
-		axiom::Renderer2D::Shutdown();
-	}
+        // Batch-Stress-Test
+        for (int i = 0; i < 40; ++i) {
+            for (int j = 0; j < 25; ++j) {
+                float x = -150.0f + i * 8.0f;
+                float y = -120.0f + j * 8.0f;
+                float z = (i + j) * 0.0005f;
+                glm::vec4 c = glm::vec4(
+                    0.3f + 0.7f * (i / 40.0f),
+                    0.3f + 0.7f * (j / 25.0f),
+                    0.5f,
+                    0.8f
+                );
+                axiom::Renderer2D::DrawQuad(glm::vec2(x, y), glm::vec2(6.0f, 6.0f), c, z);
+            }
+        }
+
+        axiom::Renderer2D::EndScene();
+    }
+
+    void OnShutdown() override {
+        if (m_MouseScrollListener != 0)
+            GetMainEventBus().Unsubscribe<axiom::MouseScrollEvent>(m_MouseScrollListener);
+        m_SkinnedDebugMaterial.reset();
+        m_OverrideMaterial.reset();
+        m_Texture.reset();
+        m_SkinnedTexture.reset();
+        axiom::Renderer2D::Shutdown();
+    }
 
 private:
-	void ApplyDebugCamera() {
-		auto camera = GetMainCamera();
-		if (!camera)
-			return;
+    void ApplyDebugCamera() {
+        float width = static_cast<float>(GetWidth());
+        float height = static_cast<float>(GetHeigth());
+        float halfWidth = width * 0.5f / m_CameraZoom;
+        float halfHeight = height * 0.5f / m_CameraZoom;
 
-		const float aspect = static_cast<float>(GetWidth()) / static_cast<float>(GetHeigth());
-		const float halfHeight = 100.0f / m_CameraZoom;
-		const float halfWidth = halfHeight * aspect;
-		camera->SetOrthographic(-halfWidth, halfWidth, -halfHeight, halfHeight, -0.01f, 1000.0f);
-		camera->SetPosition(m_CameraPosition);
-		camera->SetRotation(glm::vec3(0.0f));
-	}
+        glm::mat4 proj = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, -1.0f, 1.0f);
+        glm::mat4 view = glm::translate(glm::mat4(1.0f), -m_CameraPosition);
+        axiom::Renderer::SetViewProjection(proj * view);
+    }
 
-	std::shared_ptr<axiom::Texture2D> m_Texture;
-	std::shared_ptr<axiom::Texture2D> m_SkinnedTexture;
-	std::shared_ptr<axiom::Material> m_OverrideMaterial;
-	std::shared_ptr<axiom::Material> m_SkinnedDebugMaterial;
-	axiom::Sprite m_Sprite;
-	axiom::Renderer2D::SkinnedMesh2D m_SkinnedMesh;
-	axiom::Renderer2D::SkeletonPose2D m_Pose;
-	glm::vec3 m_CameraPosition { 0.0f, 0.0f, 0.0f };
-	float m_CameraZoom = 1.0f;
-	uint64_t m_MouseScrollListener = 0;
+private:
+    std::shared_ptr<axiom::Texture2D> m_Texture;
+    std::shared_ptr<axiom::Texture2D> m_SkinnedTexture;
+    std::shared_ptr<axiom::Material> m_OverrideMaterial;
+    std::shared_ptr<axiom::Material> m_SkinnedDebugMaterial;
+    axiom::Sprite m_Sprite;
+    axiom::SkinnedMesh2D m_SkinnedMesh;
+    axiom::SkeletonPose2D m_Pose;
+    glm::vec3 m_CameraPosition{0.0f, 0.0f, 0.0f};
+    float m_CameraZoom = 1.0f;
+    uint64_t m_MouseScrollListener = 0;
 };
 
 int main() {
-	Testbed game;
-	game.Run();
-	return 0;
+    Testbed game;
+    game.Run();
+    return 0;
 }
