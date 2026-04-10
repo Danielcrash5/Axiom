@@ -13,7 +13,7 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 7. [Phase 6 — 2D‑Platformer‑Prototyp](#phase-6--2d-platformer-prototyp)
 8. [Phase 7 — Minimaler Editor](#phase-7--minimaler-editor)
 9. [Phase 8 — Physik (Box2D)](#phase-8--physik-box2d)
-10. [Phase 9 — Skripting (Lua + Sol2 + C++)](#phase-9--skripting-lua--sol2--c)
+10. [Phase 9 — Skripting (Luau + C++)](#phase-9--skripting-luau--c)
 11. [Phase 10 — Audio (OpenAL)](#phase-10--audio-openal)
 12. [Phase 11 — Finaler Platformer](#phase-11--finaler-platformer)
 13. [Phase 12 — Netzwerk (Asio)](#phase-12--netzwerk-asio)
@@ -195,10 +195,10 @@ Abgeschlossen
 
 ---
 
-## Phase 9 — Skripting (Lua + Sol2 + C++)
+## Phase 9 — Skripting (Luau + C++)
 - [ ] Lua-Integration
 - [ ] dynamisches laden von C++ Dlls
-- [ ] Skript-Komponente für Lua und C++
+- [ ] Skript-Komponente für Luau und C++
 
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
 
