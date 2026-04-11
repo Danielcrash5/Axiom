@@ -5,13 +5,13 @@ namespace axiom {
 		RenderCommand::Init();
 	}
 
-	void Renderer::BeginScene(const std::shared_ptr<Camera>& camera, ClearState clearState) {
+	void Renderer::BeginScene(const glm::mat4& ViewProjection, ClearState clearState) {
 		if (clearState.ClearColor)
 			RenderCommand::SetClearColor(clearState.Color);
 		RenderCommand::SetClearState(clearState.ClearDepth, clearState.ClearColor);
 
 
-		s_SceneData.ViewProjection = camera->GetViewProjection();
+		s_SceneData.ViewProjection = ViewProjection;
 		RenderCommand::Clear();
 	}
 

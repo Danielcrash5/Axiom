@@ -1,6 +1,5 @@
 #pragma once
 #include <glm/glm.hpp>
-#include "axiom/ecs/Camera/Camera.h"
 #include "Model.h"
 #include "RenderCommand.h"
 
@@ -21,7 +20,7 @@ namespace axiom {
 	public:
 		static void Init();
 
-		static void BeginScene(const std::shared_ptr<Camera>& camera, ClearState clearState);
+		static void BeginScene(const glm::mat4& ViewProjection, ClearState clearState);
 
 		static void EndScene();
 		static const glm::mat4& GetViewProjection();

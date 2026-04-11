@@ -7,13 +7,6 @@
 #include "axiom/renderer/Renderer.h"
 #include "axiom/assets/VFS.h"
 
-#include "axiom/ecs/Systems/CameraSystem.h"
-#include "axiom/ecs/Systems/TransformSystem.h"
-#include "axiom/ecs/Systems/SpriteAnimationSystem.h"
-#include "axiom/ecs/Systems/AnimationTimelineSystem.h"
-#include "axiom/ecs/Systems/RenderSystem.h"
-#include "axiom/ecs/Systems/SkinnedMesh2DRenderSystem.h"
-
 #include <filesystem>
 #include <vector>
 
@@ -151,9 +144,6 @@ namespace axiom {
     void Application::Render(double alpha) {
         AXIOM_PROFILE_SCOPE("Render");
 
-        // ECS Camera
-        CameraSystem::Update(*m_ActiveScene);
-
         // User render
         OnRender(alpha);
 
@@ -162,10 +152,6 @@ namespace axiom {
             AXIOM_PROFILE_SCOPE(layer->GetName());
             layer->OnRender(alpha);
         }
-
-        // ECS Rendering
-        RenderSystem::Render(*m_ActiveScene, alpha);
-        SkinnedMesh2DRenderSystem::Render(*m_ActiveScene, alpha);
 
         Renderer::EndScene();
         m_Window->SwapBuffers();
@@ -220,11 +206,6 @@ namespace axiom {
 
         PreUpdate(dt);
         Update(dt);
-
-        // ECS Update
-        TransformSystem::Update(*m_ActiveScene);
-        SpriteAnimationSystem::Update(*m_ActiveScene, static_cast<float>(dt));
-        AnimationTimelineSystem::Update(*m_ActiveScene, static_cast<float>(dt));
 
         int maxSteps = 5;
         int steps = 0;

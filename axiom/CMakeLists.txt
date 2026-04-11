@@ -27,10 +27,12 @@ target_include_directories(axiom_engine
 if(AXIOM_ENABLE_CONSOLE_LOG)
     target_compile_definitions(axiom_engine PUBLIC AXIOM_ENABLE_CONSOLE_LOG)
 endif()
-target_compile_definitions(axiom_engine PUBLIC GLFW_INCLUDE_NONE)
+target_compile_definitions(axiom_engine PUBLIC GLFW_INCLUDE_NONE GLM_ENABLE_EXPERIMENTAL)
 
 # OpenGL & Thirdparty
 find_package(OpenGL REQUIRED)
 target_link_libraries(axiom_engine
     PUBLIC glfw OpenGL::GL glad stb
 )
+
+target_link_libraries(axiom_engine PUBLIC EnTT::EnTT)

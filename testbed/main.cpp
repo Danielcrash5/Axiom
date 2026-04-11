@@ -362,7 +362,6 @@ private:
 
         glm::mat4 proj = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, -1.0f, 1.0f);
         glm::mat4 view = glm::translate(glm::mat4(1.0f), -m_CameraPosition);
-        axiom::Renderer::SetViewProjection(proj * view);
     }
 
 private:

@@ -7,7 +7,7 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 1. [Kernsysteme](#kernsystme)
 2. [Phase 1 — Rendering‑Grundlage](#phase-1--rendering-grundlage)
 3. [Phase 2 — Asset‑System](#phase-2--asset-system-inkl-asset-packs)
-4. [Phase 3 — ECS](#phase-3--ecs-produktionsreif)
+4. [Phase 3 — ECS](#phase-3--ecs)
 5. [Phase 4 — Renderer‑Integration](#phase-4--renderer-integration)
 6. [Phase 5 — Debug‑Tools / Editor‑Basis](#phase-5--debug-tools--editor-basis)
 7. [Phase 6 — 2D‑Platformer‑Prototyp](#phase-6--2d-platformer-prototyp)
@@ -115,30 +115,7 @@ Abgeschlossen
 
 ---
 
-## Phase 3 — ECS (Produktionsreif)
-**Kern:**  
-- [ ] Entity (ID + Version)  
-- [ ] Komponenten-Speicher (kontiguierlich)  
-- [ ] Add/Remove Component  
-
-**Abfragesystem:**  
-- [ ] View<T...>  
-- [ ] Cache-freundliche Iteration  
-
-**Komponenten:**  
-- [ ] TransformComponent  
-- [ ] SpriteRendererComponent  
-- [ ] CameraComponent  
-
-**Systeme:**  
-- [ ] Transform-System  
-- [ ] Render-System  
-
-**Erweiterungen:**  
-- [ ] Parent/Child-Hierarchie  
-- [ ] Transform-Propagation  
-- [ ] Dirty-Flags  
-
+## Phase 3 — ECS mithilfe von EnTT
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
 
 ---

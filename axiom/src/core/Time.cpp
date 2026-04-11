@@ -1,11 +1,11 @@
 #include "axiom/core/Time.h"
 #include <chrono>
 
-double Time::s_Time = 0.0f;
-double Time::s_LastTime = 0.0f;
-double Time::s_DeltaTime = 0.0f;
+double axiom::Time::s_Time = 0.0f;
+double axiom::Time::s_LastTime = 0.0f;
+double axiom::Time::s_DeltaTime = 0.0f;
 
-void Time::Update() {
+void axiom::Time::Update() {
     using clock = std::chrono::high_resolution_clock;
 
     static auto startTime = clock::now();

@@ -53,5 +53,7 @@ add_subdirectory(thirdparty/minizip-ng)
 
 add_subdirectory(tools/packtool)
 
+add_subdirectory(thirdparty/entt)
+
 
 add_subdirectory(testbed)
