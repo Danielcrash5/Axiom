@@ -247,6 +247,8 @@ protected:
             glm::rotate(glm::mat4(1.0f), swing, glm::vec3(0.0f, 0.0f, 1.0f)) *
             glm::translate(glm::mat4(1.0f), glm::vec3(-pivotX, 0.0f, 0.0f));
 
+        axiom::Renderer::BeginScene(ViewProjection, {});
+
         axiom::Renderer2D::BeginScene();
 
         // Z-Layer Test
@@ -362,6 +364,7 @@ private:
 
         glm::mat4 proj = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, -1.0f, 1.0f);
         glm::mat4 view = glm::translate(glm::mat4(1.0f), -m_CameraPosition);
+        ViewProjection = view * proj;
     }
 
 private:
@@ -375,6 +378,7 @@ private:
     glm::vec3 m_CameraPosition{0.0f, 0.0f, 0.0f};
     float m_CameraZoom = 1.0f;
     uint64_t m_MouseScrollListener = 0;
+    glm::mat4 ViewProjection;
 };
 
 int main() {

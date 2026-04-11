@@ -31,6 +31,7 @@ namespace axiom {
 			auto mesh = meshes[i];
 			for (auto& submesh : mesh->GetSubmeshes()) {
 				auto material = materials[submesh.MaterialIndex];
+				RenderCommand::SetRenderState(material->GetRenderState());
 
 				material->Set("u_ViewProjection", s_SceneData.ViewProjection);
 				material->Set("u_Transform", transform);
@@ -51,6 +52,8 @@ namespace axiom {
 		material->Set("u_Transform", transform);
 		material->Bind();
 
+		RenderCommand::SetRenderState(material->GetRenderState());
+
 		RenderCommand::DrawIndexed(vao, indexCount);
 	}
 
@@ -59,6 +62,9 @@ namespace axiom {
 							   uint32_t indexCount) {
 		material->Set("u_ViewProjection", s_SceneData.ViewProjection);
 		material->Bind();
+
+		RenderCommand::SetRenderState(material->GetRenderState());
+
 		RenderCommand::DrawLinesIndexed(vao, indexCount);
 	}
 
