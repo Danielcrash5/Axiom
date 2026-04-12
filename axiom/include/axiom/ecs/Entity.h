@@ -12,6 +12,10 @@ namespace axiom {
             : m_Entity(handle), m_Scene(scene) {
         }
 
+        void Destroy() {
+            m_Scene->m_Registry.destroy(m_Entity);
+		}
+
         template<typename T, typename... Args>
         T& AddComponent(Args&&... args) {
             return m_Scene->m_Registry.emplace<T>(
