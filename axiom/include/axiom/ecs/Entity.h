@@ -28,6 +28,12 @@ namespace axiom {
 				m_Entity, std::forward<Args>(args)...);
 		}
 
+		template<typename T, typename... Args>
+		T& ReplaceComponent(Args&&... args) {
+			return m_Scene->m_Registry.replace<T>(
+				m_Entity, std::forward<Args>(args)...);
+		}
+
 		template<typename T>
 		void RemoveComponent() {
 			m_Scene->m_Registry.remove<T>(m_Entity);
