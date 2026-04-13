@@ -22,7 +22,7 @@ namespace axiom {
 
 
 	private:
-		GLbitfield ClearMask;
+		GLbitfield ClearMask = 0;
 		RenderStateCache m_Cache;
 	};
 }

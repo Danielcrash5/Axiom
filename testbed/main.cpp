@@ -29,7 +29,7 @@ namespace {
         static const char* source = R"(#type vertex
 #version 460 core
 
-layout(location = 0) in vec3 a_Position;
+layout(location = 0) in vec4 a_Position;
 layout(location = 1) in vec4 a_Color;
 layout(location = 2) in vec2 a_TexCoord;
 layout(location = 3) in float a_TexIndex;
@@ -45,7 +45,7 @@ void main()
 {
     v_Color = a_Color;
     v_TexCoord = a_TexCoord;
-    gl_Position = u_ViewProjection * u_Transform * vec4(a_Position, 1.0);
+    gl_Position = u_ViewProjection * u_Transform * a_Position;
 }
 
 #type fragment
@@ -172,6 +172,7 @@ public:
 protected:
     void OnInit() override {
         axiom::Renderer2D::Init();
+        ApplyDebugCamera();
 
         m_Texture = LoadGameTexture("game://textures/Purple/texture_01.png");
         m_SkinnedTexture = LoadGameTexture("game://textures/Orange/texture_01.png");
@@ -364,7 +365,7 @@ private:
 
         glm::mat4 proj = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, -1.0f, 1.0f);
         glm::mat4 view = glm::translate(glm::mat4(1.0f), -m_CameraPosition);
-        ViewProjection = view * proj;
+        ViewProjection = proj * view;
     }
 
 private:
@@ -378,7 +379,7 @@ private:
     glm::vec3 m_CameraPosition{0.0f, 0.0f, 0.0f};
     float m_CameraZoom = 1.0f;
     uint64_t m_MouseScrollListener = 0;
-    glm::mat4 ViewProjection;
+    glm::mat4 ViewProjection{1.0f};
 };
 
 int main() {

@@ -28,7 +28,7 @@ namespace axiom {
 			static const char* source = R"(#type vertex
 #version 460 core
 
-layout(location = 0) in vec3 a_Position;
+layout(location = 0) in vec4 a_Position;
 layout(location = 1) in vec4 a_Color;
 layout(location = 2) in vec2 a_TexCoord;
 layout(location = 3) in float a_TexIndex;
@@ -42,7 +42,7 @@ out vec4 v_Color;
 void main()
 {
     v_Color = a_Color;
-    gl_Position = u_ViewProjection * u_Transform * vec4(a_Position, 1.0);
+    gl_Position = u_ViewProjection * u_Transform * a_Position;
 }
 
 #type fragment
@@ -65,7 +65,7 @@ void main()
 			static const char* source = R"(#type vertex
 #version 460 core
 
-layout(location = 0) in vec3 a_Position;
+layout(location = 0) in vec4 a_Position;
 layout(location = 1) in vec4 a_Color;
 layout(location = 2) in vec2 a_TexCoord;
 layout(location = 3) in float a_TexIndex;
@@ -85,7 +85,7 @@ void main()
     v_TexCoord = a_TexCoord;
     v_TilingFactor = a_TilingFactor;
     v_TexIndex = a_TexIndex;
-    gl_Position = u_ViewProjection * u_Transform * vec4(a_Position, 1.0);
+    gl_Position = u_ViewProjection * u_Transform * a_Position;
 }
 
 #type fragment
@@ -131,7 +131,7 @@ void main()
 			BufferUsage::Dynamic
 		);
 		s_Data->QuadVBO->SetLayout(BufferLayout(sizeof(QuadVertex), {
-			{ ShaderDataType::Vec3, "a_Position", static_cast<uint32_t>(offsetof(QuadVertex, Position)), false },
+			{ ShaderDataType::Vec4, "a_Position", static_cast<uint32_t>(offsetof(QuadVertex, Position)), false },
 			{ ShaderDataType::Vec4, "a_Color", static_cast<uint32_t>(offsetof(QuadVertex, Color)), false },
 			{ ShaderDataType::Vec2, "a_TexCoord", static_cast<uint32_t>(offsetof(QuadVertex, TexCoord)), false },
 			{ ShaderDataType::Float, "a_TexIndex", static_cast<uint32_t>(offsetof(QuadVertex, TexIndex)), false },
@@ -280,6 +280,7 @@ void main()
 
 		auto& state = material->GetRenderState();
 		state.DepthTest = true;
+		state.DepthFunction = DepthFunc::LessEqual;
 		state.DepthWrite = true;
 		state.Blending = true;
 		state.BlendSrc = BlendFactor::SrcAlpha;
@@ -512,14 +513,11 @@ void main()
 		s_Data->QuadVBO->SetData(quadVertices, sizeof(quadVertices));
 
 		Configure2DMaterial(materialOverride);
-		materialOverride->Set("u_ViewProjection", Renderer::GetViewProjection());
-		materialOverride->Set("u_Transform", glm::mat4(1.0f));
 		if (sprite.Texture && materialOverride->GetShader() && materialOverride->GetShader()->HasUniform("u_Texture")) {
 			materialOverride->SetTexture("u_Texture", sprite.Texture);
 		}
-		materialOverride->Bind();
 
-		Renderer::Submit(s_Data->QuadVAO, materialOverride, 6, transform);
+		Renderer::Submit(s_Data->QuadVAO, materialOverride, 6, glm::mat4(1.0f));
 
 	}
 

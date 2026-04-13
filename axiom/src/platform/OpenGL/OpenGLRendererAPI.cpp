@@ -3,10 +3,8 @@
 
 namespace axiom {
 	void OpenGLRendererAPI::Init() {
-		glEnable(GL_BLEND);									// Alphablending aktivieren
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);	// Default Blendingfunktion setzen
+		SetClearState(true, true);							// Default Clearstate setzen
 		SetRenderState({});									// Default Renderstate setzen
-		SetClearState(true, true);							// Default Clerstate setzen
 	}
 
 	void OpenGLRendererAPI::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
@@ -18,6 +16,8 @@ namespace axiom {
 	}
 
 	void OpenGLRendererAPI::SetClearState(bool Depth, bool Color) {
+		ClearMask = 0;
+
 		if (Depth)
 			ClearMask |= GL_DEPTH_BUFFER_BIT;
 
@@ -33,47 +33,36 @@ namespace axiom {
 		switch (depthFunc) {
 		case DepthFunc::Less:
 			return GL_LESS;
-			break;
 		case DepthFunc::LessEqual:
 			return GL_LEQUAL;
-			break;
 		case DepthFunc::Equal:
 			return GL_EQUAL;
-			break;
 		case DepthFunc::Always:
 			return GL_ALWAYS;
-			break;
 		case DepthFunc::None:
-			return GL_NONE;
-			break;
-		default:
-			break;
+			return GL_ALWAYS;
 		}
+
+		return GL_LESS;
 	}
 
 	GLenum toGL(BlendFactor blendfactor) {
 		switch (blendfactor) {
 		case BlendFactor::Zero:
 			return GL_ZERO;
-			break;
 		case BlendFactor::One:
 			return GL_ONE;
-			break;
 		case BlendFactor::SrcAlpha:
 			return GL_SRC_ALPHA;
-			break;
 		case BlendFactor::OneMinusSrcAlpha:
 			return GL_ONE_MINUS_SRC_ALPHA;
-			break;
 		case BlendFactor::SrcColor:
 			return GL_SRC_COLOR;
-			break;
 		case BlendFactor::OneMinusSrcColor:
 			return GL_ONE_MINUS_SRC_COLOR;
-			break;
-		default:
-			break;
 		}
+
+		return GL_ONE;
 	}
 
 	void OpenGLRendererAPI::SetRenderState(const RenderState& state) {
