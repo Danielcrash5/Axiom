@@ -188,7 +188,8 @@ protected:
 
         m_MouseScrollListener = GetMainEventBus().Subscribe<axiom::MouseScrollEvent>(
             [this](axiom::MouseScrollEvent& e) {
-                m_CameraZoom = glm::clamp(m_CameraZoom + static_cast<float>(e.yOffset) * 0.15f, 0.2f, 4.0f);
+                m_CameraZoom = glm::clamp(m_CameraZoom + static_cast<float>(e.yOffset) * 0.15f, 0.2f, 16.0f);
+				ApplyDebugCamera();
                 return false;
             }
         );
@@ -222,7 +223,7 @@ protected:
             cameraChanged = true;
         }
         if (input.IsKeyPressed(axiom::Key::E)) {
-            m_CameraZoom = glm::min(4.0f, m_CameraZoom + zoomSpeed * static_cast<float>(dt));
+            m_CameraZoom = glm::min(16.0f, m_CameraZoom + zoomSpeed * static_cast<float>(dt));
             cameraChanged = true;
         }
         if (input.IsKeyPressed(axiom::Key::R)) {
