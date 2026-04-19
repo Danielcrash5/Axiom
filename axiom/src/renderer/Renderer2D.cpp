@@ -9,23 +9,32 @@
 #include "axiom/renderer/VertexArray.h"
 #include "axiom/renderer/VertexBuffer.h"
 #include "axiom/renderer/IndexBuffer.h"
-
+#include <vector>
 #include <algorithm>
-#include <cstddef>
-#include <cmath>
-#include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <string>
+#include <glm/gtc/constants.hpp>
+#include "axiom/renderer/IndirectDrawBuffer.h"
 
 namespace axiom {
 
-	Renderer2D::RendererData* Renderer2D::s_Data = nullptr;
+struct QuadDrawCommand {
+    glm::mat4 transform;
+    glm::vec4 color;
+    glm::vec2 texCoords[4];
+    float texIndex;
+    float tiling;
+    float z;
+};
 
-	namespace {
-		constexpr float kEpsilon = 0.0001f;
+static std::vector<QuadDrawCommand> s_QuadBatch;
 
-		std::shared_ptr<Material> CreateImmediateColorMaterial() {
-			static const char* source = R"(#type vertex
+Renderer2D::RendererData* Renderer2D::s_Data = nullptr;
+
+namespace {
+	constexpr float kEpsilon = 0.0001f;
+
+	std::shared_ptr<Material> CreateImmediateColorMaterial() {
+		static const char* source = R"(#type vertex
 #version 460 core
 
 layout(location = 0) in vec4 a_Position;
@@ -289,13 +298,30 @@ void main()
 	}
 
 	void Renderer2D::FlushQuads() {
-		const uint32_t vertexCount = static_cast<uint32_t>(s_Data->QuadBufferPtr - s_Data->QuadBufferBase);
-		if (vertexCount == 0) {
-			return;
+		const uint32_t quadCount = static_cast<uint32_t>(s_QuadBatch.size());
+		if (quadCount == 0) return;
+
+		// Z-Sort
+		std::sort(s_QuadBatch.begin(), s_QuadBatch.end(), [](const QuadDrawCommand& a, const QuadDrawCommand& b) {
+			return a.z < b.z;
+		});
+
+		// Schreibe Vertices in Buffer
+		QuadVertex* vtx = s_Data->QuadBufferBase;
+		for (const auto& cmd : s_QuadBatch) {
+			for (int i = 0; i < 4; ++i) {
+				vtx->Position = cmd.transform * s_Data->QuadVertexPositions[i];
+				vtx->Color = cmd.color;
+				vtx->TexCoord = cmd.texCoords[i];
+				vtx->TexIndex = cmd.texIndex;
+				vtx->TilingFactor = cmd.tiling;
+				++vtx;
+			}
 		}
 
-		const uint32_t size = vertexCount * sizeof(QuadVertex);
-		s_Data->QuadVBO->SetData(s_Data->QuadBufferBase, size);
+		const uint32_t vertexCount = quadCount * 4;
+		const uint32_t indexCount = quadCount * 6;
+		s_Data->QuadVBO->SetData(s_Data->QuadBufferBase, vertexCount * sizeof(QuadVertex));
 
 		for (uint32_t i = 0; i < s_Data->TextureSlotIndex; i++) {
 			if (s_Data->TextureSlots[i]) {
@@ -305,8 +331,9 @@ void main()
 
 		auto material = s_Data->QuadMaterial;
 		Configure2DMaterial(material);
-		const uint32_t indexCount = (vertexCount / 4) * 6;
 		Renderer::Submit(s_Data->QuadVAO, material, indexCount, glm::mat4(1.0f));
+
+		s_QuadBatch.clear();
 	}
 
 	void Renderer2D::FlushCircles() {
@@ -352,20 +379,14 @@ void main()
 			{ 1.0f, 1.0f },
 			{ 0.0f, 1.0f }
 		};
-
-		EnsureQuadCapacity();
-
-		const float texIndex = 0.0f;
-		const float tiling = 1.0f;
-
-		for (int i = 0; i < 4; i++) {
-			s_Data->QuadBufferPtr->Position = transform * s_Data->QuadVertexPositions[i];
-			s_Data->QuadBufferPtr->Color = color;
-			s_Data->QuadBufferPtr->TexCoord = texCoords[i];
-			s_Data->QuadBufferPtr->TexIndex = texIndex;
-			s_Data->QuadBufferPtr->TilingFactor = tiling;
-			s_Data->QuadBufferPtr++;
-		}
+		QuadDrawCommand cmd;
+		cmd.transform = transform;
+		cmd.color = color;
+		for (int i = 0; i < 4; ++i) cmd.texCoords[i] = texCoords[i];
+		cmd.texIndex = 0.0f;
+		cmd.tiling = 1.0f;
+		cmd.z = transform[3].z;
+		s_QuadBatch.push_back(cmd);
 	}
 
 	void Renderer2D::DrawQuad(const glm::vec2& pos,
@@ -399,19 +420,14 @@ void main()
 			{ 1.0f, 1.0f },
 			{ 0.0f, 1.0f }
 		};
-
-		EnsureQuadCapacity();
-
-		const float texIndex = AcquireTextureSlot(texture);
-
-		for (int i = 0; i < 4; i++) {
-			s_Data->QuadBufferPtr->Position = transform * s_Data->QuadVertexPositions[i];
-			s_Data->QuadBufferPtr->Color = tint;
-			s_Data->QuadBufferPtr->TexCoord = texCoords[i];
-			s_Data->QuadBufferPtr->TexIndex = texIndex;
-			s_Data->QuadBufferPtr->TilingFactor = tiling;
-			s_Data->QuadBufferPtr++;
-		}
+		QuadDrawCommand cmd;
+		cmd.transform = transform;
+		cmd.color = tint;
+		for (int i = 0; i < 4; ++i) cmd.texCoords[i] = texCoords[i];
+		cmd.texIndex = AcquireTextureSlot(texture);
+		cmd.tiling = tiling;
+		cmd.z = transform[3].z;
+		s_QuadBatch.push_back(cmd);
 	}
 
 	void Renderer2D::DrawQuad(const glm::mat4& transform,

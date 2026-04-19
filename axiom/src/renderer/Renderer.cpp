@@ -57,17 +57,6 @@ namespace axiom {
 		RenderCommand::DrawIndexed(vao, indexCount);
 	}
 
-	void Renderer::SubmitLines(const std::shared_ptr<VertexArray>& vao,
-							   const std::shared_ptr<Material>& material,
-							   uint32_t indexCount) {
-		material->Set("u_ViewProjection", s_SceneData.ViewProjection);
-		material->Bind();
-
-		RenderCommand::SetRenderState(material->GetRenderState());
-
-		RenderCommand::DrawLinesIndexed(vao, indexCount);
-	}
-
 	SceneData Renderer::s_SceneData;
 
 }

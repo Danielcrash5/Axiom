@@ -10,6 +10,8 @@ namespace axiom {
 		OpenGL = 1
 	};
 
+	class IndirectDrawBuffer; // Forward declaration
+
 	class RendererAPI {
 	public:
 		virtual ~RendererAPI() = default;
@@ -24,7 +26,15 @@ namespace axiom {
 
 		virtual void DrawIndexed(const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t offset) = 0;
 		virtual void DrawArrays(const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t offset) = 0;
-		virtual void DrawLinesIndexed(const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t offset) = 0;
+
+		// Instanced rendering
+		virtual void DrawIndexedInstanced(const std::shared_ptr<VertexArray>& vao, uint32_t indexCount, uint32_t instanceCount, uint32_t offset = 0) = 0;
+		virtual void DrawArraysInstanced(const std::shared_ptr<VertexArray>& vao, uint32_t vertexCount, uint32_t instanceCount, uint32_t offset = 0) = 0;
+
+		// Indirect rendering (API-agnostisch)
+		virtual void DrawIndexedIndirect(const std::shared_ptr<VertexArray>& vao, const std::shared_ptr<IndirectDrawBuffer>& indirectBuffer, uint32_t drawCount) = 0;
+		virtual void DrawIndexedInstancedIndirect(const std::shared_ptr<VertexArray>& vao, const std::shared_ptr<IndirectDrawBuffer>& indirectBuffer, uint32_t drawCount) = 0;
+		virtual void DrawArraysInstancedIndirect(const std::shared_ptr<VertexArray>& vao, const std::shared_ptr<IndirectDrawBuffer>& indirectBuffer, uint32_t drawCount) = 0;
 
 		static RendererAPIType GetAPI() {
 			return s_API;

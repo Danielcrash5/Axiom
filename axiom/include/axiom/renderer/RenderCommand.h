@@ -35,10 +35,6 @@ namespace axiom {
 			s_RendererAPI->DrawArrays(vao, count, offset);
 		}
 
-		static void DrawLinesIndexed(const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t offset = 0) {
-			s_RendererAPI->DrawLinesIndexed(vao, count, offset);
-		}
-
 		static void SetRenderState(RenderState& renderstate) {
 			s_RendererAPI->SetRenderState(renderstate);
 		}
