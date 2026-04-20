@@ -1,4 +1,0 @@
-@PACKAGE_INIT@
-include(CMakeFindDependencyMacro)
-find_dependency(PPMD)
-include("${CMAKE_CURRENT_LIST_DIR}/minizip.cmake")
