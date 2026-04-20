@@ -1,0 +1,150 @@
+^F:\PROJECTS\AXIOM\BUILD-VS-CODEX\_DEPS\PPMD-SUBBUILD\CMAKEFILES\A6E8B925187412BE20D8C30C34339B03\PPMD-POPULATE-MKDIR.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -Dcfgdir=/Debug -P F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/ppmd-populate-prefix/tmp/ppmd-populate-mkdirs.cmake
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/ppmd-populate-prefix/src/ppmd-populate-stamp/Debug/ppmd-populate-mkdir
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^F:\PROJECTS\AXIOM\BUILD-VS-CODEX\_DEPS\PPMD-SUBBUILD\CMAKEFILES\A6E8B925187412BE20D8C30C34339B03\PPMD-POPULATE-DOWNLOAD.RULE
+setlocal
+cd F:\projects\Axiom\thirdparty\minizip-ng\third_party
+if %errorlevel% neq 0 goto :cmEnd
+F:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE -P F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/ppmd-populate-prefix/tmp/ppmd-populate-gitclone.cmake
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/ppmd-populate-prefix/src/ppmd-populate-stamp/Debug/ppmd-populate-download
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^F:\PROJECTS\AXIOM\BUILD-VS-CODEX\_DEPS\PPMD-SUBBUILD\CMAKEFILES\A6E8B925187412BE20D8C30C34339B03\PPMD-POPULATE-UPDATE.RULE
+setlocal
+cd F:\projects\Axiom\thirdparty\minizip-ng\third_party\ppmd
+if %errorlevel% neq 0 goto :cmEnd
+F:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -Dcan_fetch=YES -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE -P F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/ppmd-populate-prefix/tmp/ppmd-populate-gitupdate.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^F:\PROJECTS\AXIOM\BUILD-VS-CODEX\_DEPS\PPMD-SUBBUILD\CMAKEFILES\A6E8B925187412BE20D8C30C34339B03\PPMD-POPULATE-PATCH.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E echo_append
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/ppmd-populate-prefix/src/ppmd-populate-stamp/Debug/ppmd-populate-patch
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^F:\PROJECTS\AXIOM\BUILD-VS-CODEX\_DEPS\PPMD-SUBBUILD\CMAKEFILES\A6E8B925187412BE20D8C30C34339B03\PPMD-POPULATE-CONFIGURE.RULE
+setlocal
+cd F:\projects\Axiom\build-vs-codex\_deps\ppmd-build
+if %errorlevel% neq 0 goto :cmEnd
+F:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E echo_append
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/ppmd-populate-prefix/src/ppmd-populate-stamp/Debug/ppmd-populate-configure
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^F:\PROJECTS\AXIOM\BUILD-VS-CODEX\_DEPS\PPMD-SUBBUILD\CMAKEFILES\A6E8B925187412BE20D8C30C34339B03\PPMD-POPULATE-BUILD.RULE
+setlocal
+cd F:\projects\Axiom\build-vs-codex\_deps\ppmd-build
+if %errorlevel% neq 0 goto :cmEnd
+F:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E echo_append
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/ppmd-populate-prefix/src/ppmd-populate-stamp/Debug/ppmd-populate-build
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^F:\PROJECTS\AXIOM\BUILD-VS-CODEX\_DEPS\PPMD-SUBBUILD\CMAKEFILES\A6E8B925187412BE20D8C30C34339B03\PPMD-POPULATE-INSTALL.RULE
+setlocal
+cd F:\projects\Axiom\build-vs-codex\_deps\ppmd-build
+if %errorlevel% neq 0 goto :cmEnd
+F:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E echo_append
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/ppmd-populate-prefix/src/ppmd-populate-stamp/Debug/ppmd-populate-install
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^F:\PROJECTS\AXIOM\BUILD-VS-CODEX\_DEPS\PPMD-SUBBUILD\CMAKEFILES\A6E8B925187412BE20D8C30C34339B03\PPMD-POPULATE-TEST.RULE
+setlocal
+cd F:\projects\Axiom\build-vs-codex\_deps\ppmd-build
+if %errorlevel% neq 0 goto :cmEnd
+F:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E echo_append
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/ppmd-populate-prefix/src/ppmd-populate-stamp/Debug/ppmd-populate-test
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^F:\PROJECTS\AXIOM\BUILD-VS-CODEX\_DEPS\PPMD-SUBBUILD\CMAKEFILES\8BF5AF5B1B45603116AF235F61E1CECA\PPMD-POPULATE-COMPLETE.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/CMakeFiles/Debug
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/CMakeFiles/Debug/ppmd-populate-complete
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/ppmd-populate-prefix/src/ppmd-populate-stamp/Debug/ppmd-populate-done
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^F:\PROJECTS\AXIOM\BUILD-VS-CODEX\_DEPS\PPMD-SUBBUILD\CMAKEFILES\3A4564E5EF4B65521FAED670C871608C\PPMD-POPULATE.RULE
+setlocal
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^F:\PROJECTS\AXIOM\BUILD-VS-CODEX\_DEPS\PPMD-SUBBUILD\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SF:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild -BF:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild --check-stamp-file F:/projects/Axiom/build-vs-codex/_deps/ppmd-subbuild/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

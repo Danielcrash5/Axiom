@@ -1,0 +1,4 @@
+# CMake generation dependency list for this directory.
+F:/projects/Axiom/build-vs-codex/CMakeFiles/cmake.verify_globs
+F:/projects/Axiom/thirdparty/glfw/CMake/glfw3.pc.in
+F:/projects/Axiom/thirdparty/glfw/src/CMakeLists.txt

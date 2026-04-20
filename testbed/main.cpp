@@ -186,13 +186,6 @@ protected:
         m_Pose.BoneTransforms[0] = glm::mat4(1.0f);
         m_Pose.BoneTransforms[1] = glm::mat4(1.0f);
 
-        m_MouseScrollListener = GetMainEventBus().Subscribe<axiom::MouseScrollEvent>(
-            [this](axiom::MouseScrollEvent& e) {
-                m_CameraZoom = glm::clamp(m_CameraZoom + static_cast<float>(e.yOffset) * 0.15f, 0.2f, 16.0f);
-				ApplyDebugCamera();
-                return false;
-            }
-        );
     }
 
     void OnUpdate(double dt) override {
@@ -201,6 +194,12 @@ protected:
         bool cameraChanged = false;
 
         auto& input = GetMainInput();
+        const glm::vec2 mouseScroll = input.GetMouseScrollDelta();
+
+        if (mouseScroll.y != 0.0f) {
+            m_CameraZoom = glm::clamp(m_CameraZoom + mouseScroll.y * 0.15f, 0.2f, 16.0f);
+            cameraChanged = true;
+        }
 
         if (input.IsKeyPressed(axiom::Key::A) || input.IsKeyPressed(axiom::Key::Left)) {
             m_CameraPosition.x -= moveSpeed * static_cast<float>(dt);
@@ -328,28 +327,26 @@ protected:
         };
         axiom::Renderer2D::DrawLineStrip(polyline, glm::vec4(0.9f, 0.7f, 0.2f, 1.0f), 4.0f, false, axiom::LineCap::Round, axiom::LineJoin::Round, 4.0f);
 
-        // Batch-Stress-Test
-        for (int i = 0; i < 40; ++i) {
-            for (int j = 0; j < 25; ++j) {
-                float x = -150.0f + i * 8.0f;
-                float y = -120.0f + j * 8.0f;
-                float z = (i + j) * 0.0005f;
-                glm::vec4 c = glm::vec4(
-                    0.3f + 0.7f * (i / 40.0f),
-                    0.3f + 0.7f * (j / 25.0f),
-                    0.5f,
-                    0.8f
-                );
-                axiom::Renderer2D::DrawQuad(glm::vec2(x, y), glm::vec2(6.0f, 6.0f), c, z);
-            }
-        }
+        //// Batch-Stress-Test
+        //for (int i = 0; i < 40; ++i) {
+        //    for (int j = 0; j < 25; ++j) {
+        //        float x = -150.0f + i * 8.0f;
+        //        float y = -120.0f + j * 8.0f;
+        //        float z = (i + j) * 0.0005f;
+        //        glm::vec4 c = glm::vec4(
+        //            0.3f + 0.7f * (i / 40.0f),
+        //            0.3f + 0.7f * (j / 25.0f),
+        //            0.5f,
+        //            0.8f
+        //        );
+        //        axiom::Renderer2D::DrawQuad(glm::vec2(x, y), glm::vec2(6.0f, 6.0f), c, z);
+        //    }
+        //}
 
         axiom::Renderer2D::EndScene();
     }
 
     void OnShutdown() override {
-        if (m_MouseScrollListener != 0)
-            GetMainEventBus().Unsubscribe<axiom::MouseScrollEvent>(m_MouseScrollListener);
         m_SkinnedDebugMaterial.reset();
         m_OverrideMaterial.reset();
         m_Texture.reset();
@@ -379,7 +376,6 @@ private:
     axiom::SkeletonPose2D m_Pose;
     glm::vec3 m_CameraPosition{0.0f, 0.0f, 0.0f};
     float m_CameraZoom = 1.0f;
-    uint64_t m_MouseScrollListener = 0;
     glm::mat4 ViewProjection{1.0f};
 };
 

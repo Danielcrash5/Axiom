@@ -164,7 +164,7 @@ namespace axiom {
 
     private:
         struct QuadVertex {
-            glm::vec4 Position;
+            glm::vec3 Position;
             glm::vec4 Color;
             glm::vec2 TexCoord;
             float TexIndex;
@@ -190,11 +190,12 @@ namespace axiom {
 
             QuadVertex* QuadBufferBase = nullptr;
             QuadVertex* QuadBufferPtr = nullptr;
+            uint32_t QuadIndexCount = 0;
 
             std::shared_ptr<Texture2D> TextureSlots[MaxTextureSlots];
             uint32_t TextureSlotIndex = 1;
 
-            glm::vec4 QuadVertexPositions[4];
+            glm::vec3 QuadVertexPositions[4];
 
             std::shared_ptr<Material> QuadMaterial;
 
@@ -203,6 +204,7 @@ namespace axiom {
             std::shared_ptr<VertexBuffer> CircleVBO;
             CircleVertex* CircleBufferBase = nullptr;
             CircleVertex* CircleBufferPtr = nullptr;
+            uint32_t CircleIndexCount = 0;
             std::shared_ptr<Material> CircleMaterial;
 
             // Skinned

@@ -27,6 +27,7 @@ namespace axiom {
 		void DrawIndexedIndirect(const std::shared_ptr<VertexArray>& vao, const std::shared_ptr<IndirectDrawBuffer>& indirectBuffer, uint32_t drawCount) override;
 		void DrawIndexedInstancedIndirect(const std::shared_ptr<VertexArray>& vao, const std::shared_ptr<IndirectDrawBuffer>& indirectBuffer, uint32_t drawCount) override;
 		void DrawArraysInstancedIndirect(const std::shared_ptr<VertexArray>& vao, const std::shared_ptr<IndirectDrawBuffer>& indirectBuffer, uint32_t drawCount) override;
+		bool SupportsIndirectRendering() const override;
 
 	private:
 		GLbitfield ClearMask = 0;

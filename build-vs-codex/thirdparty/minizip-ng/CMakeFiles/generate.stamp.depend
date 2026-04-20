@@ -1,0 +1,32 @@
+# CMake generation dependency list for this directory.
+C:/Program Files/CMake/share/cmake-4.2/Modules/BasicConfigVersion-SameMajorVersion.cmake.in
+C:/Program Files/CMake/share/cmake-4.2/Modules/CMakeCheckCompilerFlagCommonPatterns.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CMakeDependentOption.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CMakePackageConfigHelpers.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CheckCCompilerFlag.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CheckCSourceCompiles.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CheckFunctionExists.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CheckIncludeFile.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CheckIncludeFileCXX.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CheckIncludeFiles.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CheckLibraryExists.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CheckSymbolExists.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/CheckTypeSize.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/ExternalProject/shared_internal_commands.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/FeatureSummary.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/FetchContent.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/FetchContent/CMakeLists.cmake.in
+C:/Program Files/CMake/share/cmake-4.2/Modules/FindGit.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/FindPackageHandleStandardArgs.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/FindPackageMessage.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/GNUInstallDirs.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Internal/CheckCompilerFlag.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Internal/CheckFlagCommonConfig.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/Internal/CheckSourceCompiles.cmake
+C:/Program Files/CMake/share/cmake-4.2/Modules/WriteBasicConfigVersionFile.cmake
+F:/projects/Axiom/build-vs-codex/CMakeFiles/cmake.verify_globs
+F:/projects/Axiom/build-vs-codex/thirdparty/minizip-ng/minizip-config.cmake.in
+F:/projects/Axiom/thirdparty/minizip-ng/CMakeLists.txt
+F:/projects/Axiom/thirdparty/minizip-ng/cmake/clone-repo.cmake
+F:/projects/Axiom/thirdparty/minizip-ng/cmake/detect-sanitizer.cmake
+F:/projects/Axiom/thirdparty/minizip-ng/minizip.pc.cmakein

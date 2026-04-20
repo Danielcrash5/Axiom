@@ -35,6 +35,7 @@ namespace axiom {
 		virtual void DrawIndexedIndirect(const std::shared_ptr<VertexArray>& vao, const std::shared_ptr<IndirectDrawBuffer>& indirectBuffer, uint32_t drawCount) = 0;
 		virtual void DrawIndexedInstancedIndirect(const std::shared_ptr<VertexArray>& vao, const std::shared_ptr<IndirectDrawBuffer>& indirectBuffer, uint32_t drawCount) = 0;
 		virtual void DrawArraysInstancedIndirect(const std::shared_ptr<VertexArray>& vao, const std::shared_ptr<IndirectDrawBuffer>& indirectBuffer, uint32_t drawCount) = 0;
+		virtual bool SupportsIndirectRendering() const = 0;
 
 		static RendererAPIType GetAPI() {
 			return s_API;

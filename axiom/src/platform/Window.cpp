@@ -2,6 +2,7 @@
 #include "axiom/events/EventBus.h"
 #include "axiom/events/Events.h"
 #include "axiom/core/Logger.h"
+#include "axiom/input/Input.h"
 #include "axiom/renderer/RendererAPI.h"
 #include <format>
 #include <GLFW/glfw3.h>
@@ -105,6 +106,7 @@ namespace axiom {
 
 		glfwSetScrollCallback(m_Window, [](GLFWwindow* window, double xOffset, double yOffset) {
 			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
+			Input::OnMouseScroll(xOffset, yOffset);
 			MouseScrollEvent event { xOffset, yOffset };
 			win->m_EventBus.Publish(event);
 							  });

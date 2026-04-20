@@ -26,6 +26,8 @@ namespace axiom {
 
         static glm::vec2 GetMousePosition();
         static glm::vec2 GetMouseDelta();
+        static glm::vec2 GetMouseScroll();
+        static glm::vec2 GetMouseScrollDelta();
 
         // ================= Gamepad =================
         static bool IsGamepadConnected(int id = GLFW_JOYSTICK_1);
@@ -51,8 +53,14 @@ namespace axiom {
 
         static glm::vec2 s_MousePosition;
         static glm::vec2 s_PreviousMousePosition;
+        static glm::vec2 s_MouseScroll;
+        static glm::vec2 s_PendingMouseScroll;
 
         static float ApplyDeadzone(float value, float deadzone = 0.1f);
+
+    public:
+        // Internal hook used by the window backend to forward GLFW scroll input.
+        static void OnMouseScroll(double xOffset, double yOffset);
     };
 
 }

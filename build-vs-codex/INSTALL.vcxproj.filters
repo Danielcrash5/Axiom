@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="F:\projects\Axiom\build-vs-codex\CMakeFiles\e065ea3442cdc007017946def337744e\INSTALL_force.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{F9FA20BC-A3F0-30E5-9C01-7125EBBF6DBA}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,14 @@
+prefix=C:/Program Files/Axiom
+exec_prefix=C:/Program Files/Axiom
+libdir=C:/Program Files/Axiom/lib
+sharedlibdir=C:/Program Files/Axiom/lib
+includedir=C:/Program Files/Axiom/include/minizip
+
+Name: minizip
+Description: Zip manipulation library
+Version: 4.1.0
+
+Requires.private: 
+Libs: -L${libdir} -L${sharedlibdir} -lminizip
+Libs.private:
+Cflags: -I${includedir}

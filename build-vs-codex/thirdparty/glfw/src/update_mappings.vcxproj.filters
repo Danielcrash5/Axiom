@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="F:\projects\Axiom\build-vs-codex\CMakeFiles\3b0c3b249a9cea3bfc77d3c88f72e19a\update_mappings.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="F:\projects\Axiom\thirdparty\glfw\src\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="F:\projects\Axiom\thirdparty\glfw\src\mappings.h.in">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="F:\projects\Axiom\thirdparty\glfw\CMake\GenerateMappings.cmake" />
+    <None Include="F:\projects\Axiom\build-vs-codex\thirdparty\glfw\src\CMakeFiles\update_mappings" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{F9FA20BC-A3F0-30E5-9C01-7125EBBF6DBA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{9D8A3397-0181-311A-B6FB-B2DD1FE0A38B}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

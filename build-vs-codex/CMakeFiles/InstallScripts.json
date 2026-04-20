@@ -1,0 +1,16 @@
+{
+	"InstallScripts" : 
+	[
+		"F:/projects/Axiom/build-vs-codex/cmake_install.cmake",
+		"F:/projects/Axiom/build-vs-codex/axiom/cmake_install.cmake",
+		"F:/projects/Axiom/build-vs-codex/thirdparty/glfw/cmake_install.cmake",
+		"F:/projects/Axiom/build-vs-codex/thirdparty/glfw/src/cmake_install.cmake",
+		"F:/projects/Axiom/build-vs-codex/thirdparty/glad/cmake_install.cmake",
+		"F:/projects/Axiom/build-vs-codex/thirdparty/stb/cmake_install.cmake",
+		"F:/projects/Axiom/build-vs-codex/thirdparty/minizip-ng/cmake_install.cmake",
+		"F:/projects/Axiom/build-vs-codex/tools/packtool/cmake_install.cmake",
+		"F:/projects/Axiom/build-vs-codex/thirdparty/entt/cmake_install.cmake",
+		"F:/projects/Axiom/build-vs-codex/testbed/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

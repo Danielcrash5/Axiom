@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="F:\projects\Axiom\thirdparty\minizip-ng\third_party\ppmd\C\Ppmd8.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\projects\Axiom\thirdparty\minizip-ng\third_party\ppmd\C\Ppmd8Dec.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\projects\Axiom\thirdparty\minizip-ng\third_party\ppmd\C\Ppmd8Enc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="F:\projects\Axiom\thirdparty\minizip-ng\third_party\ppmd\C\7zTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\projects\Axiom\thirdparty\minizip-ng\third_party\ppmd\C\Compiler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\projects\Axiom\thirdparty\minizip-ng\third_party\ppmd\C\CpuArch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\projects\Axiom\thirdparty\minizip-ng\third_party\ppmd\C\Ppmd.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\projects\Axiom\thirdparty\minizip-ng\third_party\ppmd\C\Ppmd8.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\projects\Axiom\thirdparty\minizip-ng\third_party\ppmd\C\Precomp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="F:\projects\Axiom\thirdparty\minizip-ng\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{9D8A3397-0181-311A-B6FB-B2DD1FE0A38B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{12D7B9B9-FFA3-3CCF-98E2-0E5FB1FC282C}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

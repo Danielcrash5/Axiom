@@ -14,6 +14,8 @@ namespace axiom {
 
     glm::vec2 Input::s_MousePosition {};
     glm::vec2 Input::s_PreviousMousePosition {};
+    glm::vec2 Input::s_MouseScroll {};
+    glm::vec2 Input::s_PendingMouseScroll {};
 
     static std::vector<KeyCode> s_ValidKeys = {
 		Key::A, Key::B, Key::C, Key::D, Key::E, Key::F, Key::G, Key::H, Key::I, Key::J,
@@ -52,6 +54,8 @@ namespace axiom {
         s_PreviousKeys = s_CurrentKeys;
         s_PreviousMouse = s_CurrentMouse;
         s_PreviousMousePosition = s_MousePosition;
+        s_MouseScroll = s_PendingMouseScroll;
+        s_PendingMouseScroll = glm::vec2(0.0f);
 
         // Keyboard
         for (KeyCode key : s_ValidKeys)
@@ -105,6 +109,18 @@ namespace axiom {
 
     glm::vec2 Input::GetMouseDelta() {
         return s_MousePosition - s_PreviousMousePosition;
+    }
+
+    glm::vec2 Input::GetMouseScroll() {
+        return s_MouseScroll;
+    }
+
+    glm::vec2 Input::GetMouseScrollDelta() {
+        return s_MouseScroll;
+    }
+
+    void Input::OnMouseScroll(double xOffset, double yOffset) {
+        s_PendingMouseScroll += glm::vec2(static_cast<float>(xOffset), static_cast<float>(yOffset));
     }
 
     // ================= Gamepad =================
