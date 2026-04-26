@@ -35,25 +35,14 @@ glm::vec2 GetDefaultQuadUV(int index) {
     return kUVs[index];
 }
 
-glm::mat4 GetCenteredQuadTransform(const glm::vec3& center, const glm::vec2& size) {
-    return
-        glm::translate(glm::mat4(1.0f), center) *
-        glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
-}
-
-void GetTransformedQuadPoints(const glm::mat4& transform, const glm::vec3 (&localPoints)[4], glm::vec3 (&outPoints)[4]) {
-    for (int i = 0; i < 4; ++i)
-        outPoints[i] = glm::vec3(transform * glm::vec4(localPoints[i], 1.0f));
-}
-
 void Configure2DMaterial(const std::shared_ptr<Material>& material) {
     if (!material)
         return;
 
     auto& state = material->GetRenderState();
-    state.DepthTest = false;
-    state.DepthFunction = DepthFunc::Always;
-    state.DepthWrite = false;
+    state.DepthTest = true;
+    state.DepthFunction = DepthFunc::LessEqual;
+    state.DepthWrite = true;
     state.Blending = true;
     state.BlendSrc = BlendFactor::SrcAlpha;
     state.BlendDst = BlendFactor::OneMinusSrcAlpha;
@@ -91,10 +80,7 @@ void Renderer2D::Init() {
     );
     uint32_t whitePixel = 0xffffffff;
     whiteTexture->SetData(&whitePixel, 1, 1, TextureFormat::RGBA8);
-    for (uint32_t i = 0; i < RendererData::MaxTextureSlots; ++i) {
-        s_Data->TextureSlots[i] = whiteTexture;
-        whiteTexture->Bind(static_cast<int>(i));
-    }
+    s_Data->TextureSlots[0] = whiteTexture;
 
     s_Data->QuadVAO = VertexArray::Create();
     s_Data->QuadVBO = VertexBuffer::Create(4 * sizeof(QuadVertex), BufferUsage::Dynamic);
@@ -202,7 +188,11 @@ void Renderer2D::DrawQuad(const glm::vec2& pos, const glm::vec2& size, const glm
 }
 
 void Renderer2D::DrawQuad(const glm::vec3& pos, const glm::vec2& size, const glm::vec4& color) {
-    DrawQuad(GetCenteredQuadTransform(pos, size), color);
+    const glm::mat4 transform =
+        glm::translate(glm::mat4(1.0f), pos) *
+        glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
+
+    DrawQuad(transform, color);
 }
 
 void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color) {
@@ -237,7 +227,11 @@ void Renderer2D::DrawQuad(
     float tiling,
     const glm::vec4& tint
 ) {
-    DrawQuad(GetCenteredQuadTransform(pos, size), texture, tiling, tint);
+    const glm::mat4 transform =
+        glm::translate(glm::mat4(1.0f), pos) *
+        glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
+
+    DrawQuad(transform, texture, tiling, tint);
 }
 
 void Renderer2D::DrawQuad(
@@ -469,18 +463,26 @@ void Renderer2D::DrawLineStrip(
 }
 
 void Renderer2D::DrawRect(const glm::vec3& pos, const glm::vec2& size, const glm::vec4& color, float z, float thickness) {
-    const glm::vec3 center = glm::vec3(pos.x, pos.y, pos.z + z);
-    DrawRect(GetCenteredQuadTransform(center, size), color, thickness);
+    const glm::vec3 p0 = pos + glm::vec3(0.0f, 0.0f, z);
+    const glm::vec3 p1 = pos + glm::vec3(size.x, 0.0f, z);
+    const glm::vec3 p2 = pos + glm::vec3(size.x, size.y, z);
+    const glm::vec3 p3 = pos + glm::vec3(0.0f, size.y, z);
+
+    DrawLine(p0, p1, color, thickness, LineCap::Butt);
+    DrawLine(p1, p2, color, thickness, LineCap::Butt);
+    DrawLine(p2, p3, color, thickness, LineCap::Butt);
+    DrawLine(p3, p0, color, thickness, LineCap::Butt);
 }
 
 void Renderer2D::DrawRect(const glm::mat4& transform, const glm::vec4& color, float thickness) {
     glm::vec3 points[4];
-    GetTransformedQuadPoints(transform, s_Data->QuadVertexPositions, points);
+    for (int i = 0; i < 4; ++i)
+        points[i] = transform * glm::vec4(s_Data->QuadVertexPositions[i], 1.0f);
 
-    DrawLine(points[0], points[1], color, thickness, LineCap::Square);
-    DrawLine(points[1], points[2], color, thickness, LineCap::Square);
-    DrawLine(points[2], points[3], color, thickness, LineCap::Square);
-    DrawLine(points[3], points[0], color, thickness, LineCap::Square);
+    DrawLine(points[0], points[1], color, thickness, LineCap::Butt);
+    DrawLine(points[1], points[2], color, thickness, LineCap::Butt);
+    DrawLine(points[2], points[3], color, thickness, LineCap::Butt);
+    DrawLine(points[3], points[0], color, thickness, LineCap::Butt);
 }
 
 void Renderer2D::DrawCircle(const glm::vec2& pos, float radius, float thickness, const glm::vec4& color, float z) {

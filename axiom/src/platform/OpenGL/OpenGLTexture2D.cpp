@@ -71,15 +71,13 @@ namespace axiom {
 				return GL_NEAREST_MIPMAP_NEAREST;
 			else
 				return GL_NEAREST;
-			break;
 		case axiom::TextureFilter::Linear:
 			if (Mipmaps)
 				return GL_LINEAR_MIPMAP_LINEAR;
 			else
 				return GL_LINEAR;
-			break;
 		default:
-			break;
+			return GL_LINEAR;
 		}
 	}
 
@@ -124,7 +122,7 @@ namespace axiom {
 		case TextureFormat::Depth32FStencil8:   return GL_DEPTH32F_STENCIL8;
 
 		default:
-			break;
+			return GL_RGBA8;
 		}
 	}
 
@@ -141,9 +139,8 @@ namespace axiom {
 			break;
 		case axiom::TextureWrap::MirroredRepeat:
 			return GL_MIRRORED_REPEAT;
-			break;
 		default:
-			break;
+			return GL_REPEAT;
 		}
 	}
 
@@ -244,7 +241,7 @@ namespace axiom {
 	void OpenGLTexture2D::SetFilter(TextureFilter filterMin, TextureFilter filterMag) {
 		glBindTexture(GL_TEXTURE_2D, m_RendererID);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, toGL(filterMin, m_GenerateMipmaps));
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, toGL(filterMag, m_GenerateMipmaps));
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, toGL(filterMag, false));
 		glBindTexture(GL_TEXTURE_2D, 0);
 
 		m_FilterMin = filterMin;
