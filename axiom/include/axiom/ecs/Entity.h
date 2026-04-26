@@ -1,4 +1,6 @@
 #pragma once
+#include <utility>
+
 #include <entt/entt.hpp>
 #include "Scene.h"
 
@@ -51,6 +53,10 @@ namespace axiom {
 
 		operator bool() const {
 			return m_Entity != entt::null;
+		}
+
+		operator entt::entity() const {
+			return m_Entity;
 		}
 
 	private:

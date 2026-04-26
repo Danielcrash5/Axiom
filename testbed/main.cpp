@@ -3,6 +3,8 @@
 #include <axiom/core/Layer.h>
 #include <axiom/core/Logger.h>
 #include <axiom/core/Time.h>
+#include <axiom/ecs/Components.h>
+#include <axiom/ecs/Entity.h>
 #include <axiom/input/KeyCodes.h>
 #include <axiom/input/Input.h>
 #include <axiom/assets/AssetManager.h>
@@ -186,6 +188,7 @@ protected:
         m_Pose.BoneTransforms[0] = glm::mat4(1.0f);
         m_Pose.BoneTransforms[1] = glm::mat4(1.0f);
 
+        BuildEcsScene();
     }
 
     void OnUpdate(double dt) override {
@@ -242,6 +245,14 @@ protected:
         const float swing = sinf(t * 2.6f) * 1.25f;
         const float bendLift = cosf(t * 1.9f) * 0.12f;
         const float pivotX = 0.15f;
+
+        m_EcsColoredQuad.GetComponent<axiom::TransformComponent>().Rotation.z =
+            glm::radians(22.0f) + sinf(t * 1.4f) * 0.35f;
+        m_EcsTexturedSprite.GetComponent<axiom::TransformComponent>().Rotation.z =
+            glm::radians(-12.0f) + cosf(t * 1.1f) * 0.2f;
+        m_EcsCircle.GetComponent<axiom::TransformComponent>().Translation.y =
+            -20.0f + sinf(t * 1.7f) * 9.0f;
+
         m_Pose.BoneTransforms[0] = glm::mat4(1.0f);
         m_Pose.BoneTransforms[1] =
             glm::translate(glm::mat4(1.0f), glm::vec3(pivotX, bendLift, 0.0f)) *
@@ -252,36 +263,12 @@ protected:
 
         axiom::Renderer2D::BeginScene();
 
-        // Z-Layer Test
-        axiom::Renderer2D::DrawQuad(glm::vec2(-130.0f, 65.0f), glm::vec2(18.0f, 18.0f), glm::vec4(0.95f, 0.35f, 0.35f, 1.0f), -0.5f);
-        axiom::Renderer2D::DrawQuad(glm::vec3(-100.0f, 65.0f, 0.2f), glm::vec2(18.0f, 24.0f), glm::vec4(0.35f, 0.95f, 0.35f, 0.85f));
-
-        glm::mat4 coloredTransform =
-            glm::translate(glm::mat4(1.0f), glm::vec3(-68.0f, 65.0f, 0.1f)) *
-            glm::rotate(glm::mat4(1.0f), glm::radians(22.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
-            glm::scale(glm::mat4(1.0f), glm::vec3(22.0f, 14.0f, 1.0f));
-        axiom::Renderer2D::DrawQuad(coloredTransform, glm::vec4(0.35f, 0.65f, 1.0f, 0.9f));
-
-        // Textured
-        axiom::Renderer2D::DrawQuad(glm::vec2(-130.0f, 20.0f), glm::vec2(32.0f, 32.0f), m_Texture, 1.0f, glm::vec4(1.0f), -0.1f);
-        axiom::Renderer2D::DrawQuad(glm::vec3(-86.0f, 20.0f, 0.1f), glm::vec2(36.0f, 24.0f), m_Texture, 1.0f, glm::vec4(1.0f, 1.0f, 1.0f, 0.85f));
-
-        glm::mat4 texturedTransform =
-            glm::translate(glm::mat4(1.0f), glm::vec3(-40.0f, 20.0f, 0.0f)) *
-            glm::rotate(glm::mat4(1.0f), glm::radians(-18.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
-            glm::scale(glm::mat4(1.0f), glm::vec3(34.0f, 34.0f, 1.0f));
-        axiom::Renderer2D::DrawQuad(texturedTransform, m_Texture, 1.0f, glm::vec4(1.0f));
+        GetScene().Render2D();
 
         glm::mat4 overrideQuadTransform =
             glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 20.0f, 0.2f)) *
             glm::scale(glm::mat4(1.0f), glm::vec3(34.0f, 34.0f, 1.0f));
         axiom::Renderer2D::DrawQuad(overrideQuadTransform, m_Texture, m_OverrideMaterial, 1.0f, glm::vec4(1.0f, 0.9f, 0.9f, 0.95f));
-
-        // Sprites
-        glm::mat4 spriteTransform =
-            glm::translate(glm::mat4(1.0f), glm::vec3(45.0f, 65.0f, 0.0f)) *
-            glm::scale(glm::mat4(1.0f), glm::vec3(34.0f, 34.0f, 1.0f));
-        axiom::Renderer2D::DrawSprite(spriteTransform, m_Sprite, glm::vec4(1.0f));
 
         glm::mat4 spriteOverrideTransform =
             glm::translate(glm::mat4(1.0f), glm::vec3(92.0f, 65.0f, 0.1f)) *
@@ -309,14 +296,6 @@ protected:
             glm::rotate(glm::mat4(1.0f), glm::radians(28.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
             glm::scale(glm::mat4(1.0f), glm::vec3(30.0f, 18.0f, 1.0f));
         axiom::Renderer2D::DrawRect(rectTransform, glm::vec4(1.0f, 0.55f, 0.15f, 1.0f), 2.0f);
-
-        axiom::Renderer2D::DrawCircle(glm::vec2(35.0f, -20.0f), 13.0f, 0.0f, glm::vec4(0.95f, 0.2f, 0.2f, 1.0f));
-        axiom::Renderer2D::DrawCircle(glm::vec3(72.0f, -20.0f, 0.1f), 13.0f, 0.2f, glm::vec4(0.2f, 0.95f, 0.2f, 1.0f));
-
-        glm::mat4 circleTransform =
-            glm::translate(glm::mat4(1.0f), glm::vec3(115.0f, -20.0f, 0.0f)) *
-            glm::scale(glm::mat4(1.0f), glm::vec3(26.0f, 26.0f, 1.0f));
-        axiom::Renderer2D::DrawCircle(circleTransform, 0.35f, glm::vec4(0.25f, 0.5f, 1.0f, 1.0f));
 
         // LineStrip Test
         std::vector<glm::vec3> polyline = {
@@ -355,6 +334,29 @@ protected:
     }
 
 private:
+    void BuildEcsScene() {
+        auto& scene = GetScene();
+
+        m_EcsColoredQuad = scene.CreateEntity("ECS Colored Quad");
+        auto& coloredTransform = m_EcsColoredQuad.GetComponent<axiom::TransformComponent>();
+        coloredTransform.Translation = glm::vec3(-68.0f, 65.0f, 0.1f);
+        coloredTransform.Scale = glm::vec3(22.0f, 14.0f, 1.0f);
+        coloredTransform.Rotation.z = glm::radians(22.0f);
+        m_EcsColoredQuad.AddComponent<axiom::SpriteRendererComponent>(glm::vec4(0.35f, 0.65f, 1.0f, 0.9f));
+
+        m_EcsTexturedSprite = scene.CreateEntity("ECS Textured Sprite");
+        auto& texturedTransform = m_EcsTexturedSprite.GetComponent<axiom::TransformComponent>();
+        texturedTransform.Translation = glm::vec3(45.0f, 65.0f, 0.0f);
+        texturedTransform.Scale = glm::vec3(34.0f, 34.0f, 1.0f);
+        m_EcsTexturedSprite.AddComponent<axiom::SpriteRendererComponent>(m_Sprite, glm::vec4(1.0f));
+
+        m_EcsCircle = scene.CreateEntity("ECS Circle");
+        auto& circleTransform = m_EcsCircle.GetComponent<axiom::TransformComponent>();
+        circleTransform.Translation = glm::vec3(115.0f, -20.0f, 0.0f);
+        circleTransform.Scale = glm::vec3(26.0f, 26.0f, 1.0f);
+        m_EcsCircle.AddComponent<axiom::CircleRendererComponent>(glm::vec4(0.25f, 0.5f, 1.0f, 1.0f), 0.35f);
+    }
+
     void ApplyDebugCamera() {
         float width = static_cast<float>(GetWidth());
         float height = static_cast<float>(GetHeigth());
@@ -374,6 +376,9 @@ private:
     axiom::Sprite m_Sprite;
     axiom::SkinnedMesh2D m_SkinnedMesh;
     axiom::SkeletonPose2D m_Pose;
+    axiom::Entity m_EcsColoredQuad;
+    axiom::Entity m_EcsTexturedSprite;
+    axiom::Entity m_EcsCircle;
     glm::vec3 m_CameraPosition{0.0f, 0.0f, 0.0f};
     float m_CameraZoom = 1.0f;
     glm::mat4 ViewProjection{1.0f};

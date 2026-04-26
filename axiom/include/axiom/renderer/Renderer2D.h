@@ -14,7 +14,7 @@ namespace axiom {
     class VertexArray;
     class VertexBuffer;
     class IndexBuffer;
-    class Sprite;
+    struct Sprite;
 
     struct SkinnedVertex2D {
         glm::vec3 Position;
