@@ -7,6 +7,10 @@ target_link_libraries(testbed
     PRIVATE axiom_engine
 )
 
+target_compile_definitions(testbed PRIVATE
+    AXIOM_GAME_ASSET_PATH="${CMAKE_SOURCE_DIR}/assets/"
+)
+
 # Output-Verzeichnis und Debug-Verzeichnis
 set_target_properties(testbed PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/testbed"

@@ -10,6 +10,8 @@
 #include "axiom/ecs/Scene.h"
 #include "axiom/ecs/SystemManager.h"
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace axiom {
 
@@ -38,6 +40,12 @@ namespace axiom {
 
         static Application& Get() {
             return *s_Instance;
+        }
+
+        void Run(int argc, char** argv);
+
+        const std::vector<std::string>& GetCommandLineArgs() const {
+            return m_CommandLineArgs;
         }
 
         EventBus& GetEventBus() {
@@ -138,6 +146,7 @@ namespace axiom {
 
         std::unique_ptr<Scene> m_ActiveScene;
         SystemManager m_SystemManager;
+        std::vector<std::string> m_CommandLineArgs;
     };
 
 }

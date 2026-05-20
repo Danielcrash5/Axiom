@@ -9,9 +9,6 @@ option(AXIOM_ENABLE_CONSOLE_LOG "Enable console logging" ON)
 # Engine asset path
 set(AXIOM_ENGINE_ASSET_PATH "${CMAKE_SOURCE_DIR}/axiom/assets/" CACHE STRING "")
 
-# Game asset path
-set(AXIOM_GAME_ASSET_PATH "${CMAKE_SOURCE_DIR}/testbed/assets/" CACHE STRING "")
-
 # Engine Projects
 add_subdirectory(axiom)
 # Thirdparty Libraries
@@ -28,7 +25,6 @@ set(THIRDPARTY_DIR ${CMAKE_SOURCE_DIR}/thirdparty)
 # Diese Defines an den Compiler übergeben
 add_compile_definitions(
     AXIOM_ENGINE_ASSET_PATH="${AXIOM_ENGINE_ASSET_PATH}"
-    AXIOM_GAME_ASSET_PATH="${AXIOM_GAME_ASSET_PATH}"
 )
 
 

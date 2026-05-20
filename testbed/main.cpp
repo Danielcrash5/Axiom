@@ -1,22 +1,5 @@
 // main.cpp
-#include <axiom/core/Application.h>
-#include <axiom/core/Layer.h>
-#include <axiom/core/Logger.h>
-#include <axiom/core/Time.h>
-#include <axiom/ecs/Components.h>
-#include <axiom/ecs/Entity.h>
-#include <axiom/input/KeyCodes.h>
-#include <axiom/input/Input.h>
-#include <axiom/assets/AssetManager.h>
-#include <axiom/assets/VFS.h>
-#include <axiom/assets/TextureLoadInfo.h>
-#include <axiom/renderer/Renderer.h>
-#include <axiom/renderer/Renderer2D.h>
-#include <axiom/renderer/Texture2D.h>
-#include <axiom/renderer/Material.h>
-#include <axiom/renderer/Shader.h>
-#include <axiom/renderer/Sprite.h>
-#include <axiom/ecs/Render2DSystem.h>
+#include <axiom/Axiom.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -25,125 +8,21 @@
 #include <vector>
 
 namespace {
-    std::string ResolveAssetPath(const std::string& configuredPath, const std::vector<std::string>& fallbackCandidates) {
-        namespace fs = std::filesystem;
-        std::error_code ec;
-
-        if (!configuredPath.empty() && fs::exists(configuredPath, ec))
-            return configuredPath;
-
-        for (const auto& candidate : fallbackCandidates) {
-            if (fs::exists(candidate, ec))
-                return candidate;
-        }
-
-        return configuredPath;
-    }
-
-    std::string ResolveGameAssetPath() {
-        return ResolveAssetPath(
-            AXIOM_GAME_ASSET_PATH,
-            {
-                "./testbed/assets",
-                "../testbed/assets",
-                "../../testbed/assets",
-                "../../../testbed/assets",
-                "../../../../testbed/assets",
-                "./assets"
-            }
-        );
-    }
-
     std::shared_ptr<axiom::Texture2D> LoadGameTexture(const std::string& virtualPath) {
         auto info = axiom::TexturePresets::Sprite();
         return axiom::AssetManager::Get<axiom::Texture2D>(virtualPath, info);
     }
 
     std::shared_ptr<axiom::Material> CreateTexturedOverrideMaterial() {
-        static const char* source = R"(#type vertex
-#version 460 core
+        std::shared_ptr<axiom::Shader> shader = axiom::AssetManager::Get<axiom::Shader>("game://shaders/Textured.glsl");
 
-layout(location = 0) in vec4 a_Position;
-layout(location = 1) in vec4 a_Color;
-layout(location = 2) in vec2 a_TexCoord;
-layout(location = 3) in float a_TexIndex;
-layout(location = 4) in float a_TilingFactor;
-
-uniform mat4 u_ViewProjection;
-uniform mat4 u_Transform;
-
-out vec4 v_Color;
-out vec2 v_TexCoord;
-
-void main()
-{
-    v_Color = a_Color;
-    v_TexCoord = a_TexCoord;
-    gl_Position = u_ViewProjection * u_Transform * a_Position;
-}
-
-#type fragment
-#version 460 core
-
-layout(location = 0) out vec4 FragColor;
-
-in vec4 v_Color;
-in vec2 v_TexCoord;
-
-uniform sampler2D u_Texture;
-
-void main()
-{
-    vec4 tex = texture(u_Texture, v_TexCoord);
-    FragColor = vec4(tex.bgr, tex.a) * v_Color;
-}
-)";
-
-        return std::make_shared<axiom::Material>(axiom::Shader::CreateFromMemory(source));
+        return std::make_shared<axiom::Material>(shader);
     }
 
     std::shared_ptr<axiom::Material> CreateSkinnedColorOverrideMaterial() {
-        static const char* source = R"(#type vertex
-#version 460 core
+        std::shared_ptr<axiom::Shader> shader = axiom::AssetManager::Get<axiom::Shader>("game://shaders/SkinnedColor.glsl");
 
-layout(location = 0) in vec3 a_Position;
-layout(location = 1) in vec4 a_Color;
-layout(location = 2) in vec2 a_TexCoord;
-layout(location = 3) in vec4 a_BoneIndices;
-layout(location = 4) in vec4 a_BoneWeights;
-
-uniform mat4 u_ViewProjection;
-uniform mat4 u_Transform;
-uniform mat4 u_BoneTransforms[64];
-
-out vec4 v_Color;
-
-void main()
-{
-    mat4 skin =
-        u_BoneTransforms[int(a_BoneIndices.x)] * a_BoneWeights.x +
-        u_BoneTransforms[int(a_BoneIndices.y)] * a_BoneWeights.y +
-        u_BoneTransforms[int(a_BoneIndices.z)] * a_BoneWeights.z +
-        u_BoneTransforms[int(a_BoneIndices.w)] * a_BoneWeights.w;
-
-    vec4 localPosition = skin * vec4(a_Position, 1.0);
-    v_Color = a_Color;
-    gl_Position = u_ViewProjection * u_Transform * localPosition;
-}
-
-#type fragment
-#version 460 core
-
-layout(location = 0) out vec4 FragColor;
-in vec4 v_Color;
-
-void main()
-{
-    FragColor = v_Color;
-}
-)";
-
-        return std::make_shared<axiom::Material>(axiom::Shader::CreateFromMemory(source));
+        return std::make_shared<axiom::Material>(shader);
     }
 
     axiom::SkinnedMesh2D CreateRibbonSkinnedMesh(const std::shared_ptr<axiom::Texture2D>& texture) {
@@ -208,11 +87,7 @@ protected:
         axiom::Renderer2D::Init();
         ApplyDebugCamera();
 
-        const std::string gameAssetPath = ResolveGameAssetPath();
-        if (gameAssetPath != AXIOM_GAME_ASSET_PATH)
-            AXIOM_WARN("Game asset path fallback is used: {}", gameAssetPath);
-
-        axiom::VFS::MountPath("game://", gameAssetPath);
+        axiom::VFS::MountPath("game://", AXIOM_GAME_ASSET_PATH);
 
         m_Texture = LoadGameTexture("game://textures/Purple/texture_01.png");
         m_SkinnedTexture = LoadGameTexture("game://textures/Orange/texture_01.png");
@@ -421,8 +296,10 @@ private:
     glm::mat4 ViewProjection{1.0f};
 };
 
-int main() {
-    Testbed game;
-    game.Run();
-    return 0;
+namespace axiom {
+
+Application* CreateApplication() {
+    return new Testbed();
+}
+
 }

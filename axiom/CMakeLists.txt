@@ -12,7 +12,6 @@ target_link_libraries(axiom_engine PUBLIC minizip)
 
 target_compile_definitions(axiom_engine PUBLIC
     AXIOM_ENGINE_ASSET_PATH="${CMAKE_SOURCE_DIR}/axiom/assets/"
-    AXIOM_GAME_ASSET_PATH="${CMAKE_SOURCE_DIR}/testbed/assets/"
 )
 
 

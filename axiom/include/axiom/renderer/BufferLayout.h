@@ -1,3 +1,5 @@
+#pragma once
+
 #include "ShaderDataType.h"
 #include <vector>
 #include <string>

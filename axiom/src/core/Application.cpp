@@ -42,10 +42,21 @@ namespace axiom {
         m_Width = width;
     }
 
-    void Application::Run() {
+    void Application::Run(int argc, char** argv) {
+        m_CommandLineArgs.clear();
+        if (argc > 0 && argv) {
+            m_CommandLineArgs.reserve(static_cast<size_t>(argc));
+            for (int i = 0; i < argc; ++i)
+                m_CommandLineArgs.emplace_back(argv[i]);
+        }
+
         Init();
         MainLoop();
         Shutdown();
+    }
+
+    void Application::Run() {
+        Run(0, nullptr);
     }
 
     void Application::Init() {
