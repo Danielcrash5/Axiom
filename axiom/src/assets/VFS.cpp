@@ -12,6 +12,13 @@ namespace axiom {
 
     std::unordered_map<std::string, VFS::MountPoint> VFS::s_mounts;
 
+    static std::string NormalizePath(std::string path) {
+        std::replace(path.begin(), path.end(), '\\', '/');
+        while (path.find("//") != std::string::npos)
+            path.erase(path.find("//"), 1);
+        return path;
+    }
+
     static bool ends_with_ignore_case(const std::string& value, const std::string& suffix) {
         if (value.size() < suffix.size())
             return false;
@@ -39,12 +46,15 @@ namespace axiom {
     }
 
     void VFS::Mount(const std::string& root, const std::string& path, MountType type) {
+        std::string normalizedRoot = NormalizePath(root);
+        std::string normalizedPath = NormalizePath(path);
+
         MountPoint mp;
         mp.type = type;
-        mp.physicalPath = path;
+        mp.physicalPath = normalizedPath;
 
         if (type == MountType::Zip) {
-            unzFile zf = unzOpen64(path.c_str());
+            unzFile zf = unzOpen64(normalizedPath.c_str());
             if (!zf) {
                 // Zip konnte nicht geöffnet werden – Mount wird ignoriert
                 return;
@@ -52,14 +62,15 @@ namespace axiom {
             mp.zipHandle = zf;
         }
 
-        s_mounts[root] = mp;
+        s_mounts[normalizedRoot] = mp;
     }
 
     void VFS::MountPath(const std::string& root, const std::string& path) {
-        if (ends_with_ignore_case(path, ".zip") || ends_with_ignore_case(path, ".pak") || ends_with_ignore_case(path, ".apack")) {
-            Mount(root, path, MountType::Zip);
+        std::string normalizedPath = NormalizePath(path);
+        if (ends_with_ignore_case(normalizedPath, ".zip") || ends_with_ignore_case(normalizedPath, ".pak") || ends_with_ignore_case(normalizedPath, ".apack")) {
+            Mount(root, normalizedPath, MountType::Zip);
         } else {
-            Mount(root, path, MountType::Directory);
+            Mount(root, normalizedPath, MountType::Directory);
         }
     }
 
@@ -69,11 +80,13 @@ namespace axiom {
     }
 
     bool VFS::ReadFile(const std::string& virtualPath, std::vector<uint8_t>& outData) {
+        std::string normalizedPath = NormalizePath(virtualPath);
+
         for (auto& [root, mp] : s_mounts) {
-            if (!starts_with(virtualPath, root))
+            if (!starts_with(normalizedPath, root))
                 continue;
 
-            std::string relative = virtualPath.substr(root.size());
+            std::string relative = normalizedPath.substr(root.size());
 
             if (mp.type == MountType::Directory) {
                 std::string fullPath = mp.physicalPath;

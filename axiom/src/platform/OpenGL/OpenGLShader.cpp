@@ -18,23 +18,26 @@ namespace axiom {
 
 	OpenGLShader::OpenGLShader(
 		const std::string& path,
-		const std::unordered_set<std::string>& defines, bool fromMemory) {
+        const std::unordered_set<std::string>& defines,
+        bool fromMemory,
+        const std::string& sourcePath) {
 
-		std::string source;
-		if (fromMemory)
-			source = path;
-		else {
-			source = ReadFile(path);
+        std::string source;
+        std::string directory;
 
-			std::string dir = path.substr(0, path.find_last_of("/\\"));
+        if (fromMemory) {
+            source = path;
+            directory = sourcePath;
+        } else {
+            source = ReadFile(path);
+            directory = path.substr(0, path.find_last_of("/\\"));
+        }
 
-			source = ShaderPreprocessor::Process(source, dir, defines);
-		}
+        source = ShaderPreprocessor::Process(source, directory, defines);
+        auto shaders = Parse(source);
 
-		auto shaders = Parse(source);
-
-		Compile(shaders);
-		Reflect();
+        Compile(shaders);
+        Reflect();
 	}
 
 	OpenGLShader::~OpenGLShader() {

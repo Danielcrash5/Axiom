@@ -13,9 +13,17 @@ namespace axiom {
         const std::string& source,
         const std::unordered_set<std::string>& defines
     ) {
+        return CreateFromMemory(source, std::string(), defines);
+    }
+
+    std::shared_ptr<Shader> Shader::CreateFromMemory(
+        const std::string& source,
+        const std::string& sourcePath,
+        const std::unordered_set<std::string>& defines
+    ) {
         switch (RendererAPI::GetAPI()) {
         case RendererAPIType::OpenGL:
-            return std::make_shared<OpenGLShader>(source, defines, /*fromMemory=*/true);
+            return std::make_shared<OpenGLShader>(source, defines, /*fromMemory=*/true, sourcePath);
         }
         return nullptr;
     }

@@ -117,7 +117,7 @@ namespace axiom {
                 throw std::runtime_error("Failed to read shader asset: " + virtualPath);
 
             std::string src(data.begin(), data.end());
-            return Shader::CreateFromMemory(src);
+            return Shader::CreateFromMemory(src, virtualPath);
         }
 
         static inline std::unordered_map<UUID, std::shared_ptr<void>> s_assets;
