@@ -9,59 +9,6 @@
 #include <vector>
 
 namespace {
-    bool PathExists(const std::filesystem::path& path) {
-        std::error_code ec;
-        return std::filesystem::exists(path, ec);
-    }
-
-    std::filesystem::path ResolveExecutableDirectory(const std::vector<std::string>& commandLineArgs) {
-        namespace fs = std::filesystem;
-
-        if (commandLineArgs.empty() || commandLineArgs[0].empty())
-            return {};
-
-        std::error_code ec;
-        fs::path executablePath = commandLineArgs[0];
-        if (executablePath.is_relative())
-            executablePath = fs::absolute(executablePath, ec);
-
-        if (ec || !executablePath.has_parent_path())
-            return {};
-
-        return executablePath.parent_path();
-    }
-
-    std::string ResolveGameAssetPath(const std::vector<std::string>& commandLineArgs) {
-        namespace fs = std::filesystem;
-
-        const std::string configuredPath = AXIOM_GAME_ASSET_PATH;
-        if (!configuredPath.empty() && PathExists(configuredPath))
-            return configuredPath;
-
-        const fs::path executableDir = ResolveExecutableDirectory(commandLineArgs);
-        if (!configuredPath.empty() && !executableDir.empty()) {
-            fs::path configured = configuredPath;
-            if (configured.is_relative()) {
-                fs::path executableRelativePath = executableDir / configured;
-                if (PathExists(executableRelativePath))
-                    return executableRelativePath.string();
-            }
-        }
-
-        for (const auto& candidate : {
-            "./testbed/assets",
-            "../testbed/assets",
-            "../../testbed/assets",
-            "../../../testbed/assets",
-            "../../../../testbed/assets"
-        }) {
-            if (PathExists(candidate))
-                return candidate;
-        }
-
-        return configuredPath;
-    }
-
     std::shared_ptr<axiom::Texture2D> LoadGameTexture(const std::string& virtualPath) {
         auto info = axiom::TexturePresets::Sprite();
         return axiom::AssetManager::Get<axiom::Texture2D>(virtualPath, info);
@@ -141,7 +88,7 @@ protected:
         axiom::Renderer2D::Init();
         ApplyDebugCamera();
 
-        axiom::VFS::MountPath("game://", ResolveGameAssetPath(GetCommandLineArgs()));
+        axiom::VFS::MountPath("game://", AXIOM_GAME_ASSET_PATH);
 
         m_Texture = LoadGameTexture("game://textures/Purple/texture_01.png");
         m_SkinnedTexture = LoadGameTexture("game://textures/Orange/texture_01.png");
@@ -272,23 +219,21 @@ protected:
         };
         axiom::Renderer2D::DrawLineStrip(polyline, glm::vec4(0.9f, 0.7f, 0.2f, 1.0f), 4.0f, false, axiom::LineCap::Round, axiom::LineJoin::Round, 4.0f);
 
-        //// Batch-Stress-Test
-        //for (int i = 0; i < 40; ++i) {
-        //    for (int j = 0; j < 25; ++j) {
-        //        float x = -150.0f + i * 8.0f;
-        //        float y = -120.0f + j * 8.0f;
-        //        float z = (i + j) * 0.0005f;
-        //        glm::vec4 c = glm::vec4(
-        //            0.3f + 0.7f * (i / 40.0f),
-        //            0.3f + 0.7f * (j / 25.0f),
-        //            0.5f,
-        //            0.8f
-        //        );
-        //        axiom::Renderer2D::DrawQuad(glm::vec2(x, y), glm::vec2(6.0f, 6.0f), c, z);
-        //    }
-        //}
-
-        axiom::Renderer2D::EndScene();
+        // Batch-Stress-Test
+        for (int i = 0; i < 40; ++i) {
+            for (int j = 0; j < 25; ++j) {
+                float x = -150.0f + i * 8.0f;
+                float y = -120.0f + j * 8.0f;
+                float z = (i + j) * 0.0005f;
+                glm::vec4 c = glm::vec4(
+                    0.3f + 0.7f * (i / 40.0f),
+                    0.3f + 0.7f * (j / 25.0f),
+                    0.5f,
+                    0.8f
+                );
+                axiom::Renderer2D::DrawQuad(glm::vec2(x, y), glm::vec2(6.0f, 6.0f), c, z);
+            }
+        }
     }
 
     void OnShutdown() override {

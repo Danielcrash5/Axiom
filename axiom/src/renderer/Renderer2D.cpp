@@ -97,7 +97,7 @@ void Renderer2D::Init() {
     }
 
     s_Data->QuadVAO = VertexArray::Create();
-    s_Data->QuadVBO = VertexBuffer::Create(4 * sizeof(QuadVertex), BufferUsage::Dynamic);
+    s_Data->QuadVBO = VertexBuffer::Create(RendererData::MaxVertices * sizeof(QuadVertex), BufferUsage::Dynamic);
     s_Data->QuadVBO->SetLayout(BufferLayout(sizeof(QuadVertex), {
         { ShaderDataType::Vec3, "a_Position", static_cast<uint32_t>(offsetof(QuadVertex, Position)), false },
         { ShaderDataType::Vec4, "a_Color", static_cast<uint32_t>(offsetof(QuadVertex, Color)), false },
@@ -107,12 +107,24 @@ void Renderer2D::Init() {
     }));
     s_Data->QuadVAO->AddVertexBuffer(s_Data->QuadVBO);
 
-    uint32_t quadIndices[6] = { 0, 1, 2, 2, 3, 0 };
-    s_Data->QuadIBO = IndexBuffer::Create(quadIndices, 6);
+    std::vector<uint32_t> quadIndices(RendererData::MaxIndices);
+    uint32_t offset = 0;
+    for (uint32_t i = 0; i < RendererData::MaxIndices; i += 6) {
+        quadIndices[i + 0] = offset + 0;
+        quadIndices[i + 1] = offset + 1;
+        quadIndices[i + 2] = offset + 2;
+        quadIndices[i + 3] = offset + 2;
+        quadIndices[i + 4] = offset + 3;
+        quadIndices[i + 5] = offset + 0;
+
+        offset += 4;
+    }
+
+    s_Data->QuadIBO = IndexBuffer::Create(quadIndices.data(), static_cast<uint32_t>(quadIndices.size()));
     s_Data->QuadVAO->SetIndexBuffer(s_Data->QuadIBO);
 
     s_Data->CircleVAO = VertexArray::Create();
-    s_Data->CircleVBO = VertexBuffer::Create(4 * sizeof(CircleVertex), BufferUsage::Dynamic);
+    s_Data->CircleVBO = VertexBuffer::Create(RendererData::MaxVertices * sizeof(CircleVertex), BufferUsage::Dynamic);
     s_Data->CircleVBO->SetLayout(BufferLayout(sizeof(CircleVertex), {
         { ShaderDataType::Vec3, "a_Position", static_cast<uint32_t>(offsetof(CircleVertex, Position)), false },
         { ShaderDataType::Vec3, "a_LocalPosition", static_cast<uint32_t>(offsetof(CircleVertex, LocalPosition)), false },
@@ -154,8 +166,9 @@ void Renderer2D::Init() {
     s_Data->QuadVertexPositions[2] = { 0.5f, 0.5f, 0.0f };
     s_Data->QuadVertexPositions[3] = { -0.5f, 0.5f, 0.0f };
 
-    s_Data->QuadBufferBase = new QuadVertex[4];
-    s_Data->CircleBufferBase = new CircleVertex[4];
+    s_Data->QuadBufferBase = new QuadVertex[RendererData::MaxVertices];
+    s_Data->CircleBufferBase = new CircleVertex[RendererData::MaxVertices];
+    StartBatch();
 }
 
 void Renderer2D::Shutdown() {
@@ -166,31 +179,91 @@ void Renderer2D::Shutdown() {
 }
 
 void Renderer2D::BeginScene() {
+    StartBatch();
 }
 
 void Renderer2D::EndScene() {
+    FlushAll();
 }
 
 void Renderer2D::StartBatch() {
+    s_Data->QuadIndexCount = 0;
+    s_Data->QuadBufferPtr = s_Data->QuadBufferBase;
+    s_Data->TextureSlotIndex = 1;
+
+    s_Data->CircleIndexCount = 0;
+    s_Data->CircleBufferPtr = s_Data->CircleBufferBase;
 }
 
 void Renderer2D::FlushAll() {
+    FlushQuads();
+    FlushCircles();
 }
 
 void Renderer2D::FlushQuads() {
+    if (s_Data->QuadIndexCount == 0)
+        return;
+
+    const auto dataSize = static_cast<uint32_t>(
+        reinterpret_cast<uint8_t*>(s_Data->QuadBufferPtr) -
+        reinterpret_cast<uint8_t*>(s_Data->QuadBufferBase)
+    );
+
+    s_Data->QuadVBO->SetData(s_Data->QuadBufferBase, dataSize);
+
+    for (uint32_t i = 0; i < s_Data->TextureSlotIndex; ++i) {
+        if (s_Data->TextureSlots[i])
+            s_Data->TextureSlots[i]->Bind(static_cast<int>(i));
+    }
+
+    DrawIndexedNow(s_Data->QuadVAO, s_Data->QuadMaterial, s_Data->QuadIndexCount, glm::mat4(1.0f));
+
+    s_Data->QuadIndexCount = 0;
+    s_Data->QuadBufferPtr = s_Data->QuadBufferBase;
+    s_Data->TextureSlotIndex = 1;
 }
 
 void Renderer2D::FlushCircles() {
+    if (s_Data->CircleIndexCount == 0)
+        return;
+
+    const auto dataSize = static_cast<uint32_t>(
+        reinterpret_cast<uint8_t*>(s_Data->CircleBufferPtr) -
+        reinterpret_cast<uint8_t*>(s_Data->CircleBufferBase)
+    );
+
+    s_Data->CircleVBO->SetData(s_Data->CircleBufferBase, dataSize);
+    DrawIndexedNow(s_Data->CircleVAO, s_Data->CircleMaterial, s_Data->CircleIndexCount, glm::mat4(1.0f));
+
+    s_Data->CircleIndexCount = 0;
+    s_Data->CircleBufferPtr = s_Data->CircleBufferBase;
 }
 
-void Renderer2D::EnsureQuadCapacity(uint32_t) {
+void Renderer2D::EnsureQuadCapacity(uint32_t quadCount) {
+    if (s_Data->QuadIndexCount + quadCount * 6 > RendererData::MaxIndices)
+        FlushQuads();
 }
 
-void Renderer2D::EnsureCircleCapacity(uint32_t) {
+void Renderer2D::EnsureCircleCapacity(uint32_t circleCount) {
+    if (s_Data->CircleIndexCount + circleCount * 6 > RendererData::MaxIndices)
+        FlushCircles();
 }
 
-float Renderer2D::AcquireTextureSlot(const std::shared_ptr<Texture2D>&) {
-    return 0.0f;
+float Renderer2D::AcquireTextureSlot(const std::shared_ptr<Texture2D>& texture) {
+    if (!texture)
+        return 0.0f;
+
+    for (uint32_t i = 1; i < s_Data->TextureSlotIndex; ++i) {
+        if (s_Data->TextureSlots[i].get() == texture.get())
+            return static_cast<float>(i);
+    }
+
+    if (s_Data->TextureSlotIndex >= RendererData::MaxTextureSlots)
+        FlushQuads();
+
+    const uint32_t slot = s_Data->TextureSlotIndex++;
+    s_Data->TextureSlots[slot] = texture;
+    return static_cast<float>(slot);
 }
 
 void Renderer2D::Configure2DMaterial(const std::shared_ptr<Material>& material) {
@@ -206,17 +279,18 @@ void Renderer2D::DrawQuad(const glm::vec3& pos, const glm::vec2& size, const glm
 }
 
 void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color) {
+    EnsureQuadCapacity();
+
     for (int i = 0; i < 4; ++i) {
-        s_Data->QuadBufferBase[i].Position = s_Data->QuadVertexPositions[i];
-        s_Data->QuadBufferBase[i].Color = color;
-        s_Data->QuadBufferBase[i].TexCoord = GetDefaultQuadUV(i);
-        s_Data->QuadBufferBase[i].TexIndex = 0.0f;
-        s_Data->QuadBufferBase[i].TilingFactor = 1.0f;
+        s_Data->QuadBufferPtr->Position = glm::vec3(transform * glm::vec4(s_Data->QuadVertexPositions[i], 1.0f));
+        s_Data->QuadBufferPtr->Color = color;
+        s_Data->QuadBufferPtr->TexCoord = GetDefaultQuadUV(i);
+        s_Data->QuadBufferPtr->TexIndex = 0.0f;
+        s_Data->QuadBufferPtr->TilingFactor = 1.0f;
+        ++s_Data->QuadBufferPtr;
     }
 
-    s_Data->TextureSlots[0]->Bind(0);
-    s_Data->QuadVBO->SetData(s_Data->QuadBufferBase, 4 * sizeof(QuadVertex));
-    DrawIndexedNow(s_Data->QuadVAO, s_Data->QuadMaterial, 6, transform);
+    s_Data->QuadIndexCount += 6;
 }
 
 void Renderer2D::DrawQuad(
@@ -246,20 +320,19 @@ void Renderer2D::DrawQuad(
     float tiling,
     const glm::vec4& tint
 ) {
+    EnsureQuadCapacity();
+    const float textureIndex = AcquireTextureSlot(texture);
+
     for (int i = 0; i < 4; ++i) {
-        s_Data->QuadBufferBase[i].Position = s_Data->QuadVertexPositions[i];
-        s_Data->QuadBufferBase[i].Color = tint;
-        s_Data->QuadBufferBase[i].TexCoord = GetDefaultQuadUV(i);
-        s_Data->QuadBufferBase[i].TexIndex = texture ? 1.0f : 0.0f;
-        s_Data->QuadBufferBase[i].TilingFactor = tiling;
+        s_Data->QuadBufferPtr->Position = glm::vec3(transform * glm::vec4(s_Data->QuadVertexPositions[i], 1.0f));
+        s_Data->QuadBufferPtr->Color = tint;
+        s_Data->QuadBufferPtr->TexCoord = GetDefaultQuadUV(i);
+        s_Data->QuadBufferPtr->TexIndex = textureIndex;
+        s_Data->QuadBufferPtr->TilingFactor = tiling;
+        ++s_Data->QuadBufferPtr;
     }
 
-    s_Data->TextureSlots[0]->Bind(0);
-    if (texture)
-        texture->Bind(1);
-
-    s_Data->QuadVBO->SetData(s_Data->QuadBufferBase, 4 * sizeof(QuadVertex));
-    DrawIndexedNow(s_Data->QuadVAO, s_Data->QuadMaterial, 6, transform);
+    s_Data->QuadIndexCount += 6;
 }
 
 void Renderer2D::DrawQuad(
@@ -273,6 +346,8 @@ void Renderer2D::DrawQuad(
         DrawQuad(transform, texture, tiling, tint);
         return;
     }
+
+    FlushAll();
 
     for (int i = 0; i < 4; ++i) {
         s_Data->QuadBufferBase[i].Position = s_Data->QuadVertexPositions[i];
@@ -292,23 +367,22 @@ void Renderer2D::DrawQuad(
 }
 
 void Renderer2D::DrawSprite(const glm::mat4& transform, const Sprite& sprite, const glm::vec4& tint) {
+    EnsureQuadCapacity();
+    const float textureIndex = AcquireTextureSlot(sprite.Texture);
+
     for (int i = 0; i < 4; ++i) {
-        s_Data->QuadBufferBase[i].Position = s_Data->QuadVertexPositions[i];
-        s_Data->QuadBufferBase[i].Color = tint;
-        s_Data->QuadBufferBase[i].TexCoord = glm::vec2(
+        s_Data->QuadBufferPtr->Position = glm::vec3(transform * glm::vec4(s_Data->QuadVertexPositions[i], 1.0f));
+        s_Data->QuadBufferPtr->Color = tint;
+        s_Data->QuadBufferPtr->TexCoord = glm::vec2(
             (i == 1 || i == 2) ? sprite.UVMax.x : sprite.UVMin.x,
             (i >= 2) ? sprite.UVMax.y : sprite.UVMin.y
         );
-        s_Data->QuadBufferBase[i].TexIndex = sprite.Texture ? 1.0f : 0.0f;
-        s_Data->QuadBufferBase[i].TilingFactor = 1.0f;
+        s_Data->QuadBufferPtr->TexIndex = textureIndex;
+        s_Data->QuadBufferPtr->TilingFactor = 1.0f;
+        ++s_Data->QuadBufferPtr;
     }
 
-    s_Data->TextureSlots[0]->Bind(0);
-    if (sprite.Texture)
-        sprite.Texture->Bind(1);
-
-    s_Data->QuadVBO->SetData(s_Data->QuadBufferBase, 4 * sizeof(QuadVertex));
-    DrawIndexedNow(s_Data->QuadVAO, s_Data->QuadMaterial, 6, transform);
+    s_Data->QuadIndexCount += 6;
 }
 
 void Renderer2D::DrawSprite(
@@ -321,6 +395,8 @@ void Renderer2D::DrawSprite(
         DrawSprite(transform, sprite, tint);
         return;
     }
+
+    FlushAll();
 
     for (int i = 0; i < 4; ++i) {
         s_Data->QuadBufferBase[i].Position = s_Data->QuadVertexPositions[i];
@@ -351,6 +427,8 @@ void Renderer2D::DrawSkinned(
 ) {
     if (mesh.Vertices.empty() || mesh.Indices.empty())
         return;
+
+    FlushAll();
 
     std::vector<SkinnedVertex2D> vertices = mesh.Vertices;
     for (auto& vertex : vertices)
@@ -496,15 +574,17 @@ void Renderer2D::DrawCircle(const glm::vec3& pos, float radius, float thickness,
 }
 
 void Renderer2D::DrawCircle(const glm::mat4& transform, float thickness, const glm::vec4& color) {
+    EnsureCircleCapacity();
+
     for (int i = 0; i < 4; ++i) {
-        s_Data->CircleBufferBase[i].Position = s_Data->QuadVertexPositions[i];
-        s_Data->CircleBufferBase[i].LocalPosition = glm::vec3(glm::vec2(s_Data->QuadVertexPositions[i]) * 2.0f, 0.0f);
-        s_Data->CircleBufferBase[i].Color = color;
-        s_Data->CircleBufferBase[i].Thickness = thickness;
+        s_Data->CircleBufferPtr->Position = glm::vec3(transform * glm::vec4(s_Data->QuadVertexPositions[i], 1.0f));
+        s_Data->CircleBufferPtr->LocalPosition = glm::vec3(glm::vec2(s_Data->QuadVertexPositions[i]) * 2.0f, 0.0f);
+        s_Data->CircleBufferPtr->Color = color;
+        s_Data->CircleBufferPtr->Thickness = thickness;
+        ++s_Data->CircleBufferPtr;
     }
 
-    s_Data->CircleVBO->SetData(s_Data->CircleBufferBase, 4 * sizeof(CircleVertex));
-    DrawIndexedNow(s_Data->CircleVAO, s_Data->CircleMaterial, 6, transform);
+    s_Data->CircleIndexCount += 6;
 }
 
 } // namespace axiom

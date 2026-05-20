@@ -21,6 +21,8 @@ namespace axiom {
         circleView.each([&](auto entity, TransformComponent& transform, CircleRendererComponent& circleRenderer) {
             Renderer2D::DrawCircle(transform.GetTransform(), circleRenderer.Thickness, circleRenderer.Color);
         });
+
+        Renderer2D::EndScene();
     }
 
 } // namespace axiom
