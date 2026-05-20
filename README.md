@@ -7,7 +7,7 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 1. [Kernsysteme](#kernsystme)
 2. [Phase 1 — Rendering‑Grundlage](#phase-1--rendering-grundlage)
 3. [Phase 2 — Asset‑System](#phase-2--asset-system-inkl-asset-packs)
-4. [Phase 3 — ECS](#phase-3--ecs)
+4. [Phase 3 — ECS](#phase-3--ecs-mithilfe-von-entt)
 5. [Phase 4 — Renderer‑Integration](#phase-4--renderer-integration)
 6. [Phase 5 — Debug‑Tools / Editor‑Basis](#phase-5--debug-tools--editor-basis)
 7. [Phase 6 — 2D‑Platformer‑Prototyp](#phase-6--2d-platformer-prototyp)
@@ -25,7 +25,9 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 19. [Phase 18 — 3D‑Physik (Jolt)](#phase-18--3d-physik-jolt)
 20. [Phase 19 — Plugin‑System](#phase-19--plugin-system)
 21. [Phase 20 — Spiel‑Export](#phase-20--spiel-export)
-22. [Multithreading](#multithreading)
+22. [Reflection](#reflection)
+23. [Weitere Platformen](#weitere-platformen)
+24. [Multithreading](#multithreading)
 
 ---
 
@@ -174,7 +176,7 @@ Abgeschlossen
 
 ## Phase 9 — Skripting (Luau + C++)
 - [ ] Lua-Integration
-- [ ] dynamisches laden von C++ Dlls
+- [ ] dynamisches laden von C++ Webassembly modulen
 - [ ] Skript-Komponente für Luau und C++
 
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
@@ -274,6 +276,21 @@ Abgeschlossen
 
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
 
+---
+
+## Reflection
+- [ ] Reflection für C++ Klassen (einfachere einbindung in Luau und Inspector im Editor)
+- [ ] RTTR ähnliche builder API
+- [ ] auch nutzbar in Webassembly modulen, Plugins und Modifikationen (auch wenn Mods hauptsächlich in Luau sind)
+
+---
+
+## Weitere Platformen
+- [ ] Windows
+- [ ] Web
+- [ ] Linux
+- [ ] Android
+      ** KEINE APPLE GERÄTE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!** 😤😤🤬
 ---
 
 ## Multithreading
