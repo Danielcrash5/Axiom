@@ -20,6 +20,7 @@ namespace axiom {
 
         // Mountet ein Verzeichnis oder ein Zip unter einem virtuellen Root, z.B. "engine/", "game/"
         static void Mount(const std::string& root, const std::string& path, MountType type);
+        static void MountPath(const std::string& root, const std::string& path);
 
         // Liest eine Datei in einen Byte-Buffer
         static bool ReadFile(const std::string& virtualPath, std::vector<uint8_t>& outData);

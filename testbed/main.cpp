@@ -8,6 +8,7 @@
 #include <axiom/input/KeyCodes.h>
 #include <axiom/input/Input.h>
 #include <axiom/assets/AssetManager.h>
+#include <axiom/assets/VFS.h>
 #include <axiom/assets/TextureLoadInfo.h>
 #include <axiom/renderer/Renderer.h>
 #include <axiom/renderer/Renderer2D.h>
@@ -19,10 +20,40 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <filesystem>
 #include <memory>
 #include <vector>
 
 namespace {
+    std::string ResolveAssetPath(const std::string& configuredPath, const std::vector<std::string>& fallbackCandidates) {
+        namespace fs = std::filesystem;
+        std::error_code ec;
+
+        if (!configuredPath.empty() && fs::exists(configuredPath, ec))
+            return configuredPath;
+
+        for (const auto& candidate : fallbackCandidates) {
+            if (fs::exists(candidate, ec))
+                return candidate;
+        }
+
+        return configuredPath;
+    }
+
+    std::string ResolveGameAssetPath() {
+        return ResolveAssetPath(
+            AXIOM_GAME_ASSET_PATH,
+            {
+                "./testbed/assets",
+                "../testbed/assets",
+                "../../testbed/assets",
+                "../../../testbed/assets",
+                "../../../../testbed/assets",
+                "./assets"
+            }
+        );
+    }
+
     std::shared_ptr<axiom::Texture2D> LoadGameTexture(const std::string& virtualPath) {
         auto info = axiom::TexturePresets::Sprite();
         return axiom::AssetManager::Get<axiom::Texture2D>(virtualPath, info);
@@ -176,6 +207,12 @@ protected:
     void OnInit() override {
         axiom::Renderer2D::Init();
         ApplyDebugCamera();
+
+        const std::string gameAssetPath = ResolveGameAssetPath();
+        if (gameAssetPath != AXIOM_GAME_ASSET_PATH)
+            AXIOM_WARN("Game asset path fallback is used: {}", gameAssetPath);
+
+        axiom::VFS::MountPath("game://", gameAssetPath);
 
         m_Texture = LoadGameTexture("game://textures/Purple/texture_01.png");
         m_SkinnedTexture = LoadGameTexture("game://textures/Orange/texture_01.png");

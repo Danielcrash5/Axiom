@@ -90,25 +90,10 @@ namespace axiom {
             }
         );
 
-        const std::string gameAssetPath = ResolveAssetPath(
-            AXIOM_GAME_ASSET_PATH,
-            {
-                "./testbed/assets",
-                "../testbed/assets",
-                "../../testbed/assets",
-                "../../../testbed/assets",
-                "../../../../testbed/assets",
-                "./assets"
-            }
-        );
-
         if (engineAssetPath != AXIOM_ENGINE_ASSET_PATH)
             AXIOM_WARN("Engine asset path fallback is used: {}", engineAssetPath);
-        if (gameAssetPath != AXIOM_GAME_ASSET_PATH)
-            AXIOM_WARN("Game asset path fallback is used: {}", gameAssetPath);
 
-        VFS::Mount("engine://", engineAssetPath, VFS::MountType::Directory);
-        VFS::Mount("game://", gameAssetPath, VFS::MountType::Directory);
+        VFS::MountPath("engine://", engineAssetPath);
 
         m_ActiveScene = std::make_unique<Scene>();
 

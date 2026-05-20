@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <algorithm>
+#include <cctype>
 
 extern "C" {
 #include <compat/unzip.h> // minizip-ng Kompatibilitäts-API
@@ -10,6 +11,18 @@ extern "C" {
 namespace axiom {
 
     std::unordered_map<std::string, VFS::MountPoint> VFS::s_mounts;
+
+    static bool ends_with_ignore_case(const std::string& value, const std::string& suffix) {
+        if (value.size() < suffix.size())
+            return false;
+
+        size_t offset = value.size() - suffix.size();
+        for (size_t i = 0; i < suffix.size(); ++i) {
+            if (std::tolower(static_cast<unsigned char>(value[offset + i])) != std::tolower(static_cast<unsigned char>(suffix[i])))
+                return false;
+        }
+        return true;
+    }
 
     void VFS::Init() {
         s_mounts.clear();
@@ -40,6 +53,14 @@ namespace axiom {
         }
 
         s_mounts[root] = mp;
+    }
+
+    void VFS::MountPath(const std::string& root, const std::string& path) {
+        if (ends_with_ignore_case(path, ".zip") || ends_with_ignore_case(path, ".pak") || ends_with_ignore_case(path, ".apack")) {
+            Mount(root, path, MountType::Zip);
+        } else {
+            Mount(root, path, MountType::Directory);
+        }
     }
 
     static bool starts_with(const std::string& s, const std::string& prefix) {
