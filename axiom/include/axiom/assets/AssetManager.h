@@ -70,7 +70,10 @@ namespace axiom {
 
         static std::string NormalizePath(std::string path) {
             std::replace(path.begin(), path.end(), '\\', '/');
-            for (size_t i = 1; i < path.size(); ++i) {
+            const size_t schemeEnd = path.find("://");
+            size_t start = schemeEnd == std::string::npos ? 1 : schemeEnd + 3;
+
+            for (size_t i = start; i < path.size(); ++i) {
                 if (path[i] == '/' && path[i - 1] == '/') {
                     path.erase(path.begin() + i);
                     --i;

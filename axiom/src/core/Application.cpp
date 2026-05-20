@@ -13,16 +13,55 @@
 namespace axiom {
 
     namespace {
-        std::string ResolveAssetPath(const std::string& configuredPath, const std::vector<std::string>& fallbackCandidates) {
-            namespace fs = std::filesystem;
+        bool PathExists(const std::filesystem::path& path) {
             std::error_code ec;
+            return std::filesystem::exists(path, ec);
+        }
 
-            if (!configuredPath.empty() && fs::exists(configuredPath, ec))
+        std::filesystem::path ResolveExecutableDirectory(const std::vector<std::string>& commandLineArgs) {
+            namespace fs = std::filesystem;
+
+            if (commandLineArgs.empty() || commandLineArgs[0].empty())
+                return {};
+
+            std::error_code ec;
+            fs::path executablePath = commandLineArgs[0];
+            if (executablePath.is_relative())
+                executablePath = fs::absolute(executablePath, ec);
+
+            if (ec || !executablePath.has_parent_path())
+                return {};
+
+            return executablePath.parent_path();
+        }
+
+        std::string ResolveAssetPath(
+            const std::string& configuredPath,
+            const std::vector<std::string>& fallbackCandidates,
+            const std::vector<std::string>& commandLineArgs,
+            bool& usedFallback
+        ) {
+            namespace fs = std::filesystem;
+            usedFallback = false;
+
+            if (!configuredPath.empty() && PathExists(configuredPath))
                 return configuredPath;
 
+            const fs::path executableDir = ResolveExecutableDirectory(commandLineArgs);
+            if (!configuredPath.empty() && !executableDir.empty()) {
+                fs::path configured = configuredPath;
+                if (configured.is_relative()) {
+                    fs::path executableRelativePath = executableDir / configured;
+                    if (PathExists(executableRelativePath))
+                        return executableRelativePath.string();
+                }
+            }
+
             for (const auto& candidate : fallbackCandidates) {
-                if (fs::exists(candidate, ec))
+                if (PathExists(candidate)) {
+                    usedFallback = true;
                     return candidate;
+                }
             }
 
             return configuredPath;
@@ -90,6 +129,7 @@ namespace axiom {
         RenderCommand::SetViewport(0, 0, m_Width, m_Height);
 
         VFS::Init();
+        bool engineAssetPathUsedFallback = false;
         const std::string engineAssetPath = ResolveAssetPath(
             AXIOM_ENGINE_ASSET_PATH,
             {
@@ -98,10 +138,12 @@ namespace axiom {
                 "../../axiom/assets",
                 "../../../axiom/assets",
                 "../../../../axiom/assets"
-            }
+            },
+            m_CommandLineArgs,
+            engineAssetPathUsedFallback
         );
 
-        if (engineAssetPath != AXIOM_ENGINE_ASSET_PATH)
+        if (engineAssetPathUsedFallback)
             AXIOM_WARN("Engine asset path fallback is used: {}", engineAssetPath);
 
         VFS::MountPath("engine://", engineAssetPath);

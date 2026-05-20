@@ -16,6 +16,13 @@ namespace axiom {
 		return ss.str();
 	}
 
+    static std::string GetDirectory(const std::string& path) {
+        const size_t separator = path.find_last_of("/\\");
+        if (separator == std::string::npos)
+            return {};
+        return path.substr(0, separator);
+    }
+
 	OpenGLShader::OpenGLShader(
 		const std::string& path,
         const std::unordered_set<std::string>& defines,
@@ -27,10 +34,10 @@ namespace axiom {
 
         if (fromMemory) {
             source = path;
-            directory = sourcePath;
+            directory = GetDirectory(sourcePath);
         } else {
             source = ReadFile(path);
-            directory = path.substr(0, path.find_last_of("/\\"));
+            directory = GetDirectory(path);
         }
 
         source = ShaderPreprocessor::Process(source, directory, defines);

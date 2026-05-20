@@ -6,12 +6,10 @@ file(GLOB_RECURSE AXIOM_SOURCES
     src/*.cpp
 )
 
-list(FILTER AXIOM_SOURCES EXCLUDE REGEX ".*_Old\\.cpp$")
-
 target_link_libraries(axiom_engine PUBLIC minizip)
 
 target_compile_definitions(axiom_engine PUBLIC
-    AXIOM_ENGINE_ASSET_PATH="${CMAKE_SOURCE_DIR}/axiom/assets/"
+    AXIOM_ENGINE_ASSET_PATH="${AXIOM_ENGINE_ASSET_PATH}"
 )
 
 

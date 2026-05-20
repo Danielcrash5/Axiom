@@ -1,6 +1,7 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
+#include <algorithm>
 #include <vector>
 #include <string>
 
@@ -59,11 +60,11 @@ static bool addFileToZip(zipFile zf, const fs::path& root, const fs::path& fileP
 int main(int argc, char** argv) {
     if (argc < 3) {
         std::cout << "Usage:\n"
-            << "  AxiomPackTool <output_pack.zip> <input_directory>\n";
+            << "  AxiomPackTool <output_pack.AxPack> <input_directory>\n";
         return 1;
     }
 
-    std::string outputZip = argv[1];
+    fs::path outputPack = fs::path(argv[1]);
     fs::path inputDir = fs::path(argv[2]);
 
     if (!fs::exists(inputDir) || !fs::is_directory(inputDir)) {
@@ -71,18 +72,34 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    std::error_code ec;
+    if (outputPack.has_parent_path()) {
+        fs::create_directories(outputPack.parent_path(), ec);
+        if (ec) {
+            std::cerr << "Failed to create output directory: " << outputPack.parent_path() << "\n";
+            return 1;
+        }
+    }
+
+    const std::string outputZip = outputPack.string();
     zipFile zf = zipOpen64(outputZip.c_str(), 0);
     if (!zf) {
-        std::cerr << "Failed to open output zip: " << outputZip << "\n";
+        std::cerr << "Failed to open output pack: " << outputPack << "\n";
         return 1;
     }
 
+    std::vector<fs::path> files;
     for (auto const& entry : fs::recursive_directory_iterator(inputDir)) {
         if (!entry.is_regular_file())
             continue;
+        files.push_back(entry.path());
+    }
 
-        if (!addFileToZip(zf, inputDir, entry.path())) {
-            std::cerr << "Failed to add file: " << entry.path() << "\n";
+    std::sort(files.begin(), files.end());
+
+    for (const auto& file : files) {
+        if (!addFileToZip(zf, inputDir, file)) {
+            std::cerr << "Failed to add file: " << file << "\n";
             zipClose(zf, nullptr);
             return 1;
         }

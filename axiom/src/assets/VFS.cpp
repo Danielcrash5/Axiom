@@ -3,6 +3,7 @@
 #include <fstream>
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 
 extern "C" {
 #include <compat/unzip.h> // minizip-ng Kompatibilitäts-API
@@ -14,8 +15,15 @@ namespace axiom {
 
     static std::string NormalizePath(std::string path) {
         std::replace(path.begin(), path.end(), '\\', '/');
-        while (path.find("//") != std::string::npos)
-            path.erase(path.find("//"), 1);
+        const size_t schemeEnd = path.find("://");
+        size_t start = schemeEnd == std::string::npos ? 1 : schemeEnd + 3;
+
+        for (size_t i = start; i < path.size(); ++i) {
+            if (path[i] == '/' && path[i - 1] == '/') {
+                path.erase(path.begin() + static_cast<std::ptrdiff_t>(i));
+                --i;
+            }
+        }
         return path;
     }
 
@@ -67,7 +75,7 @@ namespace axiom {
 
     void VFS::MountPath(const std::string& root, const std::string& path) {
         std::string normalizedPath = NormalizePath(path);
-        if (ends_with_ignore_case(normalizedPath, ".zip") || ends_with_ignore_case(normalizedPath, ".pak") || ends_with_ignore_case(normalizedPath, ".apack")) {
+        if (ends_with_ignore_case(normalizedPath, ".zip") || ends_with_ignore_case(normalizedPath, ".pak") || ends_with_ignore_case(normalizedPath, ".apack") || ends_with_ignore_case(normalizedPath, ".axpack")) {
             Mount(root, normalizedPath, MountType::Zip);
         } else {
             Mount(root, normalizedPath, MountType::Directory);
