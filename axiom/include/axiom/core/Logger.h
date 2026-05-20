@@ -59,10 +59,4 @@ namespace axiom {
 #define AXIOM_FATAL(...) axiom::Logger::Get().Log(axiom::LogLevel::Fatal, __VA_ARGS__)
 
 
-#define AXIOM_ASSERT(x, ...) \
-	do { \
-		if (!(x)) { \
-			AXIOM_ERROR("Assertion Failed: " __VA_ARGS__); \
-			std::abort(); \
-		} \
-	} while (0)
+#define AXIOM_ASSERT(x, ...) do { if (!(x)) { AXIOM_ERROR("Assertion Failed: " __VA_ARGS__); std::abort(); } } while (0)

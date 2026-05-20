@@ -6,6 +6,8 @@
 #include <iostream>
 #include <algorithm>
 #include <cctype>
+#include <cstring>
+
 namespace axiom {
 	static std::string ReadFile(const std::string& path) {
 		std::ifstream file(path);

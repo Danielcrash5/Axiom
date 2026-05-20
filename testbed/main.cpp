@@ -15,6 +15,7 @@
 #include <axiom/renderer/Material.h>
 #include <axiom/renderer/Shader.h>
 #include <axiom/renderer/Sprite.h>
+#include <axiom/ecs/Render2DSystem.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -189,6 +190,7 @@ protected:
         m_Pose.BoneTransforms[1] = glm::mat4(1.0f);
 
         BuildEcsScene();
+        RegisterSystem<axiom::Render2DSystem>();
     }
 
     void OnUpdate(double dt) override {
@@ -262,8 +264,6 @@ protected:
         axiom::Renderer::BeginScene(ViewProjection, {});
 
         axiom::Renderer2D::BeginScene();
-
-        GetScene().Render2D();
 
         glm::mat4 overrideQuadTransform =
             glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 20.0f, 0.2f)) *

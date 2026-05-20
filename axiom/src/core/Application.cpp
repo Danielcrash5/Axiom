@@ -147,6 +147,9 @@ namespace axiom {
         // User render
         OnRender(alpha);
 
+        // System render
+        m_SystemManager.Render(*m_ActiveScene, alpha);
+
         // Layer rendering
         for (auto& layer : m_LayerStack) {
             AXIOM_PROFILE_SCOPE(layer->GetName());
@@ -160,6 +163,7 @@ namespace axiom {
     void Application::PreUpdate(double dt) {
         AXIOM_PROFILE_SCOPE("PreUpdate");
 
+        m_SystemManager.PreUpdate(*m_ActiveScene, dt);
         OnPreUpdate(dt);
         for (auto& layer : m_LayerStack) {
             AXIOM_PROFILE_SCOPE(layer->GetName());
@@ -174,10 +178,12 @@ namespace axiom {
             AXIOM_PROFILE_SCOPE(layer->GetName());
             layer->OnPostUpdate(dt);
         }
+        m_SystemManager.PostUpdate(*m_ActiveScene, dt);
     }
 
     void Application::FixedUpdate(double dt) {
         AXIOM_PROFILE_SCOPE("FixedUpdate");
+        m_SystemManager.FixedUpdate(*m_ActiveScene, dt);
         OnFixedUpdate(dt);
         for (auto& layer : m_LayerStack) {
             AXIOM_PROFILE_SCOPE(layer->GetName());
@@ -192,6 +198,7 @@ namespace axiom {
             AXIOM_PROFILE_SCOPE(layer->GetName());
             layer->OnUpdate(dt);
         }
+        m_SystemManager.Update(*m_ActiveScene, dt);
     }
 
     void Application::MainUpdate() {

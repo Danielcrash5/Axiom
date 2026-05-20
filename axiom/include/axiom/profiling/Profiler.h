@@ -56,8 +56,6 @@ namespace axiom::profiling {
 #define AXIOM_PROFILE_SCOPE(name) \
     axiom::profiling::CPUScope scope##__LINE__(name)
 
-#define AXIOM_PROFILE_FUNCTION() \
-    axiom::profiling::CPUScope scope##__LINE__(std::source_location::current().function_name())
+#define AXIOM_PROFILE_FUNCTION() axiom::profiling::CPUScope scope##__LINE__(std::source_location::current().function_name())
 
-#define AXIOM_PROFILE_FRAME() \
-    AXIOM_PROFILE_SCOPE("Frame")
+#define AXIOM_PROFILE_FRAME() AXIOM_PROFILE_SCOPE("Frame")

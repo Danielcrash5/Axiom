@@ -8,6 +8,7 @@
 #include "axiom/input/InputSystem.h"
 #include "axiom/renderer/RenderCommand.h"
 #include "axiom/ecs/Scene.h"
+#include "axiom/ecs/SystemManager.h"
 #include <memory>
 
 namespace axiom {
@@ -67,6 +68,19 @@ namespace axiom {
             return *m_ActiveScene;
         }
 
+        template<typename T, typename... Args>
+        std::shared_ptr<T> RegisterSystem(Args&&... args) {
+            return m_SystemManager.AddSystem<T>(std::forward<Args>(args)...);
+        }
+
+        SystemManager& GetSystemManager() {
+            return m_SystemManager;
+        }
+
+        const SystemManager& GetSystemManager() const {
+            return m_SystemManager;
+        }
+
     protected:
         virtual void OnInit() {}
         virtual void OnShutdown() {}
@@ -123,6 +137,7 @@ namespace axiom {
         EventBus m_EventBus;
 
         std::unique_ptr<Scene> m_ActiveScene;
+        SystemManager m_SystemManager;
     };
 
 }
