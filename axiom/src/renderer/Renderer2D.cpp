@@ -60,20 +60,6 @@ void Configure2DMaterial(const std::shared_ptr<Material>& material) {
     state.CullFace = false;
 }
 
-void DrawIndexedNow(
-    const std::shared_ptr<VertexArray>& vertexArray,
-    const std::shared_ptr<Material>& material,
-    uint32_t indexCount,
-    const glm::mat4& transform
-) {
-    if (!vertexArray || !material || indexCount == 0)
-        return;
-
-    material->Set("u_ViewProjection", Renderer::GetViewProjection());
-    material->Set("u_Transform", transform);
-    material->Bind();
-    RenderCommand::DrawIndexed(vertexArray, indexCount);
-}
 
 } // namespace
 
@@ -216,7 +202,7 @@ void Renderer2D::FlushQuads() {
             s_Data->TextureSlots[i]->Bind(static_cast<int>(i));
     }
 
-    DrawIndexedNow(s_Data->QuadVAO, s_Data->QuadMaterial, s_Data->QuadIndexCount, glm::mat4(1.0f));
+    Renderer::Submit(s_Data->QuadVAO, s_Data->QuadMaterial, s_Data->QuadIndexCount, glm::mat4(1.0f));
 
     s_Data->QuadIndexCount = 0;
     s_Data->QuadBufferPtr = s_Data->QuadBufferBase;
@@ -233,7 +219,7 @@ void Renderer2D::FlushCircles() {
     );
 
     s_Data->CircleVBO->SetData(s_Data->CircleBufferBase, dataSize);
-    DrawIndexedNow(s_Data->CircleVAO, s_Data->CircleMaterial, s_Data->CircleIndexCount, glm::mat4(1.0f));
+    Renderer::Submit(s_Data->CircleVAO, s_Data->CircleMaterial, s_Data->CircleIndexCount, glm::mat4(1.0f));
 
     s_Data->CircleIndexCount = 0;
     s_Data->CircleBufferPtr = s_Data->CircleBufferBase;
@@ -363,7 +349,7 @@ void Renderer2D::DrawQuad(
     if (texture && materialOverride->GetShader() && materialOverride->GetShader()->HasUniform("u_Texture"))
         materialOverride->SetTexture("u_Texture", texture);
 
-    DrawIndexedNow(s_Data->QuadVAO, materialOverride, 6, transform);
+    Renderer::Submit(s_Data->QuadVAO, materialOverride, 6, transform);
 }
 
 void Renderer2D::DrawSprite(const glm::mat4& transform, const Sprite& sprite, const glm::vec4& tint) {
@@ -415,7 +401,7 @@ void Renderer2D::DrawSprite(
     if (sprite.Texture && materialOverride->GetShader() && materialOverride->GetShader()->HasUniform("u_Texture"))
         materialOverride->SetTexture("u_Texture", sprite.Texture);
 
-    DrawIndexedNow(s_Data->QuadVAO, materialOverride, 6, transform);
+    Renderer::Submit(s_Data->QuadVAO, materialOverride, 6, transform);
 }
 
 void Renderer2D::DrawSkinned(
@@ -453,7 +439,7 @@ void Renderer2D::DrawSkinned(
         shader->SetUniform1i("u_Texture", 0);
     }
 
-    DrawIndexedNow(s_Data->SkinnedVAO, material, s_Data->SkinnedIBO->GetCount(), transform);
+    Renderer::Submit(s_Data->SkinnedVAO, material, s_Data->SkinnedIBO->GetCount(), transform);
 }
 
 void Renderer2D::DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color) {
