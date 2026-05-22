@@ -263,7 +263,7 @@ private:
 
         m_EcsCircle = scene.CreateEntity("ECS Circle");
         auto& circleTransform = m_EcsCircle.GetComponent<axiom::TransformComponent>();
-        circleTransform.Translation = glm::vec3(115.0f, -20.0f, 0.0f);
+        circleTransform.Translation = glm::vec3(115.0f, -20.0f, 0.9f);
         circleTransform.Scale = glm::vec3(26.0f, 26.0f, 1.0f);
         m_EcsCircle.AddComponent<axiom::CircleRendererComponent>(glm::vec4(0.25f, 0.5f, 1.0f, 1.0f), 0.35f);
     }

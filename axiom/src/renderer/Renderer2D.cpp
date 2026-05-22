@@ -186,51 +186,10 @@ void Renderer2D::StartBatch() {
 }
 
 void Renderer2D::FlushAll() {
-    if (s_Data->BatchSegments.empty())
-        return;
-
-    if (s_Data->QuadIndexCount > 0) {
-        const auto dataSize = static_cast<uint32_t>(
-            reinterpret_cast<uint8_t*>(s_Data->QuadBufferPtr) -
-            reinterpret_cast<uint8_t*>(s_Data->QuadBufferBase)
-        );
-        s_Data->QuadVBO->SetData(s_Data->QuadBufferBase, dataSize);
-    }
-
-    if (s_Data->CircleIndexCount > 0) {
-        const auto dataSize = static_cast<uint32_t>(
-            reinterpret_cast<uint8_t*>(s_Data->CircleBufferPtr) -
-            reinterpret_cast<uint8_t*>(s_Data->CircleBufferBase)
-        );
-        s_Data->CircleVBO->SetData(s_Data->CircleBufferBase, dataSize);
-    }
-
-    for (const auto& segment : s_Data->BatchSegments) {
-        if (segment.Type == Renderer2D::PrimitiveType::Quad) {
-            for (uint32_t i = 0; i < s_Data->TextureSlotIndex; ++i) {
-                if (s_Data->TextureSlots[i])
-                    s_Data->TextureSlots[i]->Bind(static_cast<int>(i));
-            }
-            Renderer::Submit(
-                s_Data->QuadVAO,
-                s_Data->QuadMaterial,
-                segment.IndexCount,
-                glm::mat4(1.0f),
-                static_cast<uint32_t>((segment.VertexStart / 4) * 6)
-            );
-        }
-        else {
-            Renderer::Submit(
-                s_Data->CircleVAO,
-                s_Data->CircleMaterial,
-                segment.IndexCount,
-                glm::mat4(1.0f),
-                static_cast<uint32_t>((segment.VertexStart / 4) * 6)
-            );
-        }
-    }
-
-    StartBatch();
+    // Flush circles first (endcaps and joins)
+    FlushCircles();
+    // Then flush quads (including lines)
+    FlushQuads();
 }
 
 void Renderer2D::FlushQuads() {
@@ -546,8 +505,8 @@ void Renderer2D::DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::v
     DrawQuad(transform, color);
 
     if (cap == LineCap::Round) {
-        DrawCircle(p0, halfThickness, 0.0f, color);
-        DrawCircle(p1, halfThickness, 0.0f, color);
+        DrawCircle(p0, halfThickness, 0.0f, color, p0.z);
+        DrawCircle(p1, halfThickness, 0.0f, color, p1.z);
     }
 }
 
@@ -581,13 +540,13 @@ void Renderer2D::DrawLineStrip(
 
             switch (join) {
             case LineJoin::Round:
-                DrawCircle(b, thickness * 0.5f, 0.0f, color);
+                DrawCircle(b, thickness * 0.5f, 0.0f, color, b.z);
                 break;
             case LineJoin::Bevel:
                 break;
             case LineJoin::Miter:
                 if (angle < glm::pi<float>() * 0.5f && miterLimit > 0.0f)
-                    DrawCircle(b, thickness * 0.35f, 0.0f, color);
+                    DrawCircle(b, thickness * 0.35f, 0.0f, color, b.z);
                 break;
             }
         }
