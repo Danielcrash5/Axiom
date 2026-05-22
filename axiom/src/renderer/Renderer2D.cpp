@@ -61,7 +61,7 @@ void Configure2DMaterial(const std::shared_ptr<Material>& material) {
 }
 
 
-} // namespace
+} // namespacesss
 
 void Renderer2D::Init() {
     s_Data = new RendererData();
@@ -175,15 +175,62 @@ void Renderer2D::EndScene() {
 void Renderer2D::StartBatch() {
     s_Data->QuadIndexCount = 0;
     s_Data->QuadBufferPtr = s_Data->QuadBufferBase;
+    s_Data->QuadVertexCount = 0;
     s_Data->TextureSlotIndex = 1;
 
     s_Data->CircleIndexCount = 0;
     s_Data->CircleBufferPtr = s_Data->CircleBufferBase;
+    s_Data->CircleVertexCount = 0;
+
+    s_Data->BatchSegments.clear();
 }
 
 void Renderer2D::FlushAll() {
-    FlushQuads();
-    FlushCircles();
+    if (s_Data->BatchSegments.empty())
+        return;
+
+    if (s_Data->QuadIndexCount > 0) {
+        const auto dataSize = static_cast<uint32_t>(
+            reinterpret_cast<uint8_t*>(s_Data->QuadBufferPtr) -
+            reinterpret_cast<uint8_t*>(s_Data->QuadBufferBase)
+        );
+        s_Data->QuadVBO->SetData(s_Data->QuadBufferBase, dataSize);
+    }
+
+    if (s_Data->CircleIndexCount > 0) {
+        const auto dataSize = static_cast<uint32_t>(
+            reinterpret_cast<uint8_t*>(s_Data->CircleBufferPtr) -
+            reinterpret_cast<uint8_t*>(s_Data->CircleBufferBase)
+        );
+        s_Data->CircleVBO->SetData(s_Data->CircleBufferBase, dataSize);
+    }
+
+    for (const auto& segment : s_Data->BatchSegments) {
+        if (segment.Type == Renderer2D::PrimitiveType::Quad) {
+            for (uint32_t i = 0; i < s_Data->TextureSlotIndex; ++i) {
+                if (s_Data->TextureSlots[i])
+                    s_Data->TextureSlots[i]->Bind(static_cast<int>(i));
+            }
+            Renderer::Submit(
+                s_Data->QuadVAO,
+                s_Data->QuadMaterial,
+                segment.IndexCount,
+                glm::mat4(1.0f),
+                static_cast<uint32_t>((segment.VertexStart / 4) * 6)
+            );
+        }
+        else {
+            Renderer::Submit(
+                s_Data->CircleVAO,
+                s_Data->CircleMaterial,
+                segment.IndexCount,
+                glm::mat4(1.0f),
+                static_cast<uint32_t>((segment.VertexStart / 4) * 6)
+            );
+        }
+    }
+
+    StartBatch();
 }
 
 void Renderer2D::FlushQuads() {
@@ -227,12 +274,12 @@ void Renderer2D::FlushCircles() {
 
 void Renderer2D::EnsureQuadCapacity(uint32_t quadCount) {
     if (s_Data->QuadIndexCount + quadCount * 6 > RendererData::MaxIndices)
-        FlushQuads();
+        FlushAll();
 }
 
 void Renderer2D::EnsureCircleCapacity(uint32_t circleCount) {
     if (s_Data->CircleIndexCount + circleCount * 6 > RendererData::MaxIndices)
-        FlushCircles();
+        FlushAll();
 }
 
 float Renderer2D::AcquireTextureSlot(const std::shared_ptr<Texture2D>& texture) {
@@ -245,7 +292,7 @@ float Renderer2D::AcquireTextureSlot(const std::shared_ptr<Texture2D>& texture) 
     }
 
     if (s_Data->TextureSlotIndex >= RendererData::MaxTextureSlots)
-        FlushQuads();
+        FlushAll();
 
     const uint32_t slot = s_Data->TextureSlotIndex++;
     s_Data->TextureSlots[slot] = texture;
@@ -277,6 +324,11 @@ void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color) {
     }
 
     s_Data->QuadIndexCount += 6;
+    if (!s_Data->BatchSegments.empty() && s_Data->BatchSegments.back().Type == PrimitiveType::Quad)
+        s_Data->BatchSegments.back().IndexCount += 6;
+    else
+        s_Data->BatchSegments.push_back({ PrimitiveType::Quad, s_Data->QuadVertexCount, 6 });
+    s_Data->QuadVertexCount += 4;
 }
 
 void Renderer2D::DrawQuad(
@@ -319,6 +371,11 @@ void Renderer2D::DrawQuad(
     }
 
     s_Data->QuadIndexCount += 6;
+    if (!s_Data->BatchSegments.empty() && s_Data->BatchSegments.back().Type == PrimitiveType::Quad)
+        s_Data->BatchSegments.back().IndexCount += 6;
+    else
+        s_Data->BatchSegments.push_back({ PrimitiveType::Quad, s_Data->QuadVertexCount, 6 });
+    s_Data->QuadVertexCount += 4;
 }
 
 void Renderer2D::DrawQuad(
@@ -369,6 +426,11 @@ void Renderer2D::DrawSprite(const glm::mat4& transform, const Sprite& sprite, co
     }
 
     s_Data->QuadIndexCount += 6;
+    if (!s_Data->BatchSegments.empty() && s_Data->BatchSegments.back().Type == PrimitiveType::Quad)
+        s_Data->BatchSegments.back().IndexCount += 6;
+    else
+        s_Data->BatchSegments.push_back({ PrimitiveType::Quad, s_Data->QuadVertexCount, 6 });
+    s_Data->QuadVertexCount += 4;
 }
 
 void Renderer2D::DrawSprite(
@@ -571,6 +633,11 @@ void Renderer2D::DrawCircle(const glm::mat4& transform, float thickness, const g
     }
 
     s_Data->CircleIndexCount += 6;
+    if (!s_Data->BatchSegments.empty() && s_Data->BatchSegments.back().Type == PrimitiveType::Circle)
+        s_Data->BatchSegments.back().IndexCount += 6;
+    else
+        s_Data->BatchSegments.push_back({ PrimitiveType::Circle, s_Data->CircleVertexCount, 6 });
+    s_Data->CircleVertexCount += 4;
 }
 
 } // namespace axiom

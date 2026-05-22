@@ -163,6 +163,17 @@ namespace axiom {
                                const glm::vec4& color);
 
     private:
+        enum class PrimitiveType {
+            Quad,
+            Circle
+        };
+
+        struct BatchSegment {
+            PrimitiveType Type;
+            uint32_t VertexStart;
+            uint32_t IndexCount;
+        };
+
         struct QuadVertex {
             glm::vec3 Position;
             glm::vec4 Color;
@@ -191,6 +202,7 @@ namespace axiom {
             QuadVertex* QuadBufferBase = nullptr;
             QuadVertex* QuadBufferPtr = nullptr;
             uint32_t QuadIndexCount = 0;
+            uint32_t QuadVertexCount = 0;
 
             std::shared_ptr<Texture2D> TextureSlots[MaxTextureSlots];
             uint32_t TextureSlotIndex = 1;
@@ -205,7 +217,10 @@ namespace axiom {
             CircleVertex* CircleBufferBase = nullptr;
             CircleVertex* CircleBufferPtr = nullptr;
             uint32_t CircleIndexCount = 0;
+            uint32_t CircleVertexCount = 0;
             std::shared_ptr<Material> CircleMaterial;
+
+            std::vector<BatchSegment> BatchSegments;
 
             // Skinned
             std::shared_ptr<VertexArray> SkinnedVAO;

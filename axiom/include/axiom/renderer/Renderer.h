@@ -41,6 +41,8 @@ namespace axiom {
 			uint32_t indexCount
 		);
 
+	friend class Renderer2D;
+
 	private:
 		struct DrawSubmission {
 			std::shared_ptr<VertexArray> VertexArray;
