@@ -1,53 +1,41 @@
 #include "axiom/input/Input.h"
-#include <GLFW/glfw3.h>
+
+#include <SDL3/SDL.h>
+
+#include <algorithm>
 #include <cmath>
 
 namespace axiom {
 
-    GLFWwindow* Input::s_Window = nullptr;
+    SDL_Window* Input::s_Window = nullptr;
 
-    std::array<bool, GLFW_KEY_LAST + 1> Input::s_CurrentKeys {};
-    std::array<bool, GLFW_KEY_LAST + 1> Input::s_PreviousKeys {};
+    std::array<bool, SDL_SCANCODE_COUNT> Input::s_CurrentKeys {};
+    std::array<bool, SDL_SCANCODE_COUNT> Input::s_PreviousKeys {};
 
-    std::array<bool, GLFW_MOUSE_BUTTON_LAST + 1> Input::s_CurrentMouse = {false};
-    std::array<bool, GLFW_MOUSE_BUTTON_LAST + 1> Input::s_PreviousMouse = {false};
+    std::array<bool, 9> Input::s_CurrentMouse {};
+    std::array<bool, 9> Input::s_PreviousMouse {};
+
+    std::array<SDL_Gamepad*, 4> Input::s_Gamepads {};
 
     glm::vec2 Input::s_MousePosition {};
     glm::vec2 Input::s_PreviousMousePosition {};
     glm::vec2 Input::s_MouseScroll {};
     glm::vec2 Input::s_PendingMouseScroll {};
 
-    static std::vector<KeyCode> s_ValidKeys = {
-		Key::A, Key::B, Key::C, Key::D, Key::E, Key::F, Key::G, Key::H, Key::I, Key::J,
-		Key::K, Key::L, Key::M, Key::N, Key::O, Key::P, Key::Q, Key::R, Key::S, Key::T,
-		Key::U, Key::V, Key::W, Key::X, Key::Y, Key::Z,
-		Key::Num0, Key::Num1, Key::Num2, Key::Num3, Key::Num4,
-		Key::Num5, Key::Num6, Key::Num7, Key::Num8, Key::Num9,
-		Key::F1, Key::F2, Key::F3, Key::F4, Key::F5, Key::F6,
-		Key::F7, Key::F8, Key::F9, Key::F10, Key::F11, Key::F12,
-		Key::Space, Key::Escape, Key::Enter, Key::Tab, Key::Backspace,
-		Key::Insert, Key::Delete, Key::Right, Key::Left, Key::Down,
-		Key::Up, Key::PageUp, Key::PageDown, Key::Home, Key::End,
-		Key::CapsLock, Key::ScrollLock, Key::NumLock, Key::PrintScreen,
-		Key::Pause, Key::Menu,
-		Key::LeftShift, Key::LeftControl, Key::LeftAlt, Key::LeftSuper,
-		Key::RightShift, Key::RightControl, Key::RightAlt, Key::RightSuper,
-		Key::KP0, Key::KP1, Key::KP2, Key::KP3, Key::KP4,
-        Key::KP5, Key::KP6, Key::KP7, Key::KP8, Key::KP9,
-		Key::KPDecimal, Key::KPDivide, Key::KPMultiply, Key::KPSubtract, Key::KPAdd,
-		Key::F1, Key::F2, Key::F3, Key::F4, Key::F5, Key::F6, Key::F7, Key::F8, Key::F9, Key::F10, Key::F11, Key::F12,
-		Key::F13, Key::F14, Key::F15, Key::F16, Key::F17, Key::F18, Key::F19, Key::F20,
-		Key::F21, Key::F22, Key::F23, Key::F24,
-		Key::KPEnter, Key::KPEqual,
-		Key::RightSuper, Key::RightAlt, Key::RightControl, Key::RightShift,
-		Key::LeftSuper, Key::LeftAlt, Key::LeftControl, Key::LeftShift,
-		Key::Menu, Key::Pause, Key::PrintScreen, Key::NumLock, Key::ScrollLock, Key::CapsLock,
-		Key::End, Key::Home, Key::PageDown, Key::PageUp, Key::Up, Key::Down, Key::Left, Key::Right,
-		Key::Insert, Key::Delete, Key::Backspace, Key::Tab, Key::Enter, Key::Escape, Key::Space
-	};
-
     void Input::Init(void* window) {
-        s_Window = (GLFWwindow*)window;
+        s_Window = static_cast<SDL_Window*>(window);
+        RefreshGamepads();
+    }
+
+    void Input::Shutdown() {
+        for (SDL_Gamepad*& gamepad : s_Gamepads) {
+            if (gamepad) {
+                SDL_CloseGamepad(gamepad);
+                gamepad = nullptr;
+            }
+        }
+
+        s_Window = nullptr;
     }
 
     void Input::Update() {
@@ -57,50 +45,53 @@ namespace axiom {
         s_MouseScroll = s_PendingMouseScroll;
         s_PendingMouseScroll = glm::vec2(0.0f);
 
-        // Keyboard
-        for (KeyCode key : s_ValidKeys)
-            s_CurrentKeys[key] = glfwGetKey(s_Window, key) == GLFW_PRESS;
+        int keyCount = 0;
+        const bool* keyboardState = SDL_GetKeyboardState(&keyCount);
+        const int copyCount = std::min(keyCount, static_cast<int>(SDL_SCANCODE_COUNT));
+        for (int key = 0; key < copyCount; ++key)
+            s_CurrentKeys[key] = keyboardState[key];
+        for (int key = copyCount; key < SDL_SCANCODE_COUNT; ++key)
+            s_CurrentKeys[key] = false;
 
+        float mouseX = 0.0f;
+        float mouseY = 0.0f;
+        const SDL_MouseButtonFlags mouseState = SDL_GetMouseState(&mouseX, &mouseY);
+        s_MousePosition = glm::vec2(mouseX, mouseY);
 
-        // Mouse
-        for (int button = 0; button <= GLFW_MOUSE_BUTTON_LAST; ++button)
-            s_CurrentMouse[button] = glfwGetMouseButton(s_Window, button) == GLFW_PRESS;
+        for (size_t button = 0; button < s_CurrentMouse.size(); ++button)
+            s_CurrentMouse[button] = (mouseState & SDL_BUTTON_MASK(static_cast<int>(button))) != 0;
 
-        double x, y;
-        glfwGetCursorPos(s_Window, &x, &y);
-        s_MousePosition = glm::vec2((float)x, (float)y);
+        SDL_UpdateGamepads();
     }
 
     float Input::ApplyDeadzone(float value, float deadzone) {
         return std::abs(value) < deadzone ? 0.0f : value;
     }
 
-    // ================= Keyboard =================
-
     bool Input::IsKeyPressed(KeyCode key) {
-        return s_CurrentKeys[key];
+        return key >= 0 && key < SDL_SCANCODE_COUNT && s_CurrentKeys[key];
     }
 
     bool Input::IsKeyJustPressed(KeyCode key) {
-        return s_CurrentKeys[key] && !s_PreviousKeys[key];
+        return key >= 0 && key < SDL_SCANCODE_COUNT && s_CurrentKeys[key] && !s_PreviousKeys[key];
     }
 
     bool Input::IsKeyReleased(KeyCode key) {
-        return !s_CurrentKeys[key] && s_PreviousKeys[key];
+        return key >= 0 && key < SDL_SCANCODE_COUNT && !s_CurrentKeys[key] && s_PreviousKeys[key];
     }
 
-    // ================= Mouse =================
-
     bool Input::IsMousePressed(MouseCode button) {
-        return s_CurrentMouse[button];
+        return button >= 0 && static_cast<size_t>(button) < s_CurrentMouse.size() && s_CurrentMouse[button];
     }
 
     bool Input::IsMouseJustPressed(MouseCode button) {
-        return s_CurrentMouse[button] && !s_PreviousMouse[button];
+        return button >= 0 && static_cast<size_t>(button) < s_CurrentMouse.size() &&
+               s_CurrentMouse[button] && !s_PreviousMouse[button];
     }
 
     bool Input::IsMouseReleased(MouseCode button) {
-        return !s_CurrentMouse[button] && s_PreviousMouse[button];
+        return button >= 0 && static_cast<size_t>(button) < s_CurrentMouse.size() &&
+               !s_CurrentMouse[button] && s_PreviousMouse[button];
     }
 
     glm::vec2 Input::GetMousePosition() {
@@ -123,82 +114,121 @@ namespace axiom {
         s_PendingMouseScroll += glm::vec2(static_cast<float>(xOffset), static_cast<float>(yOffset));
     }
 
-    // ================= Gamepad =================
+    void Input::RefreshGamepads() {
+        for (SDL_Gamepad*& gamepad : s_Gamepads) {
+            if (gamepad) {
+                SDL_CloseGamepad(gamepad);
+                gamepad = nullptr;
+            }
+        }
+
+        int count = 0;
+        SDL_JoystickID* ids = SDL_GetGamepads(&count);
+        if (!ids)
+            return;
+
+        const int openCount = std::min<int>(count, static_cast<int>(s_Gamepads.size()));
+        for (int i = 0; i < openCount; ++i)
+            s_Gamepads[i] = SDL_OpenGamepad(ids[i]);
+
+        SDL_free(ids);
+    }
+
+    void Input::OnGamepadChanged() {
+        RefreshGamepads();
+    }
+
+    SDL_Gamepad* Input::GetGamepad(int id) {
+        if (id < 0 || static_cast<size_t>(id) >= s_Gamepads.size())
+            return nullptr;
+
+        if (!s_Gamepads[id])
+            RefreshGamepads();
+
+        return s_Gamepads[id];
+    }
 
     bool Input::IsGamepadConnected(int id) {
-        return glfwJoystickIsGamepad(id);
+        return GetGamepad(id) != nullptr;
+    }
+
+    std::string Input::GetGamepadName(int id) {
+        SDL_Gamepad* gamepad = GetGamepad(id);
+        if (!gamepad)
+            return {};
+
+        const char* name = SDL_GetGamepadName(gamepad);
+        return name ? name : "";
     }
 
     bool Input::IsGamepadPressed(GamepadButton button, int id) {
-        if (!IsGamepadConnected(id))
+        SDL_Gamepad* gamepad = GetGamepad(id);
+        if (!gamepad)
             return false;
 
-        GLFWgamepadstate state;
-        glfwGetGamepadState(id, &state);
+        return SDL_GetGamepadButton(gamepad, static_cast<SDL_GamepadButton>(button));
+    }
 
-        return state.buttons[button] == GLFW_PRESS;
+    float Input::GetGamepadAxis(GamepadAxis axis, int id) {
+        SDL_Gamepad* gamepad = GetGamepad(id);
+        if (!gamepad)
+            return 0.0f;
+
+        const auto sdlAxis = static_cast<SDL_GamepadAxis>(axis);
+        const float value = static_cast<float>(SDL_GetGamepadAxis(gamepad, sdlAxis));
+        const float normalizer = sdlAxis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER || sdlAxis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER
+            ? static_cast<float>(SDL_JOYSTICK_AXIS_MAX)
+            : 32768.0f;
+
+        return ApplyDeadzone(glm::clamp(value / normalizer, -1.0f, 1.0f));
     }
 
     glm::vec2 Input::GetGamepadLeftStick(int id) {
-        if (!IsGamepadConnected(id))
-            return glm::vec2(0.0f);
-
-        GLFWgamepadstate state;
-        glfwGetGamepadState(id, &state);
-
         return glm::vec2(
-            ApplyDeadzone(state.axes[GLFW_GAMEPAD_AXIS_LEFT_X]),
-            ApplyDeadzone(state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y])
+            GetGamepadAxis(SDL_GAMEPAD_AXIS_LEFTX, id),
+            GetGamepadAxis(SDL_GAMEPAD_AXIS_LEFTY, id)
         );
     }
 
     glm::vec2 Input::GetGamepadRightStick(int id) {
-        if (!IsGamepadConnected(id))
-            return glm::vec2(0.0f);
-
-        GLFWgamepadstate state;
-        glfwGetGamepadState(id, &state);
-
         return glm::vec2(
-            ApplyDeadzone(state.axes[GLFW_GAMEPAD_AXIS_RIGHT_X]),
-            ApplyDeadzone(state.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y])
+            GetGamepadAxis(SDL_GAMEPAD_AXIS_RIGHTX, id),
+            GetGamepadAxis(SDL_GAMEPAD_AXIS_RIGHTY, id)
         );
     }
 
-    // Implementation: Input.cpp
-    float Input::GetGamepadAxis(int axis, int id) {
-        if (!IsGamepadConnected(id))
-            return 0.0f;
-
-        GLFWgamepadstate state;
-        if (!glfwGetGamepadState(id, &state))
-            return 0.0f;
-
-        // Achsen ab 0 bis GLFW_GAMEPAD_AXIS_LAST
-        if (axis < 0 || axis > GLFW_GAMEPAD_AXIS_LAST)
-            return 0.0f;
-
-        return ApplyDeadzone(state.axes[axis]);
-    }
-
     float Input::GetGamepadLeftTrigger(int id) {
-        if (!IsGamepadConnected(id))
-            return 0.0f;
-
-        GLFWgamepadstate state;
-        glfwGetGamepadState(id, &state);
-
-        return ApplyDeadzone(state.axes[GLFW_GAMEPAD_AXIS_LEFT_TRIGGER]);
+        return GetGamepadAxis(SDL_GAMEPAD_AXIS_LEFT_TRIGGER, id);
     }
 
     float Input::GetGamepadRightTrigger(int id) {
-        if (!IsGamepadConnected(id))
-            return 0.0f;
+        return GetGamepadAxis(SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, id);
+    }
 
-        GLFWgamepadstate state;
-        glfwGetGamepadState(id, &state);
+    bool Input::RumbleGamepad(uint16_t lowFrequency, uint16_t highFrequency, uint32_t durationMs, int id) {
+        SDL_Gamepad* gamepad = GetGamepad(id);
+        return gamepad && SDL_RumbleGamepad(gamepad, lowFrequency, highFrequency, durationMs);
+    }
 
-        return ApplyDeadzone(state.axes[GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER]);
+    bool Input::RumbleGamepadTriggers(uint16_t leftTrigger, uint16_t rightTrigger, uint32_t durationMs, int id) {
+        SDL_Gamepad* gamepad = GetGamepad(id);
+        return gamepad && SDL_RumbleGamepadTriggers(gamepad, leftTrigger, rightTrigger, durationMs);
+    }
+
+    bool Input::SetGamepadLED(uint8_t red, uint8_t green, uint8_t blue, int id) {
+        SDL_Gamepad* gamepad = GetGamepad(id);
+        return gamepad && SDL_SetGamepadLED(gamepad, red, green, blue);
+    }
+
+    bool Input::SetGamepadSensorEnabled(GamepadSensor sensor, bool enabled, int id) {
+        SDL_Gamepad* gamepad = GetGamepad(id);
+        return gamepad && SDL_SetGamepadSensorEnabled(gamepad, static_cast<SDL_SensorType>(sensor), enabled);
+    }
+
+    bool Input::GetGamepadSensorData(GamepadSensor sensor, float* data, int valueCount, int id) {
+        SDL_Gamepad* gamepad = GetGamepad(id);
+        return gamepad && data && valueCount > 0 &&
+               SDL_GetGamepadSensorData(gamepad, static_cast<SDL_SensorType>(sensor), data, valueCount);
     }
 
 }

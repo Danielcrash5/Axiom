@@ -2,9 +2,9 @@
 
 #include "axiom/events/EventBus.h"
 
-#include <string>
+#include <SDL3/SDL_video.h>
 
-struct GLFWwindow;
+#include <string>
 
 namespace axiom {
 
@@ -39,7 +39,8 @@ namespace axiom {
         void Shutdown();
 
     private:
-        GLFWwindow* m_Window = nullptr;
+        SDL_Window* m_Window = nullptr;
+        SDL_GLContext m_GLContext = nullptr;
 
         EventBus& m_EventBus;
 

@@ -123,11 +123,11 @@ Abgeschlossen
 ---
 
 ## Phase 4 — Renderer-Integration
-- [ ] ECS → DrawCommandBuffer  
-- [ ] DrawCommand-Struktur (Mesh + Material + Transform)  
-- [ ] Sortierung (nach Material/Textur)  
-- [ ] Batching  
-- [ ] Kamera-Handling (View/Projection)  
+- [x] ECS → DrawCommandBuffer  
+- [x] DrawCommand-Struktur (Mesh + Material + Transform)  
+- [x] Sortierung (nach Material/Textur)  
+- [x] Batching  
+- [x] Kamera-Handling (View/Projection)  
 
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
 
@@ -183,7 +183,7 @@ Abgeschlossen
 
 ---
 
-## Phase 10 — Audio (OpenAL)
+## Phase 10 — Audio (SDL3)
 - [ ] Audio-Gerät  
 - [ ] Soundquelle  
 - [ ] Wiedergabe  
@@ -290,6 +290,7 @@ Abgeschlossen
 - [ ] Web
 - [ ] Linux
 - [ ] Android
+- [ ] VR
       ** KEINE APPLE GERÄTE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!** 😤😤🤬
 ---
 

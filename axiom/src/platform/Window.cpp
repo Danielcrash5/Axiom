@@ -1,175 +1,207 @@
 #include "axiom/platform/Window.h"
+
+#include "axiom/core/Logger.h"
 #include "axiom/events/EventBus.h"
 #include "axiom/events/Events.h"
-#include "axiom/core/Logger.h"
 #include "axiom/input/Input.h"
 #include "axiom/renderer/RendererAPI.h"
-#include <format>
-#include <GLFW/glfw3.h>
+
+#include <SDL3/SDL.h>
 #include <glad/glad.h>
+
 #include <stdexcept>
+#include <string>
 
 namespace axiom {
 
-	static bool s_GLFWInitialized = false;
+    static bool s_SDLInitialized = false;
 
-	Window::Window(const Props& props, EventBus& eventBus) :
-		m_EventBus(eventBus) {
+    Window::Window(const Props& props, EventBus& eventBus)
+        : m_EventBus(eventBus) {
+        Init(props);
+    }
 
-		Init(props);
-	}
+    Window::~Window() {
+        Shutdown();
+    }
 
-	Window::~Window() {
-		Shutdown();
-	}
+    void Window::Init(const Props& props) {
+        if (!s_SDLInitialized) {
+            if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_SENSOR))
+                throw std::runtime_error(std::string("Failed to initialize SDL3: ") + SDL_GetError());
 
-	void Window::Init(const Props& props) {
-		if (!s_GLFWInitialized) {
-			if (!glfwInit())
-				throw std::runtime_error("Failed to initialize GLFW");
+            s_SDLInitialized = true;
+        }
 
-			s_GLFWInitialized = true;
-		}
+        if (RendererAPI::GetAPI() == RendererAPIType::OpenGL) {
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+            SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+        }
 
-		glfwSetErrorCallback([](int error, const char* description) {
-			AXIOM_ERROR("GLFW Error ({}): {}", error, description);
-							 });
+        SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE;
+        if (RendererAPI::GetAPI() == RendererAPIType::OpenGL)
+            flags |= SDL_WINDOW_OPENGL;
 
-		if (RendererAPI::GetAPI() == RendererAPIType::OpenGL) {
-			// Korrekte Kontext-Hints verwenden
-			glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-			glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-			glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-			glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+        m_Window = SDL_CreateWindow(props.title.c_str(), static_cast<int>(props.width), static_cast<int>(props.height), flags);
+        if (!m_Window)
+            throw std::runtime_error(std::string("Failed to create SDL3 window: ") + SDL_GetError());
 
-		}
+        if (RendererAPI::GetAPI() == RendererAPIType::OpenGL) {
+            m_GLContext = SDL_GL_CreateContext(m_Window);
+            if (!m_GLContext)
+                throw std::runtime_error(std::string("Failed to create SDL3 OpenGL context: ") + SDL_GetError());
 
-		// Fenster erstellen
-		m_Window = glfwCreateWindow(props.width, props.height, props.title.c_str(), nullptr, nullptr);
-		if (!m_Window) {
-			// glfwGetError returns an error code and optionally a description via the
-			// out-parameter. Call it correctly to obtain the description string.
-			const char* desc = nullptr;
-			int err = glfwGetError(&desc);
-			(void)err; // err may be unused - keep for debugging if needed
-			throw std::runtime_error(std::string("Failed to create GLFW window: ") + (desc ? desc : "unknown"));
-		}
+            if (!SDL_GL_MakeCurrent(m_Window, m_GLContext))
+                throw std::runtime_error(std::string("Failed to activate SDL3 OpenGL context: ") + SDL_GetError());
 
-		// Kontext aktiv machen bevor GL-Funktionen geladen werden
-		glfwMakeContextCurrent(m_Window);
+            if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(SDL_GL_GetProcAddress)))
+                throw std::runtime_error("Failed to initialize GLAD");
+        }
 
-		if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-			AXIOM_ERROR("Failed to initialize GLAD!");
-			return;
-		}
+        m_Vsync = props.vsync;
+        SDL_GL_SetSwapInterval(m_Vsync ? 1 : 0);
 
+        m_Width = props.width;
+        m_Height = props.height;
+    }
 
-		glfwSetWindowUserPointer(m_Window, this);
+    void Window::Shutdown() {
+        Input::Shutdown();
 
-		glfwSetCharCallback(m_Window, [](GLFWwindow* window, unsigned int codepoint) {
-			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			CharEvent event { codepoint };
-			win->m_EventBus.Publish(event);
-							});
+        if (m_GLContext) {
+            SDL_GL_DestroyContext(m_GLContext);
+            m_GLContext = nullptr;
+        }
 
-		glfwSetCharModsCallback(m_Window, [](GLFWwindow* window, unsigned int codepoint, int mods) {
-			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			CharModsEvent event { codepoint, mods };
-			win->m_EventBus.Publish(event);
-								});
+        if (m_Window) {
+            SDL_DestroyWindow(m_Window);
+            m_Window = nullptr;
+        }
 
-		glfwSetCursorPosCallback(m_Window, [](GLFWwindow* window, double x, double y) {
-			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			MouseMoveEvent event { x, y };
-			win->m_EventBus.Publish(event);
-								 });
+        if (s_SDLInitialized) {
+            SDL_Quit();
+            s_SDLInitialized = false;
+        }
+    }
 
-		glfwSetWindowSizeCallback(m_Window, [](GLFWwindow* window, int width, int height) {
-			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			WindowResizeEvent event { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
-			win->m_Width = width;
-			win->m_Height = height;
-			win->m_EventBus.Publish(event);
-								  });
+    void Window::PollEvents() {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            switch (event.type) {
+            case SDL_EVENT_QUIT: {
+                WindowCloseEvent closeEvent;
+                m_EventBus.Publish(closeEvent);
+                break;
+            }
+            case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
+                if (event.window.windowID != SDL_GetWindowID(m_Window))
+                    break;
 
-		glfwSetWindowCloseCallback(m_Window, [](GLFWwindow* window) {
-			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			WindowCloseEvent event;
-			win->m_EventBus.Publish(event);
-								   });
+                WindowCloseEvent closeEvent;
+                m_EventBus.Publish(closeEvent);
+                break;
+            }
+            case SDL_EVENT_WINDOW_RESIZED: {
+                if (event.window.windowID != SDL_GetWindowID(m_Window))
+                    break;
 
-		glfwSetKeyCallback(m_Window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
-			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			KeyEvent event { key, scancode, action, mods };
-			win->m_EventBus.Publish(event);
-						   });
+                m_Width = static_cast<uint32_t>(event.window.data1);
+                m_Height = static_cast<uint32_t>(event.window.data2);
+                WindowResizeEvent resizeEvent { m_Width, m_Height };
+                m_EventBus.Publish(resizeEvent);
+                break;
+            }
+            case SDL_EVENT_KEY_DOWN:
+            case SDL_EVENT_KEY_UP: {
+                KeyEvent keyEvent {
+                    static_cast<int>(event.key.scancode),
+                    static_cast<int>(event.key.scancode),
+                    event.type == SDL_EVENT_KEY_DOWN ? 1 : 0,
+                    static_cast<int>(event.key.mod),
+                    event.key.repeat ? 1 : 0
+                };
+                m_EventBus.Publish(keyEvent);
+                break;
+            }
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            case SDL_EVENT_MOUSE_BUTTON_UP: {
+                MouseButtonEvent mouseButtonEvent {
+                    static_cast<int>(event.button.button),
+                    event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ? 1 : 0,
+                    0
+                };
+                m_EventBus.Publish(mouseButtonEvent);
+                break;
+            }
+            case SDL_EVENT_MOUSE_MOTION: {
+                MouseMoveEvent mouseMoveEvent {
+                    static_cast<double>(event.motion.x),
+                    static_cast<double>(event.motion.y)
+                };
+                m_EventBus.Publish(mouseMoveEvent);
+                break;
+            }
+            case SDL_EVENT_MOUSE_WHEEL: {
+                Input::OnMouseScroll(event.wheel.x, event.wheel.y);
+                MouseScrollEvent scrollEvent {
+                    static_cast<double>(event.wheel.x),
+                    static_cast<double>(event.wheel.y)
+                };
+                m_EventBus.Publish(scrollEvent);
+                break;
+            }
+            case SDL_EVENT_TEXT_INPUT: {
+                const char* text = event.text.text;
+                if (text) {
+                    while (*text) {
+                        CharEvent charEvent { static_cast<unsigned int>(*text) };
+                        m_EventBus.Publish(charEvent);
+                        ++text;
+                    }
+                }
+                break;
+            }
+            case SDL_EVENT_DROP_FILE: {
+                const char* path = event.drop.data;
+                FileDropEvent dropEvent { path ? 1 : 0, &path };
+                m_EventBus.Publish(dropEvent);
+                break;
+            }
+            case SDL_EVENT_GAMEPAD_ADDED:
+            case SDL_EVENT_GAMEPAD_REMOVED:
+                Input::OnGamepadChanged();
+                break;
+            default:
+                break;
+            }
+        }
+    }
 
-		glfwSetScrollCallback(m_Window, [](GLFWwindow* window, double xOffset, double yOffset) {
-			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			Input::OnMouseScroll(xOffset, yOffset);
-			MouseScrollEvent event { xOffset, yOffset };
-			win->m_EventBus.Publish(event);
-							  });
+    bool Window::ShouldClose() const {
+        return false;
+    }
 
-		glfwSetDropCallback(m_Window, [](GLFWwindow* window, int count, const char** paths) {
-			auto* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
-			FileDropEvent event { count, paths };
-			win->m_EventBus.Publish(event);
-							});
+    uint32_t Window::GetWidth() const {
+        return m_Width;
+    }
 
-		m_Vsync = props.vsync;
+    uint32_t Window::GetHeight() const {
+        return m_Height;
+    }
 
+    void* Window::GetNativeHandle() const {
+        return m_Window;
+    }
 
-		if (m_Vsync) {
-			glfwSwapInterval(1);
-		}
-		else {
-			glfwSwapInterval(0);
-		}
+    void Window::SwapBuffers() {
+        SDL_GL_SwapWindow(m_Window);
+    }
 
-		m_Width = props.width;
-		m_Height = props.height;
-	}
-
-	void Window::Shutdown() {
-		if (m_Window) {
-			glfwDestroyWindow(m_Window);
-			m_Window = nullptr;
-		}
-
-		if (s_GLFWInitialized) {
-			glfwTerminate();
-			s_GLFWInitialized = false;
-		}
-	}
-
-	void Window::PollEvents() {
-		glfwPollEvents();
-	}
-
-	bool Window::ShouldClose() const {
-		return glfwWindowShouldClose(m_Window);
-	}
-
-	uint32_t Window::GetWidth() const {
-		return m_Width;
-	}
-
-	uint32_t Window::GetHeight() const {
-		return m_Height;
-	}
-
-	void* Window::GetNativeHandle() const {
-		return m_Window;
-	}
-
-	void Window::SwapBuffers() {
-		glfwSwapBuffers(m_Window);
-	}
-
-	void Window::ToggleVsync() {
-		m_Vsync = !m_Vsync;
-		glfwSwapInterval(m_Vsync);
-	}
+    void Window::ToggleVsync() {
+        m_Vsync = !m_Vsync;
+        SDL_GL_SetSwapInterval(m_Vsync ? 1 : 0);
+    }
 
 }

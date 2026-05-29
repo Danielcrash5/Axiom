@@ -10,20 +10,15 @@ set(AXIOM_ENGINE_ASSET_DIR "${CMAKE_SOURCE_DIR}/axiom/assets" CACHE PATH "Engine
 set(AXIOM_ENGINE_PACK_NAME "engine.AxPack" CACHE STRING "Engine asset pack file name")
 set(AXIOM_ENGINE_ASSET_PATH "./${AXIOM_ENGINE_PACK_NAME}" CACHE STRING "Engine asset path used by runtime" FORCE)
 
-# Engine Projects
-add_subdirectory(axiom)
 # Thirdparty Libraries
-
-# GLFW Options
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 
 set(THIRDPARTY_DIR ${CMAKE_SOURCE_DIR}/thirdparty)
 
-
-add_subdirectory(thirdparty/glfw)
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL_TESTS OFF CACHE BOOL "" FORCE)
+set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
+add_subdirectory(thirdparty/SDL)
 
 # GLAD - OpenGL Loader
 add_subdirectory(thirdparty/glad)
@@ -43,6 +38,11 @@ set(MZ_LIBCOMP OFF CACHE BOOL "" FORCE)
 add_subdirectory(thirdparty/minizip-ng)
 
 add_subdirectory(tools/packtool)
+
+add_subdirectory(thirdparty/entt)
+
+# Engine Projects
+add_subdirectory(axiom)
 
 function(axiom_add_asset_pack pack_target output_dir pack_name input_dir)
     if(NOT IS_DIRECTORY "${input_dir}")
@@ -69,8 +69,5 @@ function(axiom_add_asset_pack pack_target output_dir pack_name input_dir)
 
     add_custom_target(${pack_target} DEPENDS "${output_file}")
 endfunction()
-
-add_subdirectory(thirdparty/entt)
-
 
 add_subdirectory(testbed)

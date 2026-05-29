@@ -1,17 +1,18 @@
 #pragma once
-#include <GLFW/glfw3.h>
+
+#include <SDL3/SDL.h>
 
 namespace axiom {
-	using MouseCode = int;
+    using MouseCode = int;
 
-	namespace Mouse {
-		constexpr MouseCode Left = GLFW_MOUSE_BUTTON_LEFT;
-		constexpr MouseCode Right = GLFW_MOUSE_BUTTON_RIGHT;
-		constexpr MouseCode Middle = GLFW_MOUSE_BUTTON_MIDDLE;
-		constexpr MouseCode Button4 = GLFW_MOUSE_BUTTON_4;
-		constexpr MouseCode Button5 = GLFW_MOUSE_BUTTON_5;
-		constexpr MouseCode Button6 = GLFW_MOUSE_BUTTON_6;
-		constexpr MouseCode Button7 = GLFW_MOUSE_BUTTON_7;
-		constexpr MouseCode Button8 = GLFW_MOUSE_BUTTON_8;
-	}
+    namespace Mouse {
+        constexpr MouseCode Left = SDL_BUTTON_LEFT;
+        constexpr MouseCode Right = SDL_BUTTON_RIGHT;
+        constexpr MouseCode Middle = SDL_BUTTON_MIDDLE;
+        constexpr MouseCode Button4 = SDL_BUTTON_X1;
+        constexpr MouseCode Button5 = SDL_BUTTON_X2;
+        constexpr MouseCode Button6 = 6;
+        constexpr MouseCode Button7 = 7;
+        constexpr MouseCode Button8 = 8;
+    }
 }

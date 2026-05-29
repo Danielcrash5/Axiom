@@ -1,5 +1,6 @@
 #include "axiom/ecs/Scene.h"
 #include "axiom/ecs/Entity.h"
+#include "axiom/renderer/DrawCommandBuffer.h"
 #include "axiom/renderer/Renderer2D.h"
 
 namespace axiom {
@@ -16,24 +17,29 @@ namespace axiom {
 	}
 
 	void Scene::Render2D() {
+		DrawCommandBuffer2D commandBuffer;
+
 		auto spriteView = m_Registry.view<TransformComponent, SpriteRendererComponent>();
 		for (auto entity : spriteView) {
 			auto& transform = spriteView.get<TransformComponent>(entity);
 			auto& spriteRenderer = spriteView.get<SpriteRendererComponent>(entity);
 
 			if (spriteRenderer.HasTexture()) {
-				Renderer2D::DrawSprite(transform.GetTransform(), spriteRenderer.SpriteData, spriteRenderer.Color);
+				commandBuffer.SubmitSprite(transform.GetTransform(), spriteRenderer.SpriteData, spriteRenderer.Color);
 				continue;
 			}
 
-			Renderer2D::DrawQuad(transform.GetTransform(), spriteRenderer.Color);
+			commandBuffer.SubmitQuad(transform.GetTransform(), spriteRenderer.Color);
 		}
 
 		auto circleView = m_Registry.view<TransformComponent, CircleRendererComponent>();
 		for (auto entity : circleView) {
 			auto& transform = circleView.get<TransformComponent>(entity);
 			auto& circleRenderer = circleView.get<CircleRendererComponent>(entity);
-			Renderer2D::DrawCircle(transform.GetTransform(), circleRenderer.Thickness, circleRenderer.Color);
+			commandBuffer.SubmitCircle(transform.GetTransform(), circleRenderer.Thickness, circleRenderer.Color);
 		}
+
+		commandBuffer.Sort();
+		commandBuffer.Execute();
 	}
 }

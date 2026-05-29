@@ -1,34 +1,47 @@
 #pragma once
-#include <GLFW/glfw3.h>
+
+#include <SDL3/SDL.h>
 
 namespace axiom {
-	using GamepadButton = int;
-	using GamepadAxis = int;
-	namespace Gamepad {
+    using GamepadButton = int;
+    using GamepadAxis = int;
+    using GamepadSensor = int;
 
-		// Buttons
-		constexpr GamepadButton A = GLFW_GAMEPAD_BUTTON_A;
-		constexpr GamepadButton B = GLFW_GAMEPAD_BUTTON_B;
-		constexpr GamepadButton X = GLFW_GAMEPAD_BUTTON_X;
-		constexpr GamepadButton Y = GLFW_GAMEPAD_BUTTON_Y;
-		constexpr GamepadButton LeftBumper = GLFW_GAMEPAD_BUTTON_LEFT_BUMPER;
-		constexpr GamepadButton RightBumper = GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER;
-		constexpr GamepadButton Back = GLFW_GAMEPAD_BUTTON_BACK;
-		constexpr GamepadButton Start = GLFW_GAMEPAD_BUTTON_START;
-		constexpr GamepadButton Guide = GLFW_GAMEPAD_BUTTON_GUIDE;
-		constexpr GamepadButton LeftThumb = GLFW_GAMEPAD_BUTTON_LEFT_THUMB;
-		constexpr GamepadButton RightThumb = GLFW_GAMEPAD_BUTTON_RIGHT_THUMB;
-		constexpr GamepadButton DPadUp = GLFW_GAMEPAD_BUTTON_DPAD_UP;
-		constexpr GamepadButton DPadRight = GLFW_GAMEPAD_BUTTON_DPAD_RIGHT;
-		constexpr GamepadButton DPadDown = GLFW_GAMEPAD_BUTTON_DPAD_DOWN;
-		constexpr GamepadButton DPadLeft = GLFW_GAMEPAD_BUTTON_DPAD_LEFT;
+    namespace Gamepad {
+        constexpr GamepadButton A = SDL_GAMEPAD_BUTTON_SOUTH;
+        constexpr GamepadButton B = SDL_GAMEPAD_BUTTON_EAST;
+        constexpr GamepadButton X = SDL_GAMEPAD_BUTTON_WEST;
+        constexpr GamepadButton Y = SDL_GAMEPAD_BUTTON_NORTH;
 
-		// Axes
-		constexpr GamepadAxis LeftX = GLFW_GAMEPAD_AXIS_LEFT_X;
-		constexpr GamepadAxis LeftY = GLFW_GAMEPAD_AXIS_LEFT_Y;
-		constexpr GamepadAxis RightX = GLFW_GAMEPAD_AXIS_RIGHT_X;
-		constexpr GamepadAxis RightY = GLFW_GAMEPAD_AXIS_RIGHT_Y;
-		constexpr GamepadAxis LeftTrigger = GLFW_GAMEPAD_AXIS_LEFT_TRIGGER;
-		constexpr GamepadAxis RightTrigger = GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER;
-	}
+        constexpr GamepadButton Cross = SDL_GAMEPAD_BUTTON_SOUTH;
+        constexpr GamepadButton Circle = SDL_GAMEPAD_BUTTON_EAST;
+        constexpr GamepadButton Square = SDL_GAMEPAD_BUTTON_WEST;
+        constexpr GamepadButton Triangle = SDL_GAMEPAD_BUTTON_NORTH;
+
+        constexpr GamepadButton LeftBumper = SDL_GAMEPAD_BUTTON_LEFT_SHOULDER;
+        constexpr GamepadButton RightBumper = SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER;
+        constexpr GamepadButton Back = SDL_GAMEPAD_BUTTON_BACK;
+        constexpr GamepadButton Start = SDL_GAMEPAD_BUTTON_START;
+        constexpr GamepadButton Guide = SDL_GAMEPAD_BUTTON_GUIDE;
+        constexpr GamepadButton LeftThumb = SDL_GAMEPAD_BUTTON_LEFT_STICK;
+        constexpr GamepadButton RightThumb = SDL_GAMEPAD_BUTTON_RIGHT_STICK;
+        constexpr GamepadButton DPadUp = SDL_GAMEPAD_BUTTON_DPAD_UP;
+        constexpr GamepadButton DPadRight = SDL_GAMEPAD_BUTTON_DPAD_RIGHT;
+        constexpr GamepadButton DPadDown = SDL_GAMEPAD_BUTTON_DPAD_DOWN;
+        constexpr GamepadButton DPadLeft = SDL_GAMEPAD_BUTTON_DPAD_LEFT;
+        constexpr GamepadButton Share = SDL_GAMEPAD_BUTTON_MISC1;
+        constexpr GamepadButton Touchpad = SDL_GAMEPAD_BUTTON_TOUCHPAD;
+
+        constexpr GamepadAxis LeftX = SDL_GAMEPAD_AXIS_LEFTX;
+        constexpr GamepadAxis LeftY = SDL_GAMEPAD_AXIS_LEFTY;
+        constexpr GamepadAxis RightX = SDL_GAMEPAD_AXIS_RIGHTX;
+        constexpr GamepadAxis RightY = SDL_GAMEPAD_AXIS_RIGHTY;
+        constexpr GamepadAxis LeftTrigger = SDL_GAMEPAD_AXIS_LEFT_TRIGGER;
+        constexpr GamepadAxis RightTrigger = SDL_GAMEPAD_AXIS_RIGHT_TRIGGER;
+    }
+
+    namespace GamepadSensors {
+        constexpr GamepadSensor Accelerometer = SDL_SENSOR_ACCEL;
+        constexpr GamepadSensor Gyroscope = SDL_SENSOR_GYRO;
+    }
 }
