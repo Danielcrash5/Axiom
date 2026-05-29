@@ -11,6 +11,7 @@
 #include "axiom/renderer/VertexArray.h"
 #include "axiom/renderer/VertexBuffer.h"
 
+#include <algorithm>
 #include <cmath>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -186,10 +187,57 @@ void Renderer2D::StartBatch() {
 }
 
 void Renderer2D::FlushAll() {
-    // Flush circles first (endcaps and joins)
-    FlushCircles();
-    // Then flush quads (including lines)
-    FlushQuads();
+    if (s_Data->QuadIndexCount == 0 && s_Data->CircleIndexCount == 0)
+        return;
+
+    if (s_Data->QuadIndexCount > 0) {
+        const auto dataSize = static_cast<uint32_t>(
+            reinterpret_cast<uint8_t*>(s_Data->QuadBufferPtr) -
+            reinterpret_cast<uint8_t*>(s_Data->QuadBufferBase)
+        );
+
+        s_Data->QuadVBO->SetData(s_Data->QuadBufferBase, dataSize);
+
+        for (uint32_t i = 0; i < s_Data->TextureSlotIndex; ++i) {
+            if (s_Data->TextureSlots[i])
+                s_Data->TextureSlots[i]->Bind(static_cast<int>(i));
+        }
+    }
+
+    if (s_Data->CircleIndexCount > 0) {
+        const auto dataSize = static_cast<uint32_t>(
+            reinterpret_cast<uint8_t*>(s_Data->CircleBufferPtr) -
+            reinterpret_cast<uint8_t*>(s_Data->CircleBufferBase)
+        );
+
+        s_Data->CircleVBO->SetData(s_Data->CircleBufferBase, dataSize);
+    }
+
+    std::stable_sort(
+        s_Data->BatchSegments.begin(),
+        s_Data->BatchSegments.end(),
+        [](const BatchSegment& a, const BatchSegment& b) {
+            if (a.Z == b.Z)
+                return a.Sequence < b.Sequence;
+
+            return a.Z < b.Z;
+        }
+    );
+
+    for (const BatchSegment& segment : s_Data->BatchSegments) {
+        const uint32_t indexOffset = (segment.VertexStart / 4) * 6;
+
+        switch (segment.Type) {
+        case PrimitiveType::Quad:
+            Renderer::Submit(s_Data->QuadVAO, s_Data->QuadMaterial, segment.IndexCount, glm::mat4(1.0f), indexOffset);
+            break;
+        case PrimitiveType::Circle:
+            Renderer::Submit(s_Data->CircleVAO, s_Data->CircleMaterial, segment.IndexCount, glm::mat4(1.0f), indexOffset);
+            break;
+        }
+    }
+
+    StartBatch();
 }
 
 void Renderer2D::FlushQuads() {
@@ -273,8 +321,12 @@ void Renderer2D::DrawQuad(const glm::vec3& pos, const glm::vec2& size, const glm
 void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color) {
     EnsureQuadCapacity();
 
+    float z = 0.0f;
     for (int i = 0; i < 4; ++i) {
-        s_Data->QuadBufferPtr->Position = glm::vec3(transform * glm::vec4(s_Data->QuadVertexPositions[i], 1.0f));
+        const glm::vec3 position = glm::vec3(transform * glm::vec4(s_Data->QuadVertexPositions[i], 1.0f));
+        z += position.z;
+
+        s_Data->QuadBufferPtr->Position = position;
         s_Data->QuadBufferPtr->Color = color;
         s_Data->QuadBufferPtr->TexCoord = GetDefaultQuadUV(i);
         s_Data->QuadBufferPtr->TexIndex = 0.0f;
@@ -283,10 +335,7 @@ void Renderer2D::DrawQuad(const glm::mat4& transform, const glm::vec4& color) {
     }
 
     s_Data->QuadIndexCount += 6;
-    if (!s_Data->BatchSegments.empty() && s_Data->BatchSegments.back().Type == PrimitiveType::Quad)
-        s_Data->BatchSegments.back().IndexCount += 6;
-    else
-        s_Data->BatchSegments.push_back({ PrimitiveType::Quad, s_Data->QuadVertexCount, 6 });
+    s_Data->BatchSegments.push_back({ PrimitiveType::Quad, s_Data->QuadVertexCount, 6, z * 0.25f, s_Data->BatchSequence++ });
     s_Data->QuadVertexCount += 4;
 }
 
@@ -320,8 +369,12 @@ void Renderer2D::DrawQuad(
     EnsureQuadCapacity();
     const float textureIndex = AcquireTextureSlot(texture);
 
+    float z = 0.0f;
     for (int i = 0; i < 4; ++i) {
-        s_Data->QuadBufferPtr->Position = glm::vec3(transform * glm::vec4(s_Data->QuadVertexPositions[i], 1.0f));
+        const glm::vec3 position = glm::vec3(transform * glm::vec4(s_Data->QuadVertexPositions[i], 1.0f));
+        z += position.z;
+
+        s_Data->QuadBufferPtr->Position = position;
         s_Data->QuadBufferPtr->Color = tint;
         s_Data->QuadBufferPtr->TexCoord = GetDefaultQuadUV(i);
         s_Data->QuadBufferPtr->TexIndex = textureIndex;
@@ -330,10 +383,7 @@ void Renderer2D::DrawQuad(
     }
 
     s_Data->QuadIndexCount += 6;
-    if (!s_Data->BatchSegments.empty() && s_Data->BatchSegments.back().Type == PrimitiveType::Quad)
-        s_Data->BatchSegments.back().IndexCount += 6;
-    else
-        s_Data->BatchSegments.push_back({ PrimitiveType::Quad, s_Data->QuadVertexCount, 6 });
+    s_Data->BatchSegments.push_back({ PrimitiveType::Quad, s_Data->QuadVertexCount, 6, z * 0.25f, s_Data->BatchSequence++ });
     s_Data->QuadVertexCount += 4;
 }
 
@@ -372,8 +422,12 @@ void Renderer2D::DrawSprite(const glm::mat4& transform, const Sprite& sprite, co
     EnsureQuadCapacity();
     const float textureIndex = AcquireTextureSlot(sprite.Texture);
 
+    float z = 0.0f;
     for (int i = 0; i < 4; ++i) {
-        s_Data->QuadBufferPtr->Position = glm::vec3(transform * glm::vec4(s_Data->QuadVertexPositions[i], 1.0f));
+        const glm::vec3 position = glm::vec3(transform * glm::vec4(s_Data->QuadVertexPositions[i], 1.0f));
+        z += position.z;
+
+        s_Data->QuadBufferPtr->Position = position;
         s_Data->QuadBufferPtr->Color = tint;
         s_Data->QuadBufferPtr->TexCoord = glm::vec2(
             (i == 1 || i == 2) ? sprite.UVMax.x : sprite.UVMin.x,
@@ -385,10 +439,7 @@ void Renderer2D::DrawSprite(const glm::mat4& transform, const Sprite& sprite, co
     }
 
     s_Data->QuadIndexCount += 6;
-    if (!s_Data->BatchSegments.empty() && s_Data->BatchSegments.back().Type == PrimitiveType::Quad)
-        s_Data->BatchSegments.back().IndexCount += 6;
-    else
-        s_Data->BatchSegments.push_back({ PrimitiveType::Quad, s_Data->QuadVertexCount, 6 });
+    s_Data->BatchSegments.push_back({ PrimitiveType::Quad, s_Data->QuadVertexCount, 6, z * 0.25f, s_Data->BatchSequence++ });
     s_Data->QuadVertexCount += 4;
 }
 
@@ -583,8 +634,12 @@ void Renderer2D::DrawCircle(const glm::vec3& pos, float radius, float thickness,
 void Renderer2D::DrawCircle(const glm::mat4& transform, float thickness, const glm::vec4& color) {
     EnsureCircleCapacity();
 
+    float z = 0.0f;
     for (int i = 0; i < 4; ++i) {
-        s_Data->CircleBufferPtr->Position = glm::vec3(transform * glm::vec4(s_Data->QuadVertexPositions[i], 1.0f));
+        const glm::vec3 position = glm::vec3(transform * glm::vec4(s_Data->QuadVertexPositions[i], 1.0f));
+        z += position.z;
+
+        s_Data->CircleBufferPtr->Position = position;
         s_Data->CircleBufferPtr->LocalPosition = glm::vec3(glm::vec2(s_Data->QuadVertexPositions[i]) * 2.0f, 0.0f);
         s_Data->CircleBufferPtr->Color = color;
         s_Data->CircleBufferPtr->Thickness = thickness;
@@ -592,10 +647,7 @@ void Renderer2D::DrawCircle(const glm::mat4& transform, float thickness, const g
     }
 
     s_Data->CircleIndexCount += 6;
-    if (!s_Data->BatchSegments.empty() && s_Data->BatchSegments.back().Type == PrimitiveType::Circle)
-        s_Data->BatchSegments.back().IndexCount += 6;
-    else
-        s_Data->BatchSegments.push_back({ PrimitiveType::Circle, s_Data->CircleVertexCount, 6 });
+    s_Data->BatchSegments.push_back({ PrimitiveType::Circle, s_Data->CircleVertexCount, 6, z * 0.25f, s_Data->BatchSequence++ });
     s_Data->CircleVertexCount += 4;
 }
 

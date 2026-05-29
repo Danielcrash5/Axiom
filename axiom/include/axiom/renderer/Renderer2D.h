@@ -3,6 +3,7 @@
 
 #include <glm/glm.hpp>
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -172,6 +173,8 @@ namespace axiom {
             PrimitiveType Type;
             uint32_t VertexStart;
             uint32_t IndexCount;
+            float Z;
+            uint64_t Sequence;
         };
 
         struct QuadVertex {
@@ -221,6 +224,7 @@ namespace axiom {
             std::shared_ptr<Material> CircleMaterial;
 
             std::vector<BatchSegment> BatchSegments;
+            uint64_t BatchSequence = 0;
 
             // Skinned
             std::shared_ptr<VertexArray> SkinnedVAO;
