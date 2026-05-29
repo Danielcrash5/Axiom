@@ -190,10 +190,13 @@ private:
 
         UpdateButton(m_ShoulderButtons[0], input.IsGamepadPressed(axiom::Gamepad::LeftBumper));
         UpdateButton(m_ShoulderButtons[1], input.IsGamepadPressed(axiom::Gamepad::RightBumper));
-        UpdateButton(m_SystemButtons[0], input.IsGamepadPressed(axiom::Gamepad::Share));
+        UpdateButton(m_SystemButtons[0], input.IsGamepadPressed(axiom::Gamepad::Back));
         UpdateButton(m_SystemButtons[1], input.IsGamepadPressed(axiom::Gamepad::Guide));
         UpdateButton(m_SystemButtons[2], input.IsGamepadPressed(axiom::Gamepad::Start));
         UpdateButton(m_Touchpad, input.IsGamepadPressed(axiom::Gamepad::Touchpad));
+
+		UpdateButton(m_LeftStick, input.IsGamepadPressed(axiom::Gamepad::LeftStick));
+		UpdateButton(m_RightStick, input.IsGamepadPressed(axiom::Gamepad::RightStick));
         UpdateTouchpadFinger();
 
         const float leftTrigger = glm::clamp(input.GetGamepadLeftTrigger(), 0.0f, 1.0f);

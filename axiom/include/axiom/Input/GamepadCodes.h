@@ -29,7 +29,9 @@ namespace axiom {
         constexpr GamepadButton DPadRight = SDL_GAMEPAD_BUTTON_DPAD_RIGHT;
         constexpr GamepadButton DPadDown = SDL_GAMEPAD_BUTTON_DPAD_DOWN;
         constexpr GamepadButton DPadLeft = SDL_GAMEPAD_BUTTON_DPAD_LEFT;
-        constexpr GamepadButton Share = SDL_GAMEPAD_BUTTON_MISC1;
+		constexpr GamepadButton Misc1 = SDL_GAMEPAD_BUTTON_MISC1;
+		constexpr GamepadButton RightStick = SDL_GAMEPAD_BUTTON_RIGHT_STICK;
+		constexpr GamepadButton LeftStick = SDL_GAMEPAD_BUTTON_LEFT_STICK;
         constexpr GamepadButton Touchpad = SDL_GAMEPAD_BUTTON_TOUCHPAD;
 
         constexpr GamepadAxis LeftX = SDL_GAMEPAD_AXIS_LEFTX;
