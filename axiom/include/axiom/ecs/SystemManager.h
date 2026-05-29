@@ -68,6 +68,20 @@ namespace axiom {
             }
         }
 
+        void BeginRenderFrame() {
+            for (auto& system : m_Systems) {
+                if (system)
+                    system->BeginRenderFrame();
+            }
+        }
+
+        void OnViewportResize(uint32_t width, uint32_t height) {
+            for (auto& system : m_Systems) {
+                if (system)
+                    system->OnViewportResize(width, height);
+            }
+        }
+
     private:
         std::vector<std::shared_ptr<ISystem>> m_Systems;
     };

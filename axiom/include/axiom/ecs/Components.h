@@ -80,4 +80,22 @@ namespace axiom {
         }
     };
 
+    struct CameraComponent {
+        bool Primary = false;
+        float OrthographicSize = 180.0f;
+        float NearClip = -1.0f;
+        float FarClip = 1.0f;
+
+        CameraComponent() = default;
+        explicit CameraComponent(bool primary)
+            : Primary(primary) {
+        }
+
+        glm::mat4 GetProjection(float aspectRatio) const {
+            const float halfHeight = OrthographicSize * 0.5f;
+            const float halfWidth = halfHeight * aspectRatio;
+            return glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, NearClip, FarClip);
+        }
+    };
+
 } // namespace axiom

@@ -1,298 +1,321 @@
 // main.cpp
 #include <axiom/Axiom.h>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <filesystem>
-#include <memory>
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <string>
-#include <vector>
-
-namespace {
-    std::shared_ptr<axiom::Texture2D> LoadGameTexture(const std::string& virtualPath) {
-        auto info = axiom::TexturePresets::Sprite();
-        return axiom::AssetManager::Get<axiom::Texture2D>(virtualPath, info);
-    }
-
-    std::shared_ptr<axiom::Material> CreateTexturedOverrideMaterial() {
-        std::shared_ptr<axiom::Shader> shader = axiom::AssetManager::Get<axiom::Shader>("game://shaders/Textured.glsl");
-
-        return std::make_shared<axiom::Material>(shader);
-    }
-
-    std::shared_ptr<axiom::Material> CreateSkinnedColorOverrideMaterial() {
-        std::shared_ptr<axiom::Shader> shader = axiom::AssetManager::Get<axiom::Shader>("game://shaders/SkinnedColor.glsl");
-
-        return std::make_shared<axiom::Material>(shader);
-    }
-
-    axiom::SkinnedMesh2D CreateRibbonSkinnedMesh(const std::shared_ptr<axiom::Texture2D>& texture) {
-        axiom::SkinnedMesh2D mesh;
-        mesh.Texture = texture;
-
-        const int columns = 12;
-        mesh.Vertices.reserve((columns + 1) * 2);
-        mesh.Indices.reserve(columns * 6);
-
-        for (int x = 0; x <= columns; ++x) {
-            const float u = static_cast<float>(x) / static_cast<float>(columns);
-            const float px = -0.5f + u;
-            const float weightBone1 = glm::smoothstep(0.25f, 1.0f, u);
-            const float weightBone0 = 1.0f - weightBone1;
-
-            const glm::vec4 boneIndices = {0.0f, 1.0f, 0.0f, 0.0f};
-            const glm::vec4 boneWeights = {weightBone0, weightBone1, 0.0f, 0.0f};
-
-            mesh.Vertices.push_back({
-                { px, -0.5f, 0.0f },
-                { 1.0f, 0.4f + 0.5f * u, 0.4f, 1.0f },
-                { u, 0.0f },
-                boneIndices,
-                boneWeights
-                                    });
-            mesh.Vertices.push_back({
-                { px, 0.5f, 0.0f },
-                { 0.4f, 0.7f, 1.0f - 0.4f * u, 1.0f },
-                { u, 1.0f },
-                boneIndices,
-                boneWeights
-                                    });
-        }
-
-        for (int x = 0; x < columns; ++x) {
-            const uint32_t i0 = static_cast<uint32_t>(x * 2);
-            const uint32_t i1 = i0 + 1;
-            const uint32_t i2 = i0 + 2;
-            const uint32_t i3 = i0 + 3;
-
-            mesh.Indices.push_back(i0);
-            mesh.Indices.push_back(i2);
-            mesh.Indices.push_back(i3);
-            mesh.Indices.push_back(i3);
-            mesh.Indices.push_back(i1);
-            mesh.Indices.push_back(i0);
-        }
-
-        return mesh;
-    }
-}
 
 class Testbed : public axiom::Application {
 public:
-    Testbed() :
-        Application("testbed") {
+    Testbed()
+        : Application("Axiom Controller Test") {
     }
 
 protected:
     void OnInit() override {
-        axiom::Renderer2D::Init();
-        ApplyDebugCamera();
-
         axiom::VFS::MountPath("game://", AXIOM_GAME_ASSET_PATH);
 
-        m_Texture = LoadGameTexture("game://textures/Purple/texture_01.png");
-        m_SkinnedTexture = LoadGameTexture("game://textures/Orange/texture_01.png");
-        m_Sprite = axiom::Sprite(m_Texture, {0.0f, 0.0f}, {1.0f, 1.0f});
-        m_OverrideMaterial = CreateTexturedOverrideMaterial();
-        m_SkinnedDebugMaterial = CreateSkinnedColorOverrideMaterial();
+        m_Render2DSystem = RegisterSystem<axiom::Render2DSystem>(GetWidth(), GetHeigth());
 
-        m_SkinnedMesh = CreateRibbonSkinnedMesh(m_SkinnedTexture);
-
-        m_Pose.BoneCount = 2;
-        m_Pose.BoneTransforms[0] = glm::mat4(1.0f);
-        m_Pose.BoneTransforms[1] = glm::mat4(1.0f);
-
-        BuildEcsScene();
-        RegisterSystem<axiom::Render2DSystem>();
+        BuildControllerScene(GetScene());
+        BuildOverlayScene(CreateScene());
     }
 
     void OnUpdate(double dt) override {
-        const float moveSpeed = 90.0f / m_CameraZoom;
-        const float zoomSpeed = 1.5f;
-        bool cameraChanged = false;
+        UpdateCamera(dt);
+        UpdateControllerView();
+        UpdateOverlayScene();
+    }
 
+private:
+    axiom::Entity CreateQuad(
+        axiom::Scene& scene,
+        const std::string& name,
+        const glm::vec3& position,
+        const glm::vec2& size,
+        const glm::vec4& color
+    ) {
+        axiom::Entity entity = scene.CreateEntity(name);
+        auto& transform = entity.GetComponent<axiom::TransformComponent>();
+        transform.Translation = position;
+        transform.Scale = glm::vec3(size, 1.0f);
+        entity.AddComponent<axiom::SpriteRendererComponent>(color);
+        return entity;
+    }
+
+    axiom::Entity CreateCircle(
+        axiom::Scene& scene,
+        const std::string& name,
+        const glm::vec3& position,
+        float radius,
+        const glm::vec4& color,
+        float thickness = 1.0f
+    ) {
+        axiom::Entity entity = scene.CreateEntity(name);
+        auto& transform = entity.GetComponent<axiom::TransformComponent>();
+        transform.Translation = position;
+        transform.Scale = glm::vec3(radius * 2.0f, radius * 2.0f, 1.0f);
+        entity.AddComponent<axiom::CircleRendererComponent>(color, thickness);
+        return entity;
+    }
+
+    void SetColor(axiom::Entity entity, const glm::vec4& color) {
+        if (entity.HasComponent<axiom::SpriteRendererComponent>())
+            entity.GetComponent<axiom::SpriteRendererComponent>().Color = color;
+        if (entity.HasComponent<axiom::CircleRendererComponent>())
+            entity.GetComponent<axiom::CircleRendererComponent>().Color = color;
+    }
+
+    void SetTransform(axiom::Entity entity, const glm::vec3& position, const glm::vec2& size) {
+        auto& transform = entity.GetComponent<axiom::TransformComponent>();
+        transform.Translation = position;
+        transform.Scale = glm::vec3(size, 1.0f);
+    }
+
+    void BuildCamera(axiom::Scene& scene, axiom::Entity& cameraEntity, bool primary, float size) {
+        cameraEntity = scene.CreateEntity(primary ? "Primary Camera" : "Overlay Camera");
+        auto& camera = cameraEntity.AddComponent<axiom::CameraComponent>(primary);
+        camera.OrthographicSize = size;
+    }
+
+    void BuildControllerScene(axiom::Scene& scene) {
+        BuildCamera(scene, m_MainCamera, true, m_CameraSize);
+
+        m_ConnectionIndicator = CreateQuad(scene, "Connection Indicator", {-85.0f, 72.0f, 0.2f}, {18.0f, 8.0f}, m_DisconnectedColor);
+        m_ControllerBody = CreateQuad(scene, "Controller Body", {0.0f, 0.0f, 0.0f}, {130.0f, 58.0f}, {0.12f, 0.15f, 0.18f, 1.0f});
+        m_Touchpad = CreateQuad(scene, "Touchpad", {0.0f, 18.0f, 0.2f}, {34.0f, 18.0f}, {0.24f, 0.27f, 0.32f, 1.0f});
+        m_TouchpadFinger = CreateCircle(scene, "Touchpad Finger", {0.0f, 18.0f, 0.35f}, 2.2f, {0.18f, 0.95f, 0.62f, 0.0f});
+        m_LedSwatch = CreateQuad(scene, "LED Swatch", {0.0f, -39.0f, 0.2f}, {42.0f, 5.0f}, {0.2f, 0.3f, 0.8f, 1.0f});
+
+        m_LeftStickBase = CreateCircle(scene, "Left Stick Base", {-38.0f, -7.0f, 0.2f}, 13.0f, {0.08f, 0.09f, 0.11f, 1.0f});
+        m_LeftStick = CreateCircle(scene, "Left Stick", {-38.0f, -7.0f, 0.3f}, 7.0f, {0.38f, 0.46f, 0.56f, 1.0f});
+        m_RightStickBase = CreateCircle(scene, "Right Stick Base", {38.0f, -7.0f, 0.2f}, 13.0f, {0.08f, 0.09f, 0.11f, 1.0f});
+        m_RightStick = CreateCircle(scene, "Right Stick", {38.0f, -7.0f, 0.3f}, 7.0f, {0.38f, 0.46f, 0.56f, 1.0f});
+
+        m_DPad[0] = CreateQuad(scene, "DPad Up", {-66.0f, 15.0f, 0.3f}, {8.0f, 12.0f}, m_IdleColor);
+        m_DPad[1] = CreateQuad(scene, "DPad Right", {-56.0f, 5.0f, 0.3f}, {12.0f, 8.0f}, m_IdleColor);
+        m_DPad[2] = CreateQuad(scene, "DPad Down", {-66.0f, -5.0f, 0.3f}, {8.0f, 12.0f}, m_IdleColor);
+        m_DPad[3] = CreateQuad(scene, "DPad Left", {-76.0f, 5.0f, 0.3f}, {12.0f, 8.0f}, m_IdleColor);
+
+        m_FaceButtons[0] = CreateCircle(scene, "Cross", {66.0f, -8.0f, 0.3f}, 5.0f, m_IdleColor);
+        m_FaceButtons[1] = CreateCircle(scene, "Circle", {77.0f, 3.0f, 0.3f}, 5.0f, m_IdleColor);
+        m_FaceButtons[2] = CreateCircle(scene, "Square", {55.0f, 3.0f, 0.3f}, 5.0f, m_IdleColor);
+        m_FaceButtons[3] = CreateCircle(scene, "Triangle", {66.0f, 14.0f, 0.3f}, 5.0f, m_IdleColor);
+
+        m_ShoulderButtons[0] = CreateQuad(scene, "Left Shoulder", {-45.0f, 38.0f, 0.3f}, {32.0f, 8.0f}, m_IdleColor);
+        m_ShoulderButtons[1] = CreateQuad(scene, "Right Shoulder", {45.0f, 38.0f, 0.3f}, {32.0f, 8.0f}, m_IdleColor);
+        m_TriggerFill[0] = CreateQuad(scene, "Left Trigger Fill", {-45.0f, 50.0f, 0.3f}, {2.0f, 7.0f}, m_ActiveColor);
+        m_TriggerFill[1] = CreateQuad(scene, "Right Trigger Fill", {45.0f, 50.0f, 0.3f}, {2.0f, 7.0f}, m_ActiveColor);
+
+        m_SystemButtons[0] = CreateCircle(scene, "Share", {-20.0f, 2.0f, 0.3f}, 4.0f, m_IdleColor);
+        m_SystemButtons[1] = CreateCircle(scene, "Guide", {0.0f, -16.0f, 0.3f}, 4.5f, m_IdleColor);
+        m_SystemButtons[2] = CreateCircle(scene, "Start", {20.0f, 2.0f, 0.3f}, 4.0f, m_IdleColor);
+
+        for (int i = 0; i < 3; ++i) {
+            const float y = 62.0f - static_cast<float>(i) * 7.0f;
+            m_AccelBars[i] = CreateQuad(scene, "Accelerometer Axis", {82.0f, y, 0.3f}, {2.0f, 4.0f}, {0.2f, 0.75f, 0.95f, 1.0f});
+            m_GyroBars[i] = CreateQuad(scene, "Gyro Axis", {-82.0f, y, 0.3f}, {2.0f, 4.0f}, {0.95f, 0.55f, 0.2f, 1.0f});
+        }
+    }
+
+    void BuildOverlayScene(axiom::Scene& scene) {
+        BuildCamera(scene, m_OverlayCamera, true, 180.0f);
+
+        for (int i = 0; i < 7; ++i) {
+            const float x = -78.0f + static_cast<float>(i) * 26.0f;
+            m_OverlayPulse[i] = CreateCircle(scene, "Loaded Scene Pulse", {x, -78.0f, 0.5f}, 2.4f, {0.25f, 0.95f, 0.65f, 0.45f});
+        }
+    }
+
+    void UpdateCamera(double dt) {
         auto& input = GetMainInput();
-        const glm::vec2 mouseScroll = input.GetMouseScrollDelta();
+        auto& transform = m_MainCamera.GetComponent<axiom::TransformComponent>();
+        auto& camera = m_MainCamera.GetComponent<axiom::CameraComponent>();
 
-        if (mouseScroll.y != 0.0f) {
-            m_CameraZoom = glm::clamp(m_CameraZoom + mouseScroll.y * 0.15f, 0.2f, 16.0f);
-            cameraChanged = true;
-        }
+        const float moveSpeed = 90.0f * static_cast<float>(dt);
+        if (input.IsKeyPressed(axiom::Key::A) || input.IsKeyPressed(axiom::Key::Left))
+            transform.Translation.x -= moveSpeed;
+        if (input.IsKeyPressed(axiom::Key::D) || input.IsKeyPressed(axiom::Key::Right))
+            transform.Translation.x += moveSpeed;
+        if (input.IsKeyPressed(axiom::Key::W) || input.IsKeyPressed(axiom::Key::Up))
+            transform.Translation.y += moveSpeed;
+        if (input.IsKeyPressed(axiom::Key::S) || input.IsKeyPressed(axiom::Key::Down))
+            transform.Translation.y -= moveSpeed;
 
-        if (input.IsKeyPressed(axiom::Key::A) || input.IsKeyPressed(axiom::Key::Left)) {
-            m_CameraPosition.x -= moveSpeed * static_cast<float>(dt);
-            cameraChanged = true;
-        }
-        if (input.IsKeyPressed(axiom::Key::D) || input.IsKeyPressed(axiom::Key::Right)) {
-            m_CameraPosition.x += moveSpeed * static_cast<float>(dt);
-            cameraChanged = true;
-        }
-        if (input.IsKeyPressed(axiom::Key::W) || input.IsKeyPressed(axiom::Key::Up)) {
-            m_CameraPosition.y += moveSpeed * static_cast<float>(dt);
-            cameraChanged = true;
-        }
-        if (input.IsKeyPressed(axiom::Key::S) || input.IsKeyPressed(axiom::Key::Down)) {
-            m_CameraPosition.y -= moveSpeed * static_cast<float>(dt);
-            cameraChanged = true;
-        }
-        if (input.IsKeyPressed(axiom::Key::Q)) {
-            m_CameraZoom = glm::max(0.2f, m_CameraZoom - zoomSpeed * static_cast<float>(dt));
-            cameraChanged = true;
-        }
-        if (input.IsKeyPressed(axiom::Key::E)) {
-            m_CameraZoom = glm::min(16.0f, m_CameraZoom + zoomSpeed * static_cast<float>(dt));
-            cameraChanged = true;
-        }
+        const glm::vec2 scroll = input.GetMouseScrollDelta();
+        if (scroll.y != 0.0f)
+            m_CameraSize = glm::clamp(m_CameraSize - scroll.y * 8.0f, 70.0f, 260.0f);
+        if (input.IsKeyPressed(axiom::Key::Q))
+            m_CameraSize = glm::min(260.0f, m_CameraSize + 80.0f * static_cast<float>(dt));
+        if (input.IsKeyPressed(axiom::Key::E))
+            m_CameraSize = glm::max(70.0f, m_CameraSize - 80.0f * static_cast<float>(dt));
         if (input.IsKeyPressed(axiom::Key::R)) {
-            m_CameraPosition = glm::vec3(0.0f);
-            m_CameraZoom = 1.0f;
-            cameraChanged = true;
+            transform.Translation = glm::vec3(0.0f);
+            m_CameraSize = 180.0f;
         }
 
-        if (cameraChanged)
-            ApplyDebugCamera();
+        camera.OrthographicSize = m_CameraSize;
     }
 
-    void OnRender(double alpha) override {
-        (void)alpha;
+    void UpdateControllerView() {
+        auto& input = GetMainInput();
+        const bool connected = input.IsGamepadConnected();
 
+        SetColor(m_ConnectionIndicator, connected ? m_ConnectedColor : m_DisconnectedColor);
+        SetColor(m_ControllerBody, connected ? glm::vec4(0.14f, 0.18f, 0.23f, 1.0f) : glm::vec4(0.11f, 0.11f, 0.12f, 1.0f));
+
+        if (!connected) {
+            ResetControllerControls();
+            return;
+        }
+
+        input.SetGamepadSensorEnabled(axiom::GamepadSensors::Accelerometer, true);
+        input.SetGamepadSensorEnabled(axiom::GamepadSensors::Gyroscope, true);
+
+        const glm::vec2 leftStick = input.GetGamepadLeftStick();
+        const glm::vec2 rightStick = input.GetGamepadRightStick();
+        SetTransform(m_LeftStick, {-38.0f + leftStick.x * 7.0f, -7.0f - leftStick.y * 7.0f, 0.3f}, {14.0f, 14.0f});
+        SetTransform(m_RightStick, {38.0f + rightStick.x * 7.0f, -7.0f - rightStick.y * 7.0f, 0.3f}, {14.0f, 14.0f});
+
+        UpdateButton(m_DPad[0], input.IsGamepadPressed(axiom::Gamepad::DPadUp));
+        UpdateButton(m_DPad[1], input.IsGamepadPressed(axiom::Gamepad::DPadRight));
+        UpdateButton(m_DPad[2], input.IsGamepadPressed(axiom::Gamepad::DPadDown));
+        UpdateButton(m_DPad[3], input.IsGamepadPressed(axiom::Gamepad::DPadLeft));
+
+        UpdateButton(m_FaceButtons[0], input.IsGamepadPressed(axiom::Gamepad::Cross));
+        UpdateButton(m_FaceButtons[1], input.IsGamepadPressed(axiom::Gamepad::Circle));
+        UpdateButton(m_FaceButtons[2], input.IsGamepadPressed(axiom::Gamepad::Square));
+        UpdateButton(m_FaceButtons[3], input.IsGamepadPressed(axiom::Gamepad::Triangle));
+
+        UpdateButton(m_ShoulderButtons[0], input.IsGamepadPressed(axiom::Gamepad::LeftBumper));
+        UpdateButton(m_ShoulderButtons[1], input.IsGamepadPressed(axiom::Gamepad::RightBumper));
+        UpdateButton(m_SystemButtons[0], input.IsGamepadPressed(axiom::Gamepad::Share));
+        UpdateButton(m_SystemButtons[1], input.IsGamepadPressed(axiom::Gamepad::Guide));
+        UpdateButton(m_SystemButtons[2], input.IsGamepadPressed(axiom::Gamepad::Start));
+        UpdateButton(m_Touchpad, input.IsGamepadPressed(axiom::Gamepad::Touchpad));
+        UpdateTouchpadFinger();
+
+        const float leftTrigger = glm::clamp(input.GetGamepadLeftTrigger(), 0.0f, 1.0f);
+        const float rightTrigger = glm::clamp(input.GetGamepadRightTrigger(), 0.0f, 1.0f);
+        UpdateTrigger(m_TriggerFill[0], -45.0f, leftTrigger);
+        UpdateTrigger(m_TriggerFill[1], 45.0f, rightTrigger);
+
+        const glm::vec3 ledColor = glm::clamp(glm::vec3(leftStick.x * 0.5f + 0.5f, rightStick.x * 0.5f + 0.5f, rightTrigger), 0.0f, 1.0f);
+        SetColor(m_LedSwatch, glm::vec4(ledColor, 1.0f));
+        input.SetGamepadLED(
+            static_cast<uint8_t>(ledColor.r * 255.0f),
+            static_cast<uint8_t>(ledColor.g * 255.0f),
+            static_cast<uint8_t>(ledColor.b * 255.0f)
+        );
+
+        if (input.IsGamepadPressed(axiom::Gamepad::Cross))
+            input.RumbleGamepad(0xffff, 0x5000, 40);
+        if (leftTrigger > 0.05f || rightTrigger > 0.05f)
+            input.RumbleGamepadTriggers(static_cast<uint16_t>(leftTrigger * 0xffff), static_cast<uint16_t>(rightTrigger * 0xffff), 40);
+
+        float accel[3] {};
+        float gyro[3] {};
+        if (input.GetGamepadSensorData(axiom::GamepadSensors::Accelerometer, accel, 3))
+            UpdateSensorBars(m_AccelBars, 82.0f, accel, 0.08f);
+        if (input.GetGamepadSensorData(axiom::GamepadSensors::Gyroscope, gyro, 3))
+            UpdateSensorBars(m_GyroBars, -82.0f, gyro, 1.8f);
+    }
+
+    void ResetControllerControls() {
+        SetTransform(m_LeftStick, {-38.0f, -7.0f, 0.3f}, {14.0f, 14.0f});
+        SetTransform(m_RightStick, {38.0f, -7.0f, 0.3f}, {14.0f, 14.0f});
+        for (axiom::Entity entity : m_DPad)
+            SetColor(entity, m_IdleColor);
+        for (axiom::Entity entity : m_FaceButtons)
+            SetColor(entity, m_IdleColor);
+        for (axiom::Entity entity : m_ShoulderButtons)
+            SetColor(entity, m_IdleColor);
+        for (axiom::Entity entity : m_SystemButtons)
+            SetColor(entity, m_IdleColor);
+        SetColor(m_Touchpad, {0.24f, 0.27f, 0.32f, 1.0f});
+        SetColor(m_TouchpadFinger, {0.18f, 0.95f, 0.62f, 0.0f});
+        UpdateTrigger(m_TriggerFill[0], -45.0f, 0.0f);
+        UpdateTrigger(m_TriggerFill[1], 45.0f, 0.0f);
+    }
+
+    void UpdateButton(axiom::Entity entity, bool pressed) {
+        SetColor(entity, pressed ? m_ActiveColor : m_IdleColor);
+    }
+
+    void UpdateTouchpadFinger() {
+        auto& input = GetMainInput();
+        bool down = false;
+        float x = 0.0f;
+        float y = 0.0f;
+        float pressure = 0.0f;
+
+        if (input.GetGamepadTouchpadCount() <= 0 ||
+            input.GetGamepadTouchpadFingerCount() <= 0 ||
+            !input.GetGamepadTouchpadFinger(0, 0, down, x, y, pressure) ||
+            !down) {
+            SetColor(m_TouchpadFinger, {0.18f, 0.95f, 0.62f, 0.0f});
+            return;
+        }
+
+        const float touchX = -17.0f + glm::clamp(x, 0.0f, 1.0f) * 34.0f;
+        const float touchY = 27.0f - glm::clamp(y, 0.0f, 1.0f) * 18.0f;
+        const float radius = 2.2f + glm::clamp(pressure, 0.0f, 1.0f) * 3.0f;
+        SetTransform(m_TouchpadFinger, {touchX, touchY, 0.35f}, {radius * 2.0f, radius * 2.0f});
+        SetColor(m_TouchpadFinger, {0.18f, 0.95f, 0.62f, 0.95f});
+    }
+
+    void UpdateTrigger(axiom::Entity entity, float centerX, float value) {
+        const float width = 2.0f + value * 30.0f;
+        SetTransform(entity, {centerX - 15.0f + width * 0.5f, 50.0f, 0.3f}, {width, 7.0f});
+    }
+
+    void UpdateSensorBars(const std::array<axiom::Entity, 3>& bars, float centerX, const float* values, float scale) {
+        for (int i = 0; i < 3; ++i) {
+            const float y = 62.0f - static_cast<float>(i) * 7.0f;
+            const float width = glm::clamp(std::abs(values[i]) * scale, 2.0f, 28.0f);
+            const float direction = values[i] >= 0.0f ? 1.0f : -1.0f;
+            SetTransform(bars[i], {centerX + direction * width * 0.5f, y, 0.3f}, {width, 4.0f});
+        }
+    }
+
+    void UpdateOverlayScene() {
         const float t = static_cast<float>(axiom::Time::GetTime());
-        const float swing = sinf(t * 2.6f) * 1.25f;
-        const float bendLift = cosf(t * 1.9f) * 0.12f;
-        const float pivotX = 0.15f;
-
-        m_EcsColoredQuad.GetComponent<axiom::TransformComponent>().Rotation.z =
-            glm::radians(22.0f) + sinf(t * 1.4f) * 0.35f;
-        m_EcsTexturedSprite.GetComponent<axiom::TransformComponent>().Rotation.z =
-            glm::radians(-12.0f) + cosf(t * 1.1f) * 0.2f;
-        m_EcsCircle.GetComponent<axiom::TransformComponent>().Translation.y =
-            -20.0f + sinf(t * 1.7f) * 9.0f;
-
-        m_Pose.BoneTransforms[0] = glm::mat4(1.0f);
-        m_Pose.BoneTransforms[1] =
-            glm::translate(glm::mat4(1.0f), glm::vec3(pivotX, bendLift, 0.0f)) *
-            glm::rotate(glm::mat4(1.0f), swing, glm::vec3(0.0f, 0.0f, 1.0f)) *
-            glm::translate(glm::mat4(1.0f), glm::vec3(-pivotX, 0.0f, 0.0f));
-
-        axiom::Renderer::BeginScene(ViewProjection, {});
-
-        axiom::Renderer2D::BeginScene();
-
-        glm::mat4 overrideQuadTransform =
-            glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 20.0f, 0.2f)) *
-            glm::scale(glm::mat4(1.0f), glm::vec3(34.0f, 34.0f, 1.0f));
-        axiom::Renderer2D::DrawQuad(overrideQuadTransform, m_Texture, m_OverrideMaterial, 1.0f, glm::vec4(1.0f, 0.9f, 0.9f, 0.95f));
-
-        glm::mat4 spriteOverrideTransform =
-            glm::translate(glm::mat4(1.0f), glm::vec3(92.0f, 65.0f, 0.1f)) *
-            glm::rotate(glm::mat4(1.0f), glm::radians(12.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
-            glm::scale(glm::mat4(1.0f), glm::vec3(34.0f, 34.0f, 1.0f));
-        axiom::Renderer2D::DrawSprite(spriteOverrideTransform, m_Sprite, glm::vec4(1.0f, 0.85f, 0.85f, 1.0f), m_OverrideMaterial);
-
-        // Skinned
-        glm::mat4 skinnedTransform =
-            glm::translate(glm::mat4(1.0f), glm::vec3(132.0f, 46.0f, 0.0f)) *
-            glm::scale(glm::mat4(1.0f), glm::vec3(70.0f, 42.0f, 1.0f));
-        axiom::Renderer2D::DrawSkinned(skinnedTransform, m_SkinnedMesh, m_Pose, glm::vec4(1.0f));
-
-        glm::mat4 skinnedDebugTransform =
-            glm::translate(glm::mat4(1.0f), glm::vec3(132.0f, 12.0f, 0.1f)) *
-            glm::scale(glm::mat4(1.0f), glm::vec3(70.0f, 42.0f, 1.0f));
-        axiom::Renderer2D::DrawSkinned(skinnedDebugTransform, m_SkinnedMesh, m_Pose, glm::vec4(1.0f), m_SkinnedDebugMaterial);
-
-        // Lines / Rects / Circles
-        axiom::Renderer2D::DrawLine(glm::vec3(-145.0f, -5.0f, 0.0f), glm::vec3(-108.0f, -28.0f, 0.0f), glm::vec4(1.0f, 0.9f, 0.2f, 1.0f), 3.0f, axiom::LineCap::Round);
-        axiom::Renderer2D::DrawRect(glm::vec3(-82.0f, -30.0f, 0.0f), glm::vec2(34.0f, 22.0f), glm::vec4(0.2f, 0.95f, 0.95f, 1.0f), 0.0f, 2.5f);
-
-        glm::mat4 rectTransform =
-            glm::translate(glm::mat4(1.0f), glm::vec3(-25.0f, -22.0f, 0.0f)) *
-            glm::rotate(glm::mat4(1.0f), glm::radians(28.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
-            glm::scale(glm::mat4(1.0f), glm::vec3(30.0f, 18.0f, 1.0f));
-        axiom::Renderer2D::DrawRect(rectTransform, glm::vec4(1.0f, 0.55f, 0.15f, 1.0f), 2.0f);
-
-        // LineStrip Test
-        std::vector<glm::vec3> polyline = {
-            { -40.0f, -60.0f, 0.0f },
-            { -10.0f, -80.0f, 0.0f },
-            {  20.0f, -60.0f, 0.0f },
-            {  50.0f, -80.0f, 0.0f }
-        };
-        axiom::Renderer2D::DrawLineStrip(polyline, glm::vec4(0.9f, 0.7f, 0.2f, 1.0f), 4.0f, false, axiom::LineCap::Round, axiom::LineJoin::Round, 4.0f);
-
-        // Batch-Stress-Test
-        for (int i = 0; i < 40; ++i) {
-            for (int j = 0; j < 25; ++j) {
-                float x = -150.0f + i * 8.0f;
-                float y = -120.0f + j * 8.0f;
-                float z = (i + j) * 0.0005f;
-                glm::vec4 c = glm::vec4(
-                    0.3f + 0.7f * (i / 40.0f),
-                    0.3f + 0.7f * (j / 25.0f),
-                    0.5f,
-                    0.8f
-                );
-                axiom::Renderer2D::DrawQuad(glm::vec2(x, y), glm::vec2(6.0f, 6.0f), c, z);
-            }
+        for (size_t i = 0; i < m_OverlayPulse.size(); ++i) {
+            const float pulse = 0.5f + 0.5f * std::sin(t * 2.0f + static_cast<float>(i));
+            SetColor(m_OverlayPulse[i], {0.2f, 0.8f + pulse * 0.2f, 0.55f, 0.25f + pulse * 0.35f});
         }
     }
 
-    void OnShutdown() override {
-        m_SkinnedDebugMaterial.reset();
-        m_OverrideMaterial.reset();
-        m_Texture.reset();
-        m_SkinnedTexture.reset();
-        axiom::Renderer2D::Shutdown();
-    }
-
 private:
-    void BuildEcsScene() {
-        auto& scene = GetScene();
+    std::shared_ptr<axiom::Render2DSystem> m_Render2DSystem;
 
-        m_EcsColoredQuad = scene.CreateEntity("ECS Colored Quad");
-        auto& coloredTransform = m_EcsColoredQuad.GetComponent<axiom::TransformComponent>();
-        coloredTransform.Translation = glm::vec3(-68.0f, 65.0f, 0.1f);
-        coloredTransform.Scale = glm::vec3(22.0f, 14.0f, 1.0f);
-        coloredTransform.Rotation.z = glm::radians(22.0f);
-        m_EcsColoredQuad.AddComponent<axiom::SpriteRendererComponent>(glm::vec4(0.35f, 0.65f, 1.0f, 0.9f));
+    axiom::Entity m_MainCamera;
+    axiom::Entity m_OverlayCamera;
+    float m_CameraSize = 180.0f;
 
-        m_EcsTexturedSprite = scene.CreateEntity("ECS Textured Sprite");
-        auto& texturedTransform = m_EcsTexturedSprite.GetComponent<axiom::TransformComponent>();
-        texturedTransform.Translation = glm::vec3(45.0f, 65.0f, 0.0f);
-        texturedTransform.Scale = glm::vec3(34.0f, 34.0f, 1.0f);
-        m_EcsTexturedSprite.AddComponent<axiom::SpriteRendererComponent>(m_Sprite, glm::vec4(1.0f));
+    axiom::Entity m_ControllerBody;
+    axiom::Entity m_ConnectionIndicator;
+    axiom::Entity m_Touchpad;
+    axiom::Entity m_TouchpadFinger;
+    axiom::Entity m_LedSwatch;
+    axiom::Entity m_LeftStickBase;
+    axiom::Entity m_LeftStick;
+    axiom::Entity m_RightStickBase;
+    axiom::Entity m_RightStick;
+    std::array<axiom::Entity, 4> m_DPad;
+    std::array<axiom::Entity, 4> m_FaceButtons;
+    std::array<axiom::Entity, 2> m_ShoulderButtons;
+    std::array<axiom::Entity, 2> m_TriggerFill;
+    std::array<axiom::Entity, 3> m_SystemButtons;
+    std::array<axiom::Entity, 3> m_AccelBars;
+    std::array<axiom::Entity, 3> m_GyroBars;
+    std::array<axiom::Entity, 7> m_OverlayPulse;
 
-        m_EcsCircle = scene.CreateEntity("ECS Circle");
-        auto& circleTransform = m_EcsCircle.GetComponent<axiom::TransformComponent>();
-        circleTransform.Translation = glm::vec3(115.0f, -20.0f, 0.9f);
-        circleTransform.Scale = glm::vec3(26.0f, 26.0f, 1.0f);
-        m_EcsCircle.AddComponent<axiom::CircleRendererComponent>(glm::vec4(0.25f, 0.5f, 1.0f, 1.0f), 0.35f);
-    }
-
-    void ApplyDebugCamera() {
-        float width = static_cast<float>(GetWidth());
-        float height = static_cast<float>(GetHeigth());
-        float halfWidth = width * 0.5f / m_CameraZoom;
-        float halfHeight = height * 0.5f / m_CameraZoom;
-
-        glm::mat4 proj = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, -1.0f, 1.0f);
-        glm::mat4 view = glm::translate(glm::mat4(1.0f), -m_CameraPosition);
-        ViewProjection = proj * view;
-    }
-
-private:
-    std::shared_ptr<axiom::Texture2D> m_Texture;
-    std::shared_ptr<axiom::Texture2D> m_SkinnedTexture;
-    std::shared_ptr<axiom::Material> m_OverrideMaterial;
-    std::shared_ptr<axiom::Material> m_SkinnedDebugMaterial;
-    axiom::Sprite m_Sprite;
-    axiom::SkinnedMesh2D m_SkinnedMesh;
-    axiom::SkeletonPose2D m_Pose;
-    axiom::Entity m_EcsColoredQuad;
-    axiom::Entity m_EcsTexturedSprite;
-    axiom::Entity m_EcsCircle;
-    glm::vec3 m_CameraPosition{0.0f, 0.0f, 0.0f};
-    float m_CameraZoom = 1.0f;
-    glm::mat4 ViewProjection{1.0f};
+    const glm::vec4 m_IdleColor {0.32f, 0.36f, 0.42f, 1.0f};
+    const glm::vec4 m_ActiveColor {0.18f, 0.95f, 0.62f, 1.0f};
+    const glm::vec4 m_ConnectedColor {0.18f, 0.95f, 0.62f, 1.0f};
+    const glm::vec4 m_DisconnectedColor {0.95f, 0.2f, 0.24f, 1.0f};
 };
 
 namespace axiom {
@@ -301,4 +324,4 @@ Application* CreateApplication() {
     return new Testbed();
 }
 
-}
+} // namespace axiom

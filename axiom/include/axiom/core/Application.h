@@ -73,7 +73,16 @@ namespace axiom {
         }
 
         Scene& GetScene() {
-            return *m_ActiveScene;
+            return *m_Scenes.front();
+        }
+
+        Scene& CreateScene() {
+            m_Scenes.push_back(std::make_unique<Scene>());
+            return *m_Scenes.back();
+        }
+
+        std::vector<std::unique_ptr<Scene>>& GetScenes() {
+            return m_Scenes;
         }
 
         template<typename T, typename... Args>
@@ -126,6 +135,7 @@ namespace axiom {
             m_Width = e.width;
             m_Height = e.height;
             RenderCommand::SetViewport(0, 0, e.width, e.height);
+            m_SystemManager.OnViewportResize(e.width, e.height);
             return false;
         }
 
@@ -144,7 +154,7 @@ namespace axiom {
         LayerStack m_LayerStack;
         EventBus m_EventBus;
 
-        std::unique_ptr<Scene> m_ActiveScene;
+        std::vector<std::unique_ptr<Scene>> m_Scenes;
         SystemManager m_SystemManager;
         std::vector<std::string> m_CommandLineArgs;
     };

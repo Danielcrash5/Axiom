@@ -55,6 +55,9 @@ namespace axiom {
         static bool SetGamepadLED(uint8_t red, uint8_t green, uint8_t blue, int id = 0);
         static bool SetGamepadSensorEnabled(GamepadSensor sensor, bool enabled, int id = 0);
         static bool GetGamepadSensorData(GamepadSensor sensor, float* data, int valueCount, int id = 0);
+        static int GetGamepadTouchpadCount(int id = 0);
+        static int GetGamepadTouchpadFingerCount(int touchpad = 0, int id = 0);
+        static bool GetGamepadTouchpadFinger(int touchpad, int finger, bool& down, float& x, float& y, float& pressure, int id = 0);
 
     private:
         static SDL_Window* s_Window;

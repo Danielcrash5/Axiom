@@ -1,6 +1,7 @@
 #pragma once
 #include <entt/entt.hpp>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -16,6 +17,8 @@ namespace axiom {
 
         void DestroyEntity(Entity entity);
         void Render2D();
+
+        Entity GetPrimaryCameraEntity();
 
         template<typename... Components>
         auto View() {

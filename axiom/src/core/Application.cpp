@@ -5,6 +5,7 @@
 #include "axiom/core/Time.h"
 #include "axiom/profiling/Profiler.h"
 #include "axiom/renderer/Renderer.h"
+#include "axiom/renderer/Renderer2D.h"
 #include "axiom/assets/VFS.h"
 
 #include <filesystem>
@@ -147,8 +148,9 @@ namespace axiom {
             AXIOM_WARN("Engine asset path fallback is used: {}", engineAssetPath);
 
         VFS::MountPath("engine://", engineAssetPath);
+        Renderer2D::Init();
 
-        m_ActiveScene = std::make_unique<Scene>();
+        m_Scenes.push_back(std::make_unique<Scene>());
 
         OnInit();
     }
@@ -186,7 +188,11 @@ namespace axiom {
         OnRender(alpha);
 
         // System render
-        m_SystemManager.Render(*m_ActiveScene, alpha);
+        m_SystemManager.BeginRenderFrame();
+        for (auto& scene : m_Scenes) {
+            if (scene)
+                m_SystemManager.Render(*scene, alpha);
+        }
 
         // Layer rendering
         for (auto& layer : m_LayerStack) {
@@ -194,14 +200,16 @@ namespace axiom {
             layer->OnRender(alpha);
         }
 
-        Renderer::EndScene();
         m_Window->SwapBuffers();
     }
 
     void Application::PreUpdate(double dt) {
         AXIOM_PROFILE_SCOPE("PreUpdate");
 
-        m_SystemManager.PreUpdate(*m_ActiveScene, dt);
+        for (auto& scene : m_Scenes) {
+            if (scene)
+                m_SystemManager.PreUpdate(*scene, dt);
+        }
         OnPreUpdate(dt);
         for (auto& layer : m_LayerStack) {
             AXIOM_PROFILE_SCOPE(layer->GetName());
@@ -216,12 +224,18 @@ namespace axiom {
             AXIOM_PROFILE_SCOPE(layer->GetName());
             layer->OnPostUpdate(dt);
         }
-        m_SystemManager.PostUpdate(*m_ActiveScene, dt);
+        for (auto& scene : m_Scenes) {
+            if (scene)
+                m_SystemManager.PostUpdate(*scene, dt);
+        }
     }
 
     void Application::FixedUpdate(double dt) {
         AXIOM_PROFILE_SCOPE("FixedUpdate");
-        m_SystemManager.FixedUpdate(*m_ActiveScene, dt);
+        for (auto& scene : m_Scenes) {
+            if (scene)
+                m_SystemManager.FixedUpdate(*scene, dt);
+        }
         OnFixedUpdate(dt);
         for (auto& layer : m_LayerStack) {
             AXIOM_PROFILE_SCOPE(layer->GetName());
@@ -236,7 +250,10 @@ namespace axiom {
             AXIOM_PROFILE_SCOPE(layer->GetName());
             layer->OnUpdate(dt);
         }
-        m_SystemManager.Update(*m_ActiveScene, dt);
+        for (auto& scene : m_Scenes) {
+            if (scene)
+                m_SystemManager.Update(*scene, dt);
+        }
     }
 
     void Application::MainUpdate() {
@@ -268,6 +285,7 @@ namespace axiom {
         AXIOM_PROFILE_SCOPE("Application::Shutdown");
         OnShutdown();
         m_LayerStack.Shutdown();
+        Renderer2D::Shutdown();
         VFS::Shutdown();
     }
 

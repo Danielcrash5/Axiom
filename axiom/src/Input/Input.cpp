@@ -231,4 +231,22 @@ namespace axiom {
                SDL_GetGamepadSensorData(gamepad, static_cast<SDL_SensorType>(sensor), data, valueCount);
     }
 
+    int Input::GetGamepadTouchpadCount(int id) {
+        SDL_Gamepad* gamepad = GetGamepad(id);
+        return gamepad ? SDL_GetNumGamepadTouchpads(gamepad) : 0;
+    }
+
+    int Input::GetGamepadTouchpadFingerCount(int touchpad, int id) {
+        SDL_Gamepad* gamepad = GetGamepad(id);
+        return gamepad ? SDL_GetNumGamepadTouchpadFingers(gamepad, touchpad) : 0;
+    }
+
+    bool Input::GetGamepadTouchpadFinger(int touchpad, int finger, bool& down, float& x, float& y, float& pressure, int id) {
+        SDL_Gamepad* gamepad = GetGamepad(id);
+        if (!gamepad)
+            return false;
+
+        return SDL_GetGamepadTouchpadFinger(gamepad, touchpad, finger, &down, &x, &y, &pressure);
+    }
+
 }
