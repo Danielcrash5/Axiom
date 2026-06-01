@@ -26,6 +26,7 @@ import android.os.Handler;
 import android.os.LocaleList;
 import android.os.Message;
 import android.os.ParcelFileDescriptor;
+import android.provider.DocumentsContract;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.SparseArray;
@@ -60,8 +61,8 @@ import java.util.Locale;
 public class SDLActivity extends Activity implements View.OnSystemUiVisibilityChangeListener {
     private static final String TAG = "SDL";
     private static final int SDL_MAJOR_VERSION = 3;
-    private static final int SDL_MINOR_VERSION = 2;
-    private static final int SDL_MICRO_VERSION = 18;
+    private static final int SDL_MINOR_VERSION = 5;
+    private static final int SDL_MICRO_VERSION = 0;
 /*
     // Display InputType.SOURCE/CLASS of events and devices
     //
@@ -107,11 +108,9 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         if ((s & tst) == tst) src += " GAMEPAD";
         s2 &= ~tst;
 
-        if (Build.VERSION.SDK_INT >= 21) {
-            tst = InputDevice.SOURCE_HDMI;
-            if ((s & tst) == tst) src += " HDMI";
-            s2 &= ~tst;
-        }
+        tst = InputDevice.SOURCE_HDMI;
+        if ((s & tst) == tst) src += " HDMI";
+        s2 &= ~tst;
 
         tst = InputDevice.SOURCE_JOYSTICK;
         if ((s & tst) == tst) src += " JOYSTICK";
@@ -146,11 +145,9 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         if ((s & tst) == tst) src += " TOUCHSCREEN";
         s2 &= ~tst;
 
-        if (Build.VERSION.SDK_INT >= 18) {
-            tst = InputDevice.SOURCE_TOUCH_NAVIGATION;
-            if ((s & tst) == tst) src += " TOUCH_NAVIGATION";
-            s2 &= ~tst;
-        }
+        tst = InputDevice.SOURCE_TOUCH_NAVIGATION;
+        if ((s & tst) == tst) src += " TOUCH_NAVIGATION";
+        s2 &= ~tst;
 
         tst = InputDevice.SOURCE_TRACKBALL;
         if ((s & tst) == tst) src += " TRACKBALL";
@@ -174,26 +171,40 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
 
     // Cursor types
     // private static final int SDL_SYSTEM_CURSOR_NONE = -1;
-    private static final int SDL_SYSTEM_CURSOR_ARROW = 0;
-    private static final int SDL_SYSTEM_CURSOR_IBEAM = 1;
+    private static final int SDL_SYSTEM_CURSOR_DEFAULT = 0;
+    private static final int SDL_SYSTEM_CURSOR_TEXT = 1;
     private static final int SDL_SYSTEM_CURSOR_WAIT = 2;
     private static final int SDL_SYSTEM_CURSOR_CROSSHAIR = 3;
-    private static final int SDL_SYSTEM_CURSOR_WAITARROW = 4;
-    private static final int SDL_SYSTEM_CURSOR_SIZENWSE = 5;
-    private static final int SDL_SYSTEM_CURSOR_SIZENESW = 6;
-    private static final int SDL_SYSTEM_CURSOR_SIZEWE = 7;
-    private static final int SDL_SYSTEM_CURSOR_SIZENS = 8;
-    private static final int SDL_SYSTEM_CURSOR_SIZEALL = 9;
-    private static final int SDL_SYSTEM_CURSOR_NO = 10;
-    private static final int SDL_SYSTEM_CURSOR_HAND = 11;
-    private static final int SDL_SYSTEM_CURSOR_WINDOW_TOPLEFT = 12;
-    private static final int SDL_SYSTEM_CURSOR_WINDOW_TOP = 13;
-    private static final int SDL_SYSTEM_CURSOR_WINDOW_TOPRIGHT = 14;
-    private static final int SDL_SYSTEM_CURSOR_WINDOW_RIGHT = 15;
-    private static final int SDL_SYSTEM_CURSOR_WINDOW_BOTTOMRIGHT = 16;
-    private static final int SDL_SYSTEM_CURSOR_WINDOW_BOTTOM = 17;
-    private static final int SDL_SYSTEM_CURSOR_WINDOW_BOTTOMLEFT = 18;
-    private static final int SDL_SYSTEM_CURSOR_WINDOW_LEFT = 19;
+    private static final int SDL_SYSTEM_CURSOR_PROGRESS = 4;
+    private static final int SDL_SYSTEM_CURSOR_NWSE_RESIZE = 5;
+    private static final int SDL_SYSTEM_CURSOR_NESW_RESIZE = 6;
+    private static final int SDL_SYSTEM_CURSOR_EW_RESIZE = 7;
+    private static final int SDL_SYSTEM_CURSOR_NS_RESIZE = 8;
+    private static final int SDL_SYSTEM_CURSOR_MOVE = 9;
+    private static final int SDL_SYSTEM_CURSOR_NOT_ALLOWED = 10;
+    private static final int SDL_SYSTEM_CURSOR_POINTER = 11;
+    private static final int SDL_SYSTEM_CURSOR_NW_RESIZE = 12;
+    private static final int SDL_SYSTEM_CURSOR_N_RESIZE = 13;
+    private static final int SDL_SYSTEM_CURSOR_NE_RESIZE = 14;
+    private static final int SDL_SYSTEM_CURSOR_E_RESIZE = 15;
+    private static final int SDL_SYSTEM_CURSOR_SE_RESIZE = 16;
+    private static final int SDL_SYSTEM_CURSOR_S_RESIZE = 17;
+    private static final int SDL_SYSTEM_CURSOR_SW_RESIZE = 18;
+    private static final int SDL_SYSTEM_CURSOR_W_RESIZE = 19;
+    private static final int SDL_SYSTEM_CURSOR_CONTEXT_MENU = 20;
+    private static final int SDL_SYSTEM_CURSOR_HELP = 21;
+    private static final int SDL_SYSTEM_CURSOR_CELL = 22;
+    private static final int SDL_SYSTEM_CURSOR_VERTICAL_TEXT = 23;
+    private static final int SDL_SYSTEM_CURSOR_ALIAS = 24;
+    private static final int SDL_SYSTEM_CURSOR_COPY = 25;
+    private static final int SDL_SYSTEM_CURSOR_NO_DROP = 26;
+    private static final int SDL_SYSTEM_CURSOR_GRAB = 27;
+    private static final int SDL_SYSTEM_CURSOR_GRABBING = 28;
+    private static final int SDL_SYSTEM_CURSOR_COL_RESIZE = 29;
+    private static final int SDL_SYSTEM_CURSOR_ROW_RESIZE = 30;
+    private static final int SDL_SYSTEM_CURSOR_ALL_SCROLL = 31;
+    private static final int SDL_SYSTEM_CURSOR_ZOOM_IN = 32;
+    private static final int SDL_SYSTEM_CURSOR_ZOOM_OUT = 33;
 
     protected static final int SDL_ORIENTATION_UNKNOWN = 0;
     protected static final int SDL_ORIENTATION_LANDSCAPE = 1;
@@ -219,7 +230,6 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     protected static SDLActivity mSingleton;
     protected static SDLSurface mSurface;
     protected static SDLDummyEdit mTextEdit;
-    protected static boolean mScreenKeyboardShown;
     protected static ViewGroup mLayout;
     protected static SDLClipboardHandler mClipboardHandler;
     protected static Hashtable<Integer, PointerIcon> mCursors;
@@ -234,9 +244,11 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     private static SDLFileDialogState mFileDialogState = null;
     protected static boolean mDispatchingKeyEvent = false;
 
-    protected static SDLGenericMotionListener_API14 getMotionListener() {
+    public static SDLGenericMotionListener_API14 getMotionListener() {
         if (mMotionListener == null) {
-            if (Build.VERSION.SDK_INT >= 26 /* Android 8.0 (O) */) {
+            if (Build.VERSION.SDK_INT >= 29 /* Android 10 (Q) */) {
+                mMotionListener = new SDLGenericMotionListener_API29();
+            } else if (Build.VERSION.SDK_INT >= 26 /* Android 8.0 (O) */) {
                 mMotionListener = new SDLGenericMotionListener_API26();
             } else if (Build.VERSION.SDK_INT >= 24 /* Android 7.0 (N) */) {
                 mMotionListener = new SDLGenericMotionListener_API24();
@@ -533,7 +545,8 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
 
         if (mHIDDeviceManager != null) {
             mHIDDeviceManager.setFrozen(true);
-        }
+        }        
+
         if (!mHasMultiWindow) {
             pauseNativeThread();
         }
@@ -546,7 +559,8 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
 
         if (mHIDDeviceManager != null) {
             mHIDDeviceManager.setFrozen(false);
-        }
+        }        
+
         if (!mHasMultiWindow) {
             resumeNativeThread();
         }
@@ -573,7 +587,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     public static int getNaturalOrientation() {
         int result = SDL_ORIENTATION_UNKNOWN;
 
-        Activity activity = (Activity)getContext();
+        Activity activity = getContext();
         if (activity != null) {
             Configuration config = activity.getResources().getConfiguration();
             Display display = activity.getWindowManager().getDefaultDisplay();
@@ -593,7 +607,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     public static int getCurrentRotation() {
         int result = 0;
 
-        Activity activity = (Activity)getContext();
+        Activity activity = getContext();
         if (activity != null) {
             Display display = activity.getWindowManager().getDefaultDisplay();
             switch (display.getRotation()) {
@@ -618,6 +632,14 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         Log.v(TAG, "onWindowFocusChanged(): " + hasFocus);
+
+        // If we are gaining focus, we can always try to restore our USB devices. If we are losing focus,
+        // only try to relinquish them if we don't have background events allowed (for multi-window Android setups).
+        if (hasFocus || !SDLActivity.nativeGetHintBoolean("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", false)) {
+            if (mHIDDeviceManager != null) {
+                mHIDDeviceManager.setFrozen(!hasFocus);
+            }            
+        }
 
         if (SDLActivity.mBrokenLibraries) {
            return;
@@ -733,6 +755,11 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         }
     }
 
+    // File dialog types
+    private static final int SDL_FILEDIALOG_OPENFILE = 0;
+    private static final int SDL_FILEDIALOG_SAVEFILE = 1;
+    private static final int SDL_FILEDIALOG_OPENFOLDER = 2;
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -741,7 +768,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
             /* This is our file dialog */
             String[] filelist = null;
 
-            if (data != null) {
+            if (data != null && resultCode == Activity.RESULT_OK) {
                 Uri singleFileUri = data.getData();
 
                 if (singleFileUri == null) {
@@ -756,6 +783,13 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
                         filelist[i] = uri;
                     }
                 } else {
+                    /* If the user selected a directory and the persistent permission hint has been set,
+                       make the permission persistable */
+                    if (mFileDialogState.type == SDL_FILEDIALOG_OPENFOLDER && mFileDialogState.persistable) {
+                        mSingleton.getContentResolver().takePersistableUriPermission(singleFileUri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                    }
                     /* Only one file is selected. */
                     filelist = new String[]{singleFileUri.toString()};
                 }
@@ -898,7 +932,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     protected static class SDLCommandHandler extends Handler {
         @Override
         public void handleMessage(Message msg) {
-            Context context = SDL.getContext();
+            Context context = getContext();
             if (context == null) {
                 Log.e(TAG, "error handling message, getContext() returned null");
                 return;
@@ -912,39 +946,37 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
                 }
                 break;
             case COMMAND_CHANGE_WINDOW_STYLE:
-                if (Build.VERSION.SDK_INT >= 19 /* Android 4.4 (KITKAT) */) {
-                    if (context instanceof Activity) {
-                        Window window = ((Activity) context).getWindow();
-                        if (window != null) {
-                            if ((msg.obj instanceof Integer) && ((Integer) msg.obj != 0)) {
-                                int flags = View.SYSTEM_UI_FLAG_FULLSCREEN |
-                                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
-                                        View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
-                                        View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
-                                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.INVISIBLE;
-                                window.getDecorView().setSystemUiVisibility(flags);
-                                window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-                                window.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
-                                SDLActivity.mFullscreenModeActive = true;
-                            } else {
-                                int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_VISIBLE;
-                                window.getDecorView().setSystemUiVisibility(flags);
-                                window.addFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
-                                window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-                                SDLActivity.mFullscreenModeActive = false;
-                            }
-                            if (Build.VERSION.SDK_INT >= 28 /* Android 9 (Pie) */) {
-                                window.getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
-                            }
-                            if (Build.VERSION.SDK_INT >= 30 /* Android 11 (R) */ &&
-                                Build.VERSION.SDK_INT < 35 /* Android 15 */) {
-                                SDLActivity.onNativeInsetsChanged(0, 0, 0, 0);
-                            }
+                if (context instanceof Activity) {
+                    Window window = ((Activity) context).getWindow();
+                    if (window != null) {
+                        if ((msg.obj instanceof Integer) && ((Integer) msg.obj != 0)) {
+                            int flags = View.SYSTEM_UI_FLAG_FULLSCREEN |
+                                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.INVISIBLE;
+                            window.getDecorView().setSystemUiVisibility(flags);
+                            window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+                            SDLActivity.mFullscreenModeActive = true;
+                        } else {
+                            int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_VISIBLE;
+                            window.getDecorView().setSystemUiVisibility(flags);
+                            window.addFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                            SDLActivity.mFullscreenModeActive = false;
                         }
-                    } else {
-                        Log.e(TAG, "error handling message, getContext() returned no Activity");
+                        if (Build.VERSION.SDK_INT >= 30 /* Android 11 (R) */) {
+                            window.getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+                        }
+                        if (Build.VERSION.SDK_INT >= 30 /* Android 11 (R) */ &&
+                            Build.VERSION.SDK_INT < 35 /* Android 15 */) {
+                            SDLActivity.onNativeInsetsChanged(0, 0, 0, 0);
+                        }
                     }
+                } else {
+                    Log.e(TAG, "error handling message, getContext() returned no Activity");
                 }
                 break;
             case COMMAND_TEXTEDIT_HIDE:
@@ -957,7 +989,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
                     InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
                     imm.hideSoftInputFromWindow(mTextEdit.getWindowToken(), 0);
 
-                    mScreenKeyboardShown = false;
+                    onNativeScreenKeyboardHidden();
 
                     mSurface.requestFocus();
                 }
@@ -994,53 +1026,51 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         msg.obj = data;
         boolean result = commandHandler.sendMessage(msg);
 
-        if (Build.VERSION.SDK_INT >= 19 /* Android 4.4 (KITKAT) */) {
-            if (command == COMMAND_CHANGE_WINDOW_STYLE) {
-                // Ensure we don't return until the resize has actually happened,
-                // or 500ms have passed.
+        if (command == COMMAND_CHANGE_WINDOW_STYLE) {
+            // Ensure we don't return until the resize has actually happened,
+            // or 500ms have passed.
 
-                boolean bShouldWait = false;
+            boolean bShouldWait = false;
 
-                if (data instanceof Integer) {
-                    // Let's figure out if we're already laid out fullscreen or not.
-                    Display display = ((WindowManager) getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
-                    DisplayMetrics realMetrics = new DisplayMetrics();
-                    display.getRealMetrics(realMetrics);
+            if (data instanceof Integer) {
+                // Let's figure out if we're already laid out fullscreen or not.
+                Display display = ((WindowManager) getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+                DisplayMetrics realMetrics = new DisplayMetrics();
+                display.getRealMetrics(realMetrics);
 
-                    boolean bFullscreenLayout = ((realMetrics.widthPixels == mSurface.getWidth()) &&
-                            (realMetrics.heightPixels == mSurface.getHeight()));
+                boolean bFullscreenLayout = ((realMetrics.widthPixels == mSurface.getWidth()) &&
+                        (realMetrics.heightPixels == mSurface.getHeight()));
 
-                    if ((Integer) data == 1) {
-                        // If we aren't laid out fullscreen or actively in fullscreen mode already, we're going
-                        // to change size and should wait for surfaceChanged() before we return, so the size
-                        // is right back in native code.  If we're already laid out fullscreen, though, we're
-                        // not going to change size even if we change decor modes, so we shouldn't wait for
-                        // surfaceChanged() -- which may not even happen -- and should return immediately.
-                        bShouldWait = !bFullscreenLayout;
-                    } else {
-                        // If we're laid out fullscreen (even if the status bar and nav bar are present),
-                        // or are actively in fullscreen, we're going to change size and should wait for
-                        // surfaceChanged before we return, so the size is right back in native code.
-                        bShouldWait = bFullscreenLayout;
-                    }
+                if ((Integer) data == 1) {
+                    // If we aren't laid out fullscreen or actively in fullscreen mode already, we're going
+                    // to change size and should wait for surfaceChanged() before we return, so the size
+                    // is right back in native code.  If we're already laid out fullscreen, though, we're
+                    // not going to change size even if we change decor modes, so we shouldn't wait for
+                    // surfaceChanged() -- which may not even happen -- and should return immediately.
+                    bShouldWait = !bFullscreenLayout;
+                } else {
+                    // If we're laid out fullscreen (even if the status bar and nav bar are present),
+                    // or are actively in fullscreen, we're going to change size and should wait for
+                    // surfaceChanged before we return, so the size is right back in native code.
+                    bShouldWait = bFullscreenLayout;
                 }
+            }
 
-                if (bShouldWait && (SDLActivity.getContext() != null)) {
-                    // We'll wait for the surfaceChanged() method, which will notify us
-                    // when called.  That way, we know our current size is really the
-                    // size we need, instead of grabbing a size that's still got
-                    // the navigation and/or status bars before they're hidden.
-                    //
-                    // We'll wait for up to half a second, because some devices
-                    // take a surprisingly long time for the surface resize, but
-                    // then we'll just give up and return.
-                    //
-                    synchronized (SDLActivity.getContext()) {
-                        try {
-                            SDLActivity.getContext().wait(500);
-                        } catch (InterruptedException ie) {
-                            ie.printStackTrace();
-                        }
+            if (bShouldWait && (getContext() != null)) {
+                // We'll wait for the surfaceChanged() method, which will notify us
+                // when called.  That way, we know our current size is really the
+                // size we need, instead of grabbing a size that's still got
+                // the navigation and/or status bars before they're hidden.
+                //
+                // We'll wait for up to half a second, because some devices
+                // take a surprisingly long time for the surface resize, but
+                // then we'll just give up and return.
+                //
+                synchronized (getContext()) {
+                    try {
+                        getContext().wait(500);
+                    } catch (InterruptedException ie) {
+                        ie.printStackTrace();
                     }
                 }
             }
@@ -1051,7 +1081,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
 
     // C functions we call
     public static native String nativeGetVersion();
-    public static native int nativeSetupJNI();
+    public static native void nativeSetupJNI();
     public static native void nativeInitMainThread();
     public static native void nativeCleanupMainThread();
     public static native int nativeRunMain(String library, String function, Object arguments);
@@ -1072,12 +1102,13 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     public static native void onNativeTouch(int touchDevId, int pointerFingerId,
                                             int action, float x,
                                             float y, float p);
-    public static native void onNativePen(int penId, int button, int action, float x, float y, float p);
-    public static native void onNativeAccel(float x, float y, float z);
+    public static native void onNativePen(int penId, int device_type, int button, int action, float x, float y, float p);
     public static native void onNativeClipboardChanged();
     public static native void onNativeSurfaceCreated();
     public static native void onNativeSurfaceChanged();
     public static native void onNativeSurfaceDestroyed();
+    public static native void onNativeScreenKeyboardShown();
+    public static native void onNativeScreenKeyboardHidden();
     public static native String nativeGetHint(String name);
     public static native boolean nativeGetHintBoolean(String name, boolean default_value);
     public static native void nativeSetenv(String name, String value);
@@ -1091,6 +1122,9 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     public static native boolean nativeAllowRecreateActivity();
     public static native int nativeCheckSDLThreadCounter();
     public static native void onNativeFileDialog(int requestCode, String[] filelist, int filter);
+    public static native void onNativePinchStart();
+    public static native void onNativePinchUpdate(float scale);
+    public static native void onNativePinchEnd();
 
     /**
      * This method is called by SDL using JNI.
@@ -1127,6 +1161,11 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     {
         int orientation_landscape = -1;
         int orientation_portrait = -1;
+
+        if (w <= 1 || h <= 1) {
+            // Invalid width/height, ignore this request
+            return;
+        }
 
         /* If set, hint "explicitly controls which UI orientations are allowed". */
         if (hint.contains("LandscapeRight") && hint.contains("LandscapeLeft")) {
@@ -1211,24 +1250,6 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     /**
      * This method is called by SDL using JNI.
      */
-    public static boolean isScreenKeyboardShown()
-    {
-        if (mTextEdit == null) {
-            return false;
-        }
-
-        if (!mScreenKeyboardShown) {
-            return false;
-        }
-
-        InputMethodManager imm = (InputMethodManager) SDL.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-        return imm.isAcceptingText();
-
-    }
-
-    /**
-     * This method is called by SDL using JNI.
-     */
     public static boolean supportsRelativeMouse()
     {
         // DeX mode in Samsung Experience 9.0 and earlier doesn't support relative mice properly under
@@ -1270,7 +1291,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     /**
      * This method is called by SDL using JNI.
      */
-    public static Context getContext() {
+    public static Activity getContext() {
         return SDL.getContext();
     }
 
@@ -1285,10 +1306,10 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         if (Build.MANUFACTURER.equals("MINIX") && Build.MODEL.equals("NEO-U1")) {
             return true;
         }
-        if (Build.MANUFACTURER.equals("Amlogic") && Build.MODEL.equals("X96-W")) {
-            return true;
-        }
-        if (Build.MANUFACTURER.equals("Amlogic") && Build.MODEL.startsWith("TV")) {
+        if (Build.MANUFACTURER.equals("Amlogic") &&
+            (Build.MODEL.startsWith("TV") ||
+             Build.MODEL.equals("X96-W") ||
+             Build.MODEL.equals("A95X-R1"))) {
             return true;
         }
         return false;
@@ -1307,7 +1328,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     public static double getDiagonal()
     {
         DisplayMetrics metrics = new DisplayMetrics();
-        Activity activity = (Activity)getContext();
+        Activity activity = getContext();
         if (activity == null) {
             return 0.0;
         }
@@ -1331,10 +1352,17 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
      * This method is called by SDL using JNI.
      */
     public static boolean isChromebook() {
-        if (getContext() == null) {
-            return false;
+        // https://stackoverflow.com/questions/39784415/how-to-detect-programmatically-if-android-app-is-running-in-chrome-book-or-in
+        if (getContext() != null) {
+            if (getContext().getPackageManager().hasSystemFeature("org.chromium.arc")
+                || getContext().getPackageManager().hasSystemFeature("org.chromium.arc.device_management")) {
+                return true;
+            }
         }
-        return getContext().getPackageManager().hasSystemFeature("org.chromium.arc.device_management");
+
+        // Running on AVD emulator
+        boolean isChromebookEmulator = (Build.MODEL != null && Build.MODEL.startsWith("sdk_gpc_"));
+        return isChromebookEmulator;
     }
 
     /**
@@ -1424,7 +1452,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
             params.topMargin = y;
 
             if (mTextEdit == null) {
-                mTextEdit = new SDLDummyEdit(SDL.getContext());
+                mTextEdit = new SDLDummyEdit(getContext());
 
                 mLayout.addView(mTextEdit, params);
             } else {
@@ -1435,10 +1463,12 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
             mTextEdit.setVisibility(View.VISIBLE);
             mTextEdit.requestFocus();
 
-            InputMethodManager imm = (InputMethodManager) SDL.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+            InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
             imm.showSoftInput(mTextEdit, 0);
 
-            mScreenKeyboardShown = true;
+            if (imm.isAcceptingText()) {
+                onNativeScreenKeyboardShown();
+            }
         }
     }
 
@@ -1487,11 +1517,11 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         if (SDLControllerManager.isDeviceSDLJoystick(deviceId)) {
             // Note that we process events with specific key codes here
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                if (SDLControllerManager.onNativePadDown(deviceId, keyCode)) {
+                if (SDLControllerManager.onNativePadDown(deviceId, keyCode, event.getScanCode())) {
                     return true;
                 }
             } else if (event.getAction() == KeyEvent.ACTION_UP) {
-                if (SDLControllerManager.onNativePadUp(deviceId, keyCode)) {
+                if (SDLControllerManager.onNativePadUp(deviceId, keyCode, event.getScanCode())) {
                     return true;
                 }
             }
@@ -1767,16 +1797,14 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     private final Runnable rehideSystemUi = new Runnable() {
         @Override
         public void run() {
-            if (Build.VERSION.SDK_INT >= 19 /* Android 4.4 (KITKAT) */) {
-                int flags = View.SYSTEM_UI_FLAG_FULLSCREEN |
-                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
-                        View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
-                        View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
-                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.INVISIBLE;
+            int flags = View.SYSTEM_UI_FLAG_FULLSCREEN |
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.INVISIBLE;
 
-                SDLActivity.this.getWindow().getDecorView().setSystemUiVisibility(flags);
-            }
+            SDLActivity.this.getWindow().getDecorView().setSystemUiVisibility(flags);
         }
     };
 
@@ -1868,10 +1896,10 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     public static boolean setSystemCursor(int cursorID) {
         int cursor_type = 0; //PointerIcon.TYPE_NULL;
         switch (cursorID) {
-        case SDL_SYSTEM_CURSOR_ARROW:
+        case SDL_SYSTEM_CURSOR_DEFAULT:
             cursor_type = 1000; //PointerIcon.TYPE_ARROW;
             break;
-        case SDL_SYSTEM_CURSOR_IBEAM:
+        case SDL_SYSTEM_CURSOR_TEXT:
             cursor_type = 1008; //PointerIcon.TYPE_TEXT;
             break;
         case SDL_SYSTEM_CURSOR_WAIT:
@@ -1880,58 +1908,100 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         case SDL_SYSTEM_CURSOR_CROSSHAIR:
             cursor_type = 1007; //PointerIcon.TYPE_CROSSHAIR;
             break;
-        case SDL_SYSTEM_CURSOR_WAITARROW:
+        case SDL_SYSTEM_CURSOR_PROGRESS:
             cursor_type = 1004; //PointerIcon.TYPE_WAIT;
             break;
-        case SDL_SYSTEM_CURSOR_SIZENWSE:
+        case SDL_SYSTEM_CURSOR_NWSE_RESIZE:
             cursor_type = 1017; //PointerIcon.TYPE_TOP_LEFT_DIAGONAL_DOUBLE_ARROW;
             break;
-        case SDL_SYSTEM_CURSOR_SIZENESW:
+        case SDL_SYSTEM_CURSOR_NESW_RESIZE:
             cursor_type = 1016; //PointerIcon.TYPE_TOP_RIGHT_DIAGONAL_DOUBLE_ARROW;
             break;
-        case SDL_SYSTEM_CURSOR_SIZEWE:
+        case SDL_SYSTEM_CURSOR_EW_RESIZE:
             cursor_type = 1014; //PointerIcon.TYPE_HORIZONTAL_DOUBLE_ARROW;
             break;
-        case SDL_SYSTEM_CURSOR_SIZENS:
+        case SDL_SYSTEM_CURSOR_NS_RESIZE:
             cursor_type = 1015; //PointerIcon.TYPE_VERTICAL_DOUBLE_ARROW;
             break;
-        case SDL_SYSTEM_CURSOR_SIZEALL:
+        case SDL_SYSTEM_CURSOR_MOVE:
             cursor_type = 1020; //PointerIcon.TYPE_GRAB;
             break;
-        case SDL_SYSTEM_CURSOR_NO:
+        case SDL_SYSTEM_CURSOR_NOT_ALLOWED:
             cursor_type = 1012; //PointerIcon.TYPE_NO_DROP;
             break;
-        case SDL_SYSTEM_CURSOR_HAND:
+        case SDL_SYSTEM_CURSOR_POINTER:
             cursor_type = 1002; //PointerIcon.TYPE_HAND;
             break;
-        case SDL_SYSTEM_CURSOR_WINDOW_TOPLEFT:
+        case SDL_SYSTEM_CURSOR_NW_RESIZE:
             cursor_type = 1017; //PointerIcon.TYPE_TOP_LEFT_DIAGONAL_DOUBLE_ARROW;
             break;
-        case SDL_SYSTEM_CURSOR_WINDOW_TOP:
+        case SDL_SYSTEM_CURSOR_N_RESIZE:
             cursor_type = 1015; //PointerIcon.TYPE_VERTICAL_DOUBLE_ARROW;
             break;
-        case SDL_SYSTEM_CURSOR_WINDOW_TOPRIGHT:
+        case SDL_SYSTEM_CURSOR_NE_RESIZE:
             cursor_type = 1016; //PointerIcon.TYPE_TOP_RIGHT_DIAGONAL_DOUBLE_ARROW;
             break;
-        case SDL_SYSTEM_CURSOR_WINDOW_RIGHT:
+        case SDL_SYSTEM_CURSOR_E_RESIZE:
             cursor_type = 1014; //PointerIcon.TYPE_HORIZONTAL_DOUBLE_ARROW;
             break;
-        case SDL_SYSTEM_CURSOR_WINDOW_BOTTOMRIGHT:
+        case SDL_SYSTEM_CURSOR_SE_RESIZE:
             cursor_type = 1017; //PointerIcon.TYPE_TOP_LEFT_DIAGONAL_DOUBLE_ARROW;
             break;
-        case SDL_SYSTEM_CURSOR_WINDOW_BOTTOM:
+        case SDL_SYSTEM_CURSOR_S_RESIZE:
             cursor_type = 1015; //PointerIcon.TYPE_VERTICAL_DOUBLE_ARROW;
             break;
-        case SDL_SYSTEM_CURSOR_WINDOW_BOTTOMLEFT:
+        case SDL_SYSTEM_CURSOR_SW_RESIZE:
             cursor_type = 1016; //PointerIcon.TYPE_TOP_RIGHT_DIAGONAL_DOUBLE_ARROW;
             break;
-        case SDL_SYSTEM_CURSOR_WINDOW_LEFT:
+        case SDL_SYSTEM_CURSOR_W_RESIZE:
             cursor_type = 1014; //PointerIcon.TYPE_HORIZONTAL_DOUBLE_ARROW;
+            break;
+        case SDL_SYSTEM_CURSOR_CONTEXT_MENU:
+            cursor_type = 1001; //PointerIcon.TYPE_CONTEXT_MENU;
+            break;
+        case SDL_SYSTEM_CURSOR_HELP:
+            cursor_type = 1003; //PointerIcon.TYPE_HELP;
+            break;
+        case SDL_SYSTEM_CURSOR_CELL:
+            cursor_type = 1006; //PointerIcon.TYPE_CELL;
+            break;
+        case SDL_SYSTEM_CURSOR_VERTICAL_TEXT:
+            cursor_type = 1009; //PointerIcon.TYPE_VERTICAL_TEXT;
+            break;
+        case SDL_SYSTEM_CURSOR_ALIAS:
+            cursor_type = 1010; //PointerIcon.TYPE_ALIAS;
+            break;
+        case SDL_SYSTEM_CURSOR_COPY:
+            cursor_type = 1011; //PointerIcon.TYPE_COPY;
+            break;
+        case SDL_SYSTEM_CURSOR_NO_DROP:
+            cursor_type = 1012; //PointerIcon.TYPE_NO_DROP;
+            break;
+        case SDL_SYSTEM_CURSOR_GRAB:
+            cursor_type = 1020; //PointerIcon.TYPE_GRAB;
+            break;
+        case SDL_SYSTEM_CURSOR_GRABBING:
+            cursor_type = 1021; //PointerIcon.TYPE_GRABBING;
+            break;
+        case SDL_SYSTEM_CURSOR_COL_RESIZE:
+            cursor_type = 1014; //PointerIcon.TYPE_HORIZONTAL_DOUBLE_ARROW;
+            break;
+        case SDL_SYSTEM_CURSOR_ROW_RESIZE:
+            cursor_type = 1015; //PointerIcon.TYPE_VERTICAL_DOUBLE_ARROW;
+            break;
+        case SDL_SYSTEM_CURSOR_ALL_SCROLL:
+            cursor_type = 1013; //PointerIcon.TYPE_ALL_SCROLL;
+            break;
+        case SDL_SYSTEM_CURSOR_ZOOM_IN:
+            cursor_type = 1018; //PointerIcon.TYPE_ZOOM_IN;
+            break;
+        case SDL_SYSTEM_CURSOR_ZOOM_OUT:
+            cursor_type = 1019; //PointerIcon.TYPE_ZOOM_OUT;
             break;
         }
         if (Build.VERSION.SDK_INT >= 24 /* Android 7.0 (N) */) {
             try {
-                mSurface.setPointerIcon(PointerIcon.getSystemIcon(SDL.getContext(), cursor_type));
+                mSurface.setPointerIcon(PointerIcon.getSystemIcon(getContext(), cursor_type));
             } catch (Exception e) {
                 return false;
             }
@@ -1948,7 +2018,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
             return;
         }
 
-        Activity activity = (Activity)getContext();
+        Activity activity = getContext();
         if (activity.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
             activity.requestPermissions(new String[]{permission}, requestCode);
         } else {
@@ -1971,12 +2041,9 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
             Intent i = new Intent(Intent.ACTION_VIEW);
             i.setData(Uri.parse(url));
 
-            int flags = Intent.FLAG_ACTIVITY_NO_HISTORY | Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
-            if (Build.VERSION.SDK_INT >= 21 /* Android 5.0 (LOLLIPOP) */) {
-                flags |= Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
-            } else {
-                flags |= Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET;
-            }
+            int flags = Intent.FLAG_ACTIVITY_NO_HISTORY
+                      | Intent.FLAG_ACTIVITY_MULTIPLE_TASK
+                      | Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
             i.addFlags(flags);
 
             mSingleton.startActivity(i);
@@ -2052,19 +2119,16 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     /**
      * This method is called by SDL using JNI.
      */
-    public static boolean showFileDialog(String[] filters, boolean allowMultiple, boolean forWrite, int requestCode) {
+    public static boolean showFileDialog(String[] filters, boolean allowMultiple,
+        int type, String initialPath, int requestCode) {
         if (mSingleton == null) {
             return false;
         }
 
-        if (forWrite) {
-            allowMultiple = false;
-        }
-
-        /* Convert string list of extensions to their respective MIME types */
+        /* Convert string list of extensions to their respective MIME types (not needed for folder selection) */
         ArrayList<String> mimes = new ArrayList<>();
         MimeTypeMap mimeTypeMap = MimeTypeMap.getSingleton();
-        if (filters != null) {
+        if (filters != null && type != SDL_FILEDIALOG_OPENFOLDER) {
             for (String pattern : filters) {
                 String[] extensions = pattern.split(";");
 
@@ -2082,42 +2146,91 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
             }
         }
 
-        /* Display the file dialog */
-        Intent intent = new Intent(forWrite ? Intent.ACTION_CREATE_DOCUMENT : Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, allowMultiple);
-        switch (mimes.size()) {
-            case 0:
-                intent.setType("*/*");
-                break;
-            case 1:
-                intent.setType(mimes.get(0));
-                break;
-            default:
-                intent.setType("*/*");
-                intent.putExtra(Intent.EXTRA_MIME_TYPES, mimes.toArray(new String[]{}));
+        /* Handle the initial path, if set */
+        Uri initialPathUri = null;
+
+        if (initialPath != null && !initialPath.isEmpty()) {
+            try {
+                initialPathUri = Uri.parse(initialPath);
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to parse initial path URI, ignoring initial path", e);
+            }
         }
 
+        boolean persistable = SDLActivity.nativeGetHintBoolean("SDL_ANDROID_ALLOW_PERSISTENT_FOLDER_ACCESS", false);
+
+        /* Select the intent based on the type */
+        String action;
+        switch (type) {
+            case SDL_FILEDIALOG_OPENFILE:
+                action = Intent.ACTION_OPEN_DOCUMENT;
+                break;
+            case SDL_FILEDIALOG_SAVEFILE:
+                action = Intent.ACTION_CREATE_DOCUMENT;
+                allowMultiple = false;
+                break;
+            case SDL_FILEDIALOG_OPENFOLDER:
+                action = Intent.ACTION_OPEN_DOCUMENT_TREE;
+                break;
+            default:
+                Log.e(TAG, "Unsupported file dialog type: " + type);
+                return false;
+        }
+
+        /* Prepare the intent with the proper values */
+        Intent intent = new Intent(action);
+        if (type != SDL_FILEDIALOG_OPENFOLDER) {
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, allowMultiple);
+            switch (mimes.size()) {
+                case 0:
+                    intent.setType("*/*");
+                    break;
+                case 1:
+                    intent.setType(mimes.get(0));
+                    break;
+                default:
+                    intent.setType("*/*");
+                    intent.putExtra(Intent.EXTRA_MIME_TYPES, mimes.toArray(new String[]{}));
+            }
+        } else {
+            int intent_flags = Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+            if (persistable) {
+                intent_flags |= Intent.FLAG_GRANT_PREFIX_URI_PERMISSION |
+                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION;
+            }
+            intent.addFlags(intent_flags);
+        }
+
+        if (initialPathUri != null) {
+            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialPathUri);
+        }
+
+        /* Display the file/folder dialog */
         try {
             mSingleton.startActivityForResult(intent, requestCode);
         } catch (ActivityNotFoundException e) {
-            Log.e(TAG, "Unable to open file dialog.", e);
+            Log.e(TAG, "Unable to open dialog.", e);
             return false;
         }
 
         /* Save current dialog state */
         mFileDialogState = new SDLFileDialogState();
         mFileDialogState.requestCode = requestCode;
-        mFileDialogState.multipleChoice = allowMultiple;
+        mFileDialogState.type = type;
+        mFileDialogState.persistable = persistable;
+
         return true;
     }
 
-    /* Internal class used to track active open file dialog */
+    /* Internal class used to track active file dialog */
     static class SDLFileDialogState {
         int requestCode;
-        boolean multipleChoice;
+        int type;
+        boolean persistable;
     }
-    
+
     /**
      * This method is called by SDL using JNI.
      */
@@ -2196,7 +2309,11 @@ class SDLClipboardHandler implements
     }
 
     public boolean clipboardHasText() {
-       return mClipMgr.hasPrimaryClip();
+        if (Build.VERSION.SDK_INT >= 28 /* Android 9 (P) */) {
+            return mClipMgr.hasPrimaryClip();
+        } else {
+            return mClipMgr.hasText();
+        }
     }
 
     public String clipboardGetText() {
@@ -2214,10 +2331,19 @@ class SDLClipboardHandler implements
     }
 
     public void clipboardSetText(String string) {
-       mClipMgr.removePrimaryClipChangedListener(this);
-       ClipData clip = ClipData.newPlainText(null, string);
-       mClipMgr.setPrimaryClip(clip);
-       mClipMgr.addPrimaryClipChangedListener(this);
+        mClipMgr.removePrimaryClipChangedListener(this);
+        if (string.isEmpty()) {
+            if (Build.VERSION.SDK_INT >= 28 /* Android 9 (P) */) {
+                mClipMgr.clearPrimaryClip();
+            } else {
+                ClipData clip = ClipData.newPlainText(null, "");
+                mClipMgr.setPrimaryClip(clip);
+            }
+        } else {
+            ClipData clip = ClipData.newPlainText(null, string);
+            mClipMgr.setPrimaryClip(clip);
+        }
+        mClipMgr.addPrimaryClipChangedListener(this);
     }
 
     @Override

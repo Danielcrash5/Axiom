@@ -39,9 +39,11 @@ LOCAL_SRC_FILES := \
 	$(wildcard $(LOCAL_PATH)/src/io/generic/*.c) \
 	$(wildcard $(LOCAL_PATH)/src/gpu/*.c) \
 	$(wildcard $(LOCAL_PATH)/src/gpu/vulkan/*.c) \
+	$(wildcard $(LOCAL_PATH)/src/gpu/xr/*.c) \
 	$(wildcard $(LOCAL_PATH)/src/haptic/*.c) \
 	$(wildcard $(LOCAL_PATH)/src/haptic/android/*.c) \
 	$(wildcard $(LOCAL_PATH)/src/haptic/dummy/*.c) \
+	$(wildcard $(LOCAL_PATH)/src/haptic/hidapi/*.c) \
 	$(wildcard $(LOCAL_PATH)/src/hidapi/*.c) \
 	$(wildcard $(LOCAL_PATH)/src/hidapi/android/*.cpp) \
 	$(wildcard $(LOCAL_PATH)/src/joystick/*.c) \
@@ -82,6 +84,7 @@ LOCAL_SRC_FILES := \
 	$(wildcard $(LOCAL_PATH)/src/tray/*.c) \
 	$(wildcard $(LOCAL_PATH)/src/video/*.c) \
 	$(wildcard $(LOCAL_PATH)/src/video/android/*.c) \
+	$(wildcard $(LOCAL_PATH)/src/video/arm/*.c) \
 	$(wildcard $(LOCAL_PATH)/src/video/yuv2rgb/*.c))
 
 LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES
@@ -111,8 +114,6 @@ ifeq ($(NDK_DEBUG),1)
     cmd-strip :=
 endif
 
-LOCAL_STATIC_LIBRARIES := cpufeatures
-
 include $(BUILD_SHARED_LIBRARY)
 
 
@@ -121,6 +122,12 @@ include $(BUILD_SHARED_LIBRARY)
 # SDL_test static library
 #
 ###########################
+
+include $(CLEAR_VARS)
+
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/include $(LOCAL_PATH)/src
+
+LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
 
 LOCAL_MODULE := SDL3_test
 
@@ -137,25 +144,4 @@ LOCAL_LDFLAGS :=
 LOCAL_EXPORT_LDLIBS :=
 
 include $(BUILD_STATIC_LIBRARY)
-
-
-###########################
-#
-# SDL static library
-#
-###########################
-
-LOCAL_MODULE := SDL3_static
-
-LOCAL_MODULE_FILENAME := libSDL3
-
-LOCAL_LDLIBS :=
-
-LOCAL_LDFLAGS :=
-
-LOCAL_EXPORT_LDLIBS := -ldl -lGLESv1_CM -lGLESv2 -llog -landroid
-
-include $(BUILD_STATIC_LIBRARY)
-
-$(call import-module,android/cpufeatures)
 

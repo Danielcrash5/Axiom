@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -133,6 +133,10 @@ SDL_EventCategory SDL_GetEventCategory(Uint32 type)
 
     case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
         return SDL_EVENTCATEGORY_GSENSOR;
+
+    case SDL_EVENT_GAMEPAD_CAPSENSE_TOUCH:
+    case SDL_EVENT_GAMEPAD_CAPSENSE_RELEASE:
+        return SDL_EVENTCATEGORY_GCAPSENSE;
 
     case SDL_EVENT_FINGER_DOWN:
     case SDL_EVENT_FINGER_UP:

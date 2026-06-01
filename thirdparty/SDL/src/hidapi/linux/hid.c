@@ -134,7 +134,6 @@ static wchar_t *utf8_to_wchar_t(const char *utf8)
  * Use register_error_str(NULL) to free the error message completely. */
 static void register_error_str(wchar_t **error_str, const char *msg)
 {
-	free(*error_str);
 #ifdef HIDAPI_USING_SDL_RUNTIME
 	/* Thread-safe error handling */
 	if (msg) {
@@ -143,11 +142,12 @@ static void register_error_str(wchar_t **error_str, const char *msg)
 		SDL_ClearError();
 	}
 #else
+	free(*error_str);
 	*error_str = utf8_to_wchar_t(msg);
 #endif
 }
 
-/* Semilar to register_error_str, but allows passing a format string with va_list args into this function. */
+/* Similar to register_error_str, but allows passing a format string with va_list args into this function. */
 static void register_error_str_vformat(wchar_t **error_str, const char *format, va_list args)
 {
 	char msg[256];
@@ -906,7 +906,7 @@ static struct hid_device_info * create_device_info_for_device(struct udev_device
 
 		cur_dev = root;
 		while (cur_dev) {
-			if (HIDAPI_IGNORE_DEVICE(cur_dev->bus_type, cur_dev->vendor_id, cur_dev->product_id, cur_dev->usage_page, cur_dev->usage)) {
+			if (HIDAPI_IGNORE_DEVICE(cur_dev->bus_type, cur_dev->vendor_id, cur_dev->product_id, cur_dev->usage_page, cur_dev->usage, false)) {
 				struct hid_device_info *tmp = cur_dev;
 
 				cur_dev = tmp->next;
@@ -916,7 +916,7 @@ static struct hid_device_info * create_device_info_for_device(struct udev_device
 					root = cur_dev;
 				}
 				tmp->next = NULL;
-			
+
 				hid_free_enumeration(tmp);
 			} else {
 				prev_dev = cur_dev;
@@ -1008,6 +1008,13 @@ int HID_API_EXPORT hid_exit(void)
 
 struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, unsigned short product_id)
 {
+	struct udev_hwdb *hwdb = NULL;
+	struct udev_list_entry *entry;
+
+	char modalias[64];
+	const char *key;
+	const char *manufacturer_string;
+
 	struct udev *udev;
 	struct udev_enumerate *enumerate;
 	struct udev_list_entry *devices, *dev_list_entry;
@@ -1060,8 +1067,30 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 		if (!raw_dev)
 			continue;
 
+
 		tmp = create_device_info_for_device(raw_dev);
+
 		if (tmp) {
+			if (!tmp->manufacturer_string && udev_hwdb_new) {
+				key = "ID_VENDOR_FROM_DATABASE";
+
+				if ((hwdb = udev_hwdb_new(udev)) != NULL) {
+					snprintf(modalias, sizeof(modalias), "usb:v%04X*", vendor_id);
+
+					udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, modalias, 0)) {
+						if (strcmp(udev_list_entry_get_name(entry), key) == 0) {
+							manufacturer_string = udev_list_entry_get_value(entry);
+							if (manufacturer_string) {
+								tmp->manufacturer_string = utf8_to_wchar_t(manufacturer_string);
+							}
+							break;
+						}
+					}
+
+					hwdb = udev_hwdb_unref(hwdb);
+				}
+			}
+
 			if (cur_dev) {
 				cur_dev->next = tmp;
 			}

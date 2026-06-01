@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -135,14 +135,29 @@ extern bool SDL_IsJoystickSteamController(Uint16 vendor_id, Uint16 product_id);
 // Function to return whether a joystick is a HORI Steam controller
 extern bool SDL_IsJoystickHoriSteamController(Uint16 vendor_id, Uint16 product_id);
 
+// Function to return whether a joystick is an SInput (Open Format) controller
+extern bool SDL_IsJoystickSInputController(Uint16 vendor_id, Uint16 product_id);
+
+// Function to return whether a joystick is a Flydigi controller
+extern bool SDL_IsJoystickFlydigiController(Uint16 vendor_id, Uint16 product_id);
+
+// Function to return whether a joystick is a GameSir controller
+extern bool SDL_IsJoystickGameSirController(Uint16 vendor_id, Uint16 product_id);
+
 // Function to return whether a joystick is a Steam Deck
 extern bool SDL_IsJoystickSteamDeck(Uint16 vendor_id, Uint16 product_id);
+
+// Function to return whether a joystick is a Steam Triton
+extern bool SDL_IsJoystickSteamTriton(Uint16 vendor_id, Uint16 product_id);
 
 // Function to return whether a joystick guid comes from the XInput driver
 extern bool SDL_IsJoystickXInput(SDL_GUID guid);
 
 // Function to return whether a joystick guid comes from the WGI driver
 extern bool SDL_IsJoystickWGI(SDL_GUID guid);
+
+// Function to return whether a joystick guid comes from the GameInput driver
+extern bool SDL_IsJoystickGameInput(SDL_GUID guid);
 
 // Function to return whether a joystick guid comes from the HIDAPI driver
 extern bool SDL_IsJoystickHIDAPI(SDL_GUID guid);
@@ -156,6 +171,9 @@ extern bool SDL_IsJoystickRAWINPUT(SDL_GUID guid);
 // Function to return whether a joystick guid comes from the Virtual driver
 extern bool SDL_IsJoystickVIRTUAL(SDL_GUID guid);
 
+// Function to return whether a joystick is a wheel
+extern bool SDL_IsJoystickWheel(Uint16 vendor_id, Uint16 product_id, Uint16 crc);
+
 // Function to return whether a joystick should be ignored
 extern bool SDL_ShouldIgnoreJoystick(Uint16 vendor_id, Uint16 product_id, Uint16 version, const char *name);
 
@@ -163,6 +181,7 @@ extern bool SDL_ShouldIgnoreJoystick(Uint16 vendor_id, Uint16 product_id, Uint16
 extern void SDL_PrivateJoystickAddTouchpad(SDL_Joystick *joystick, int nfingers);
 extern void SDL_PrivateJoystickAddSensor(SDL_Joystick *joystick, SDL_SensorType type, float rate);
 extern void SDL_PrivateJoystickSensorRate(SDL_Joystick *joystick, SDL_SensorType type, float rate);
+extern void SDL_PrivateJoystickAddCapSense(SDL_Joystick *joystick, SDL_GamepadCapSenseType type);
 extern void SDL_PrivateJoystickAdded(SDL_JoystickID instance_id);
 extern bool SDL_IsJoystickBeingAdded(void);
 extern void SDL_PrivateJoystickRemoved(SDL_JoystickID instance_id);
@@ -173,6 +192,7 @@ extern void SDL_SendJoystickHat(Uint64 timestamp, SDL_Joystick *joystick, Uint8 
 extern void SDL_SendJoystickButton(Uint64 timestamp, SDL_Joystick *joystick, Uint8 button, bool down);
 extern void SDL_SendJoystickTouchpad(Uint64 timestamp, SDL_Joystick *joystick, int touchpad, int finger, bool down, float x, float y, float pressure);
 extern void SDL_SendJoystickSensor(Uint64 timestamp, SDL_Joystick *joystick, SDL_SensorType type, Uint64 sensor_timestamp, const float *data, int num_values);
+extern void SDL_SendJoystickCapSense(Uint64 timestamp, SDL_Joystick *joystick, SDL_GamepadCapSenseType type, bool down);
 extern void SDL_SendJoystickPowerInfo(SDL_Joystick *joystick, SDL_PowerState state, int percent);
 
 // Function to get the Steam virtual gamepad info for a joystick

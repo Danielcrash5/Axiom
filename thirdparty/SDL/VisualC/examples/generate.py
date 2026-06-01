@@ -13,8 +13,7 @@ def generate(category, example_name, c_source_file):
   <PropertyGroup Label="Globals">
     <ProjectGuid>{{{guid}}}</ProjectGuid>
   </PropertyGroup>
-  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.Default.props" />
-  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.props" />
+  <Import Project="$(SolutionDir)\\examples\\Examples.props" />
   <ItemGroup>
     <None Include="$(SolutionDir)\\..\\examples\\{category}\\{example_name}\\README.txt" />
     <ClCompile Include="$(SolutionDir)\\..\\examples\\{category}\\{example_name}\\{c_source_file}" />
@@ -47,7 +46,8 @@ def main():
     for category in path.iterdir():
         if category.is_dir():
             for example in category.iterdir():
-                generate(category.name, example.name, get_c_source_filename(example))
+                if example.is_dir():
+                     generate(category.name, example.name, get_c_source_filename(example))
 
 
 if __name__ == "__main__":

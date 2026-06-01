@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -16,11 +16,13 @@
 #include "gamepad_front.h"
 #include "gamepad_back.h"
 #include "gamepad_face_abxy.h"
+#include "gamepad_face_axby.h"
 #include "gamepad_face_bayx.h"
 #include "gamepad_face_sony.h"
 #include "gamepad_battery.h"
 #include "gamepad_battery_wired.h"
 #include "gamepad_touchpad.h"
+#include "gamepad_dual_touchpad.h"
 #include "gamepad_button.h"
 #include "gamepad_button_small.h"
 #include "gamepad_axis.h"
@@ -28,7 +30,253 @@
 #include "gamepad_button_background.h"
 #include "gamepad_wired.h"
 #include "gamepad_wireless.h"
+#include "gamepad_grip_sense.h"
 
+#include <limits.h>
+
+#define RAD_TO_DEG (180.0f / SDL_PI_F)
+
+/* Used to draw a 3D cube to represent the gyroscope orientation */
+typedef struct
+{
+    float x, y, z;
+} Vector3;
+
+struct Quaternion
+{
+    float x, y, z, w;
+};
+
+static const Vector3 debug_cube_vertices[] = {
+    { -1.0f, -1.0f, -1.0f },
+    { 1.0f, -1.0f, -1.0f },
+    { 1.0f, 1.0f, -1.0f },
+    { -1.0f, 1.0f, -1.0f },
+    { -1.0f, -1.0f, 1.0f },
+    { 1.0f, -1.0f, 1.0f },
+    { 1.0f, 1.0f, 1.0f },
+    { -1.0f, 1.0f, 1.0f },
+};
+
+static const int debug_cube_edges[][2] = {
+    { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, /* bottom square */
+    { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 }, /* top square */
+    { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 }, /* verticals */
+};
+
+static Vector3 RotateVectorByQuaternion(const Vector3 *v, const Quaternion *q) {
+    /* v' = q * v * q^-1 */
+    float x = v->x, y = v->y, z = v->z;
+    float qx = q->x, qy = q->y, qz = q->z, qw = q->w;
+
+    /* Calculate quaternion *vector */
+    float ix = qw * x + qy * z - qz * y;
+    float iy = qw * y + qz * x - qx * z;
+    float iz = qw * z + qx * y - qy * x;
+    float iw = -qx * x - qy * y - qz * z;
+
+    /* Result = result * conjugate(q) */
+    Vector3 out;
+    out.x = ix * qw + iw * -qx + iy * -qz - iz * -qy;
+    out.y = iy * qw + iw * -qy + iz * -qx - ix * -qz;
+    out.z = iz * qw + iw * -qz + ix * -qy - iy * -qx;
+    return out;
+}
+
+#ifdef GYRO_ISOMETRIC_PROJECTION
+static SDL_FPoint ProjectVec3ToRect(const Vector3 *v, const SDL_FRect *rect)
+{
+    SDL_FPoint out;
+    /* Simple orthographic projection using X and Y; scale to fit into rect */
+    out.x = rect->x + (rect->w / 2.0f) + (v->x * (rect->w / 2.0f));
+    out.y = rect->y + (rect->h / 2.0f) - (v->y * (rect->h / 2.0f)); /* Y inverted */
+    return out;
+}
+#else
+static SDL_FPoint ProjectVec3ToRect(const Vector3 *v, const SDL_FRect *rect)
+{
+    const float verticalFOV_deg = 40.0f;
+    const float cameraZ = 4.0f; /* Camera is at(0, 0, +4), looking toward origin */
+    float aspect = rect->w / rect->h;
+
+    float fovScaleY = SDL_tanf(((verticalFOV_deg / 180.0f) * SDL_PI_F) * 0.5f);
+    float fovScaleX = fovScaleY * aspect;
+
+    float relZ = cameraZ - v->z;
+    if (relZ < 0.01f) {
+        relZ = 0.01f; /* Prevent division by 0 or negative depth */
+    }
+
+    float ndc_x = (v->x / relZ) / fovScaleX;
+    float ndc_y = (v->y / relZ) / fovScaleY;
+
+    /* Convert to screen space */
+    SDL_FPoint out;
+    out.x = rect->x + (rect->w / 2.0f) + (ndc_x * rect->w / 2.0f);
+    out.y = rect->y + (rect->h / 2.0f) - (ndc_y * rect->h / 2.0f); /* flip Y */
+    return out;
+}
+#endif
+
+void DrawGyroDebugCube(SDL_Renderer *renderer, const Quaternion *orientation, const SDL_FRect *rect)
+{
+    SDL_FPoint projected[8];
+    int i;
+    for (i = 0; i < 8; ++i) {
+        Vector3 rotated = RotateVectorByQuaternion(&debug_cube_vertices[i], orientation);
+        projected[i] = ProjectVec3ToRect(&rotated, rect);
+    }
+
+    for (i = 0; i < 12; ++i) {
+        const SDL_FPoint p0 = projected[debug_cube_edges[i][0]];
+        const SDL_FPoint p1 = projected[debug_cube_edges[i][1]];
+        SDL_RenderLine(renderer, p0.x, p0.y, p1.x, p1.y);
+    }
+}
+
+#define CIRCLE_SEGMENTS 64
+
+static Vector3 kCirclePoints3D_XY_Plane[CIRCLE_SEGMENTS];
+static Vector3 kCirclePoints3D_XZ_Plane[CIRCLE_SEGMENTS];
+static Vector3 kCirclePoints3D_YZ_Plane[CIRCLE_SEGMENTS];
+
+void InitCirclePoints3D(void)
+{
+    int i;
+    for (i = 0; i < CIRCLE_SEGMENTS; ++i) {
+        float theta = ((float)i / CIRCLE_SEGMENTS) * SDL_PI_F * 2.0f;
+        kCirclePoints3D_XY_Plane[i].x = SDL_cosf(theta);
+        kCirclePoints3D_XY_Plane[i].y = SDL_sinf(theta);
+        kCirclePoints3D_XY_Plane[i].z = 0.0f;
+    }
+
+    for (i = 0; i < CIRCLE_SEGMENTS; ++i) {
+        float theta = ((float)i / CIRCLE_SEGMENTS) * SDL_PI_F * 2.0f;
+        kCirclePoints3D_XZ_Plane[i].x = SDL_cosf(theta);
+        kCirclePoints3D_XZ_Plane[i].y = 0.0f;
+        kCirclePoints3D_XZ_Plane[i].z = SDL_sinf(theta);
+    }
+
+    for (i = 0; i < CIRCLE_SEGMENTS; ++i) {
+        float theta = ((float)i / CIRCLE_SEGMENTS) * SDL_PI_F * 2.0f;
+        kCirclePoints3D_YZ_Plane[i].x = 0.0f;
+        kCirclePoints3D_YZ_Plane[i].y = SDL_cosf(theta);
+        kCirclePoints3D_YZ_Plane[i].z = SDL_sinf(theta);
+    }
+}
+
+void DrawGyroCircle(
+    SDL_Renderer *renderer,
+    const Vector3 *circlePoints,
+    int numSegments,
+    const Quaternion *orientation,
+    const SDL_FRect *bounds,
+    Uint8 r, Uint8 g, Uint8 b, Uint8 a)
+{
+    SDL_SetRenderDrawColor(renderer, r, g, b, a);
+
+    SDL_FPoint lastScreenPt = { 0 };
+    bool hasLast = false;
+    int i;
+    for (i = 0; i <= numSegments; ++i) {
+        int index = i % numSegments;
+
+        Vector3 rotated = RotateVectorByQuaternion(&circlePoints[index], orientation);
+        SDL_FPoint screenPtVec2 = ProjectVec3ToRect(&rotated, bounds);
+        SDL_FPoint screenPt;
+        screenPt.x = screenPtVec2.x;
+        screenPt.y = screenPtVec2.y;
+
+
+        if (hasLast) {
+            SDL_RenderLine(renderer, lastScreenPt.x, lastScreenPt.y, screenPt.x, screenPt.y);
+        }
+
+        lastScreenPt = screenPt;
+        hasLast = true;
+    }
+}
+
+void DrawGyroDebugCircle(SDL_Renderer *renderer, const Quaternion *orientation, const SDL_FRect *bounds)
+{
+    /* Store current color */
+    Uint8 r, g, b, a;
+    SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
+    DrawGyroCircle(renderer, kCirclePoints3D_YZ_Plane, CIRCLE_SEGMENTS, orientation, bounds, GYRO_COLOR_RED);   /* X axis - pitch */
+    DrawGyroCircle(renderer, kCirclePoints3D_XZ_Plane, CIRCLE_SEGMENTS, orientation, bounds, GYRO_COLOR_GREEN); /* Y axis - yaw */
+    DrawGyroCircle(renderer, kCirclePoints3D_XY_Plane, CIRCLE_SEGMENTS, orientation, bounds, GYRO_COLOR_BLUE);  /* Z axis - Roll */
+
+    /* Restore current color */
+    SDL_SetRenderDrawColor(renderer, r, g, b, a);
+}
+
+
+void DrawGyroDebugAxes(SDL_Renderer *renderer, const Quaternion *orientation, const SDL_FRect *bounds)
+{
+    /* Store current color */
+    Uint8 r, g, b, a;
+    SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
+
+    Vector3 origin = { 0.0f, 0.0f, 0.0f };
+
+    Vector3 right = { 1.0f, 0.0f, 0.0f };
+    Vector3 up = { 0.0f, 1.0f, 0.0f };
+    Vector3 back = { 0.0f, 0.0f, 1.0f };
+
+    Vector3 world_right = RotateVectorByQuaternion(&right, orientation);
+    Vector3 world_up = RotateVectorByQuaternion(&up, orientation);
+    Vector3 world_back = RotateVectorByQuaternion(&back, orientation);
+
+    SDL_FPoint origin_screen = ProjectVec3ToRect(&origin, bounds);
+    SDL_FPoint right_screen = ProjectVec3ToRect(&world_right, bounds);
+    SDL_FPoint up_screen = ProjectVec3ToRect(&world_up, bounds);
+    SDL_FPoint back_screen = ProjectVec3ToRect(&world_back, bounds);
+
+    SDL_SetRenderDrawColor(renderer, GYRO_COLOR_RED);
+    SDL_RenderLine(renderer, origin_screen.x, origin_screen.y, right_screen.x, right_screen.y);
+    SDL_SetRenderDrawColor(renderer, GYRO_COLOR_GREEN);
+    SDL_RenderLine(renderer, origin_screen.x, origin_screen.y, up_screen.x, up_screen.y);
+    SDL_SetRenderDrawColor(renderer, GYRO_COLOR_BLUE);
+    SDL_RenderLine(renderer, origin_screen.x, origin_screen.y, back_screen.x, back_screen.y);
+
+    /* Restore current color */
+    SDL_SetRenderDrawColor(renderer, r, g, b, a);
+}
+
+void DrawAccelerometerDebugArrow(SDL_Renderer *renderer, const Quaternion *gyro_quaternion, const float *accel_data, const SDL_FRect *bounds)
+{
+    /* Store current color */
+    Uint8 r, g, b, a;
+    SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
+
+    const float flGravity = 9.81f;
+    Vector3 vAccel;
+    vAccel.x = accel_data[0] / flGravity;
+    vAccel.y = accel_data[1] / flGravity;
+    vAccel.z = accel_data[2] / flGravity;
+
+    Vector3 origin = { 0.0f, 0.0f, 0.0f };
+    Vector3 rotated_accel = RotateVectorByQuaternion(&vAccel, gyro_quaternion);
+
+    /* Project the origin and rotated vector to screen space */
+    SDL_FPoint origin_screen = ProjectVec3ToRect(&origin, bounds);
+    SDL_FPoint accel_screen = ProjectVec3ToRect(&rotated_accel, bounds);
+
+    /* Draw the line from origin to the rotated accelerometer vector */
+    SDL_SetRenderDrawColor(renderer, GYRO_COLOR_ORANGE);
+    SDL_RenderLine(renderer, origin_screen.x, origin_screen.y, accel_screen.x, accel_screen.y);
+
+    const float head_width = 4.0f;
+    SDL_FRect arrow_head_rect;
+    arrow_head_rect.x = accel_screen.x - head_width * 0.5f;
+    arrow_head_rect.y = accel_screen.y - head_width * 0.5f;
+    arrow_head_rect.w = head_width;
+    arrow_head_rect.h = head_width;
+    SDL_RenderRect(renderer, &arrow_head_rect);
+
+    /* Restore current color */
+    SDL_SetRenderDrawColor(renderer, r, g, b, a);
+}
 
 /* This is indexed by gamepad element */
 static const struct
@@ -58,6 +306,17 @@ static const struct
     { 355, 200 }, /* SDL_GAMEPAD_BUTTON_LEFT_PADDLE2 */
 };
 
+static const struct
+{
+    int x;
+    int y;
+} capsense_positions[] = {
+    {  97, 194 }, /* SDL_GAMEPAD_CAPSENSE_LEFT_STICK */
+    { 330, 270 }, /* SDL_GAMEPAD_CAPSENSE_RIGHT_STICK */
+    {  50, 260 }, /* SDL_GAMEPAD_CAPSENSE_LEFT_GRIP */
+    { 462, 260 }, /* SDL_GAMEPAD_CAPSENSE_RIGHT_GRIP */
+};
+
 /* This is indexed by gamepad element */
 static const struct
 {
@@ -77,8 +336,16 @@ static const struct
     { 400, 5, 180.0 },   /* SDL_GAMEPAD_ELEMENT_AXIS_RIGHT_TRIGGER */
 };
 
-static SDL_FRect touchpad_area = {
+#define MAX_TOUCHPADS 2
+#define MAX_FINGERS   2
+
+static const SDL_FRect touchpad_area = {
     148.0f, 20.0f, 216.0f, 118.0f
+};
+
+static const SDL_FRect dual_touchpad_area[MAX_TOUCHPADS] = {
+    {106.0f, 20.0f, 118.0f, 118.0f},
+    {288.0f, 20.0f, 118.0f, 118.0f},
 };
 
 typedef struct
@@ -89,19 +356,29 @@ typedef struct
     float pressure;
 } GamepadTouchpadFinger;
 
+typedef struct
+{
+    SDL_FRect area;
+    int num_fingers;
+    GamepadTouchpadFinger *fingers;
+} GamepadTouchpad;
+
 struct GamepadImage
 {
     SDL_Renderer *renderer;
     SDL_Texture *front_texture;
     SDL_Texture *back_texture;
     SDL_Texture *face_abxy_texture;
+    SDL_Texture *face_axby_texture;
     SDL_Texture *face_bayx_texture;
     SDL_Texture *face_sony_texture;
     SDL_Texture *connection_texture[2];
     SDL_Texture *battery_texture[2];
     SDL_Texture *touchpad_texture;
+    SDL_Texture *dual_touchpad_texture;
     SDL_Texture *button_texture;
     SDL_Texture *axis_texture;
+    SDL_Texture *grip_sense_texture;
     float gamepad_width;
     float gamepad_height;
     float face_width;
@@ -112,26 +389,32 @@ struct GamepadImage
     float battery_height;
     float touchpad_width;
     float touchpad_height;
+    float dual_touchpad_width;
+    float dual_touchpad_height;
     float button_width;
     float button_height;
     float axis_width;
     float axis_height;
+    float grip_sense_width;
+    float grip_sense_height;
 
     float x;
     float y;
     bool showing_front;
     bool showing_touchpad;
     SDL_GamepadType type;
+    SDL_GamepadButtonLabel east_label;
     ControllerDisplayMode display_mode;
 
     bool elements[SDL_GAMEPAD_ELEMENT_MAX];
+    bool capsense_elements[SDL_GAMEPAD_CAPSENSE_ELEMENT_MAX];
 
     SDL_JoystickConnectionState connection_state;
     SDL_PowerState battery_state;
     int battery_percent;
 
-    int num_fingers;
-    GamepadTouchpadFinger *fingers;
+    int num_touchpads;
+    GamepadTouchpad *touchpads;
 };
 
 static SDL_Texture *CreateTexture(SDL_Renderer *renderer, unsigned char *data, unsigned int len)
@@ -140,7 +423,7 @@ static SDL_Texture *CreateTexture(SDL_Renderer *renderer, unsigned char *data, u
     SDL_Surface *surface;
     SDL_IOStream *src = SDL_IOFromConstMem(data, len);
     if (src) {
-        surface = SDL_LoadBMP_IO(src, true);
+        surface = SDL_LoadPNG_IO(src, true);
         if (surface) {
             texture = SDL_CreateTextureFromSurface(renderer, surface);
             SDL_DestroySurface(surface);
@@ -154,33 +437,41 @@ GamepadImage *CreateGamepadImage(SDL_Renderer *renderer)
     GamepadImage *ctx = SDL_calloc(1, sizeof(*ctx));
     if (ctx) {
         ctx->renderer = renderer;
-        ctx->front_texture = CreateTexture(renderer, gamepad_front_bmp, gamepad_front_bmp_len);
-        ctx->back_texture = CreateTexture(renderer, gamepad_back_bmp, gamepad_back_bmp_len);
+        ctx->front_texture = CreateTexture(renderer, gamepad_front_png, gamepad_front_png_len);
+        ctx->back_texture = CreateTexture(renderer, gamepad_back_png, gamepad_back_png_len);
         SDL_GetTextureSize(ctx->front_texture, &ctx->gamepad_width, &ctx->gamepad_height);
 
-        ctx->face_abxy_texture = CreateTexture(renderer, gamepad_face_abxy_bmp, gamepad_face_abxy_bmp_len);
-        ctx->face_bayx_texture = CreateTexture(renderer, gamepad_face_bayx_bmp, gamepad_face_bayx_bmp_len);
-        ctx->face_sony_texture = CreateTexture(renderer, gamepad_face_sony_bmp, gamepad_face_sony_bmp_len);
+        ctx->face_abxy_texture = CreateTexture(renderer, gamepad_face_abxy_png, gamepad_face_abxy_png_len);
+        ctx->face_axby_texture = CreateTexture(renderer, gamepad_face_axby_png, gamepad_face_axby_png_len);
+        ctx->face_bayx_texture = CreateTexture(renderer, gamepad_face_bayx_png, gamepad_face_bayx_png_len);
+        ctx->face_sony_texture = CreateTexture(renderer, gamepad_face_sony_png, gamepad_face_sony_png_len);
         SDL_GetTextureSize(ctx->face_abxy_texture, &ctx->face_width, &ctx->face_height);
 
-        ctx->connection_texture[0] = CreateTexture(renderer, gamepad_wired_bmp, gamepad_wired_bmp_len);
-        ctx->connection_texture[1] = CreateTexture(renderer, gamepad_wireless_bmp, gamepad_wireless_bmp_len);
+        ctx->connection_texture[0] = CreateTexture(renderer, gamepad_wired_png, gamepad_wired_png_len);
+        ctx->connection_texture[1] = CreateTexture(renderer, gamepad_wireless_png, gamepad_wireless_png_len);
         SDL_GetTextureSize(ctx->connection_texture[0], &ctx->connection_width, &ctx->connection_height);
 
-        ctx->battery_texture[0] = CreateTexture(renderer, gamepad_battery_bmp, gamepad_battery_bmp_len);
-        ctx->battery_texture[1] = CreateTexture(renderer, gamepad_battery_wired_bmp, gamepad_battery_wired_bmp_len);
+        ctx->battery_texture[0] = CreateTexture(renderer, gamepad_battery_png, gamepad_battery_png_len);
+        ctx->battery_texture[1] = CreateTexture(renderer, gamepad_battery_wired_png, gamepad_battery_wired_png_len);
         SDL_GetTextureSize(ctx->battery_texture[0], &ctx->battery_width, &ctx->battery_height);
 
-        ctx->touchpad_texture = CreateTexture(renderer, gamepad_touchpad_bmp, gamepad_touchpad_bmp_len);
+        ctx->touchpad_texture = CreateTexture(renderer, gamepad_touchpad_png, gamepad_touchpad_png_len);
         SDL_GetTextureSize(ctx->touchpad_texture, &ctx->touchpad_width, &ctx->touchpad_height);
 
-        ctx->button_texture = CreateTexture(renderer, gamepad_button_bmp, gamepad_button_bmp_len);
+        ctx->dual_touchpad_texture = CreateTexture(renderer, gamepad_dual_touchpad_png, gamepad_dual_touchpad_png_len);
+        SDL_GetTextureSize(ctx->dual_touchpad_texture, &ctx->dual_touchpad_width, &ctx->dual_touchpad_height);
+
+        ctx->button_texture = CreateTexture(renderer, gamepad_button_png, gamepad_button_png_len);
         SDL_GetTextureSize(ctx->button_texture, &ctx->button_width, &ctx->button_height);
         SDL_SetTextureColorMod(ctx->button_texture, 10, 255, 21);
 
-        ctx->axis_texture = CreateTexture(renderer, gamepad_axis_bmp, gamepad_axis_bmp_len);
+        ctx->axis_texture = CreateTexture(renderer, gamepad_axis_png, gamepad_axis_png_len);
         SDL_GetTextureSize(ctx->axis_texture, &ctx->axis_width, &ctx->axis_height);
         SDL_SetTextureColorMod(ctx->axis_texture, 10, 255, 21);
+
+        ctx->grip_sense_texture = CreateTexture(renderer, gamepad_grip_sense_png, gamepad_grip_sense_png_len);
+        SDL_GetTextureSize(ctx->grip_sense_texture, &ctx->grip_sense_width, &ctx->grip_sense_height);
+        SDL_SetTextureColorMod(ctx->grip_sense_texture, 10, 255, 21);
 
         ctx->showing_front = true;
     }
@@ -213,17 +504,20 @@ void GetGamepadImageArea(GamepadImage *ctx, SDL_FRect *area)
     }
 }
 
-void GetGamepadTouchpadArea(GamepadImage *ctx, SDL_FRect *area)
+void GetGamepadTouchpadArea(GamepadImage *ctx, SDL_FRect *area, int touchpad)
 {
+    int i;
+
     if (!ctx) {
         SDL_zerop(area);
         return;
     }
 
-    area->x = ctx->x + (ctx->gamepad_width - ctx->touchpad_width) / 2 + touchpad_area.x;
-    area->y = ctx->y + ctx->gamepad_height + touchpad_area.y;
-    area->w = touchpad_area.w;
-    area->h = touchpad_area.h;
+    i = SDL_clamp(touchpad, 0, MAX_TOUCHPADS - 1);
+    area->x = ctx->x + (ctx->gamepad_width - ctx->dual_touchpad_width) / 2 + dual_touchpad_area[i].x;
+    area->y = ctx->y + ctx->gamepad_height + dual_touchpad_area[i].y;
+    area->w = dual_touchpad_area[i].w;
+    area->h = dual_touchpad_area[i].h;
 }
 
 void SetGamepadImageShowingFront(GamepadImage *ctx, bool showing_front)
@@ -406,6 +700,7 @@ void ClearGamepadImage(GamepadImage *ctx)
     }
 
     SDL_zeroa(ctx->elements);
+    SDL_zeroa(ctx->capsense_elements);
 }
 
 void SetGamepadImageElement(GamepadImage *ctx, int element, bool active)
@@ -417,15 +712,38 @@ void SetGamepadImageElement(GamepadImage *ctx, int element, bool active)
     ctx->elements[element] = active;
 }
 
+static void SetGamepadCapSenseImageElement(GamepadImage *ctx, int capsense_element, bool active)
+{
+    if (!ctx) {
+        return;
+    }
+
+    ctx->capsense_elements[capsense_element] = active;
+}
+
+static void FreeTouchpads(GamepadImage *ctx)
+{
+    if (ctx->touchpads) {
+        for (int i = 0; i < ctx->num_touchpads; ++i) {
+            SDL_free(ctx->touchpads[i].fingers);
+        }
+        SDL_free(ctx->touchpads);
+        ctx->touchpads = NULL;
+        ctx->num_touchpads = 0;
+    }
+}
+
 void UpdateGamepadImageFromGamepad(GamepadImage *ctx, SDL_Gamepad *gamepad)
 {
     int i;
+    int num_touchpads;
 
     if (!ctx) {
         return;
     }
 
     ctx->type = SDL_GetGamepadType(gamepad);
+    ctx->east_label = SDL_GetGamepadButtonLabel(gamepad, SDL_GAMEPAD_BUTTON_EAST);
     char *mapping = SDL_GetGamepadMapping(gamepad);
     if (mapping) {
         if (SDL_strstr(mapping, "SDL_GAMECONTROLLER_USE_BUTTON_LABELS")) {
@@ -439,6 +757,11 @@ void UpdateGamepadImageFromGamepad(GamepadImage *ctx, SDL_Gamepad *gamepad)
         const SDL_GamepadButton button = (SDL_GamepadButton)i;
 
         SetGamepadImageElement(ctx, button, SDL_GetGamepadButton(gamepad, button));
+    }
+
+    for (i = 0; i < SDL_GAMEPAD_CAPSENSE_COUNT; ++i) {
+        const SDL_GamepadCapSenseType capsense = (SDL_GamepadCapSenseType)i;
+        SetGamepadCapSenseImageElement(ctx, capsense, SDL_GetGamepadCapSense(gamepad, capsense));
     }
 
     for (i = 0; i < SDL_GAMEPAD_AXIS_COUNT; ++i) {
@@ -476,30 +799,44 @@ void UpdateGamepadImageFromGamepad(GamepadImage *ctx, SDL_Gamepad *gamepad)
     ctx->connection_state = SDL_GetGamepadConnectionState(gamepad);
     ctx->battery_state = SDL_GetGamepadPowerInfo(gamepad, &ctx->battery_percent);
 
-    if (SDL_GetNumGamepadTouchpads(gamepad) > 0) {
-        int num_fingers = SDL_GetNumGamepadTouchpadFingers(gamepad, 0);
-        if (num_fingers != ctx->num_fingers) {
-            GamepadTouchpadFinger *fingers = (GamepadTouchpadFinger *)SDL_realloc(ctx->fingers, num_fingers * sizeof(*fingers));
-            if (fingers) {
-                ctx->fingers = fingers;
-                ctx->num_fingers = num_fingers;
+    num_touchpads = SDL_GetNumGamepadTouchpads(gamepad);
+    num_touchpads = SDL_min(num_touchpads, MAX_TOUCHPADS);
+    if (num_touchpads != ctx->num_touchpads) {
+        FreeTouchpads(ctx);
+        ctx->num_touchpads = num_touchpads;
+        if (ctx->num_touchpads > 0) {
+            ctx->touchpads = (GamepadTouchpad *)SDL_malloc(sizeof(*ctx->touchpads) * ctx->num_touchpads);
+            if (ctx->touchpads) {
+                for (i = 0; i < ctx->num_touchpads; ++i) {
+                    GamepadTouchpad *touchpad = &ctx->touchpads[i];
+                    touchpad->num_fingers = SDL_GetNumGamepadTouchpadFingers(gamepad, i);
+                    touchpad->num_fingers = SDL_min(touchpad->num_fingers, MAX_FINGERS);
+                    if (touchpad->num_fingers > 0) {
+                        touchpad->fingers = (GamepadTouchpadFinger *)SDL_malloc(sizeof(*touchpad->fingers) * touchpad->num_fingers);
+                        if (touchpad->fingers == NULL) {
+                            touchpad->num_fingers = 0;
+                        }
+                    }
+                }
+                if (ctx->num_touchpads == 1) {
+                    SDL_memcpy(&ctx->touchpads[0].area, &touchpad_area, sizeof(SDL_FRect));
+                } else {
+                    SDL_memcpy(&ctx->touchpads[0].area, &dual_touchpad_area[0], sizeof(SDL_FRect));
+                    SDL_memcpy(&ctx->touchpads[1].area, &dual_touchpad_area[1], sizeof(SDL_FRect));
+                }
             } else {
-                num_fingers = SDL_min(ctx->num_fingers, num_fingers);
+                ctx->num_touchpads = 0;
             }
         }
-        for (i = 0; i < num_fingers; ++i) {
-            GamepadTouchpadFinger *finger = &ctx->fingers[i];
+        ctx->showing_touchpad = (ctx->num_touchpads > 0);
+    }
 
-            SDL_GetGamepadTouchpadFinger(gamepad, 0, i, &finger->down, &finger->x, &finger->y, &finger->pressure);
+    for (i = 0; i < ctx->num_touchpads; ++i) {
+        GamepadTouchpad *touchpad = &ctx->touchpads[i];
+        for (int j = 0; j < touchpad->num_fingers; ++j) {
+            GamepadTouchpadFinger *finger = &touchpad->fingers[j];
+            SDL_GetGamepadTouchpadFinger(gamepad, i, j, &finger->down, &finger->x, &finger->y, &finger->pressure);
         }
-        ctx->showing_touchpad = true;
-    } else {
-        if (ctx->fingers) {
-            SDL_free(ctx->fingers);
-            ctx->fingers = NULL;
-            ctx->num_fingers = 0;
-        }
-        ctx->showing_touchpad = false;
     }
 }
 
@@ -547,14 +884,17 @@ void RenderGamepadImage(GamepadImage *ctx)
         dst.w = ctx->face_width;
         dst.h = ctx->face_height;
 
-        switch (SDL_GetGamepadButtonLabelForType(ctx->type, SDL_GAMEPAD_BUTTON_SOUTH)) {
-        case SDL_GAMEPAD_BUTTON_LABEL_A:
+        switch (ctx->east_label) {
+        case SDL_GAMEPAD_BUTTON_LABEL_B:
             SDL_RenderTexture(ctx->renderer, ctx->face_abxy_texture, NULL, &dst);
             break;
-        case SDL_GAMEPAD_BUTTON_LABEL_B:
+        case SDL_GAMEPAD_BUTTON_LABEL_X:
+            SDL_RenderTexture(ctx->renderer, ctx->face_axby_texture, NULL, &dst);
+            break;
+        case SDL_GAMEPAD_BUTTON_LABEL_A:
             SDL_RenderTexture(ctx->renderer, ctx->face_bayx_texture, NULL, &dst);
             break;
-        case SDL_GAMEPAD_BUTTON_LABEL_CROSS:
+        case SDL_GAMEPAD_BUTTON_LABEL_CIRCLE:
             SDL_RenderTexture(ctx->renderer, ctx->face_sony_texture, NULL, &dst);
             break;
         default:
@@ -630,29 +970,66 @@ void RenderGamepadImage(GamepadImage *ctx)
     }
 
     if (ctx->display_mode == CONTROLLER_MODE_TESTING && ctx->showing_touchpad) {
-        dst.x = ctx->x + (ctx->gamepad_width - ctx->touchpad_width) / 2;
-        dst.y = ctx->y + ctx->gamepad_height;
-        dst.w = ctx->touchpad_width;
-        dst.h = ctx->touchpad_height;
-        SDL_RenderTexture(ctx->renderer, ctx->touchpad_texture, NULL, &dst);
+        float initial_dst_x;
+        if (ctx->num_touchpads == 1) {
+            dst.x = ctx->x + (ctx->gamepad_width - ctx->touchpad_width) / 2;
+            dst.y = ctx->y + ctx->gamepad_height;
+            dst.w = ctx->touchpad_width;
+            dst.h = ctx->touchpad_height;
+            SDL_RenderTexture(ctx->renderer, ctx->touchpad_texture, NULL, &dst);
+        } else {
+            dst.x = ctx->x + (ctx->gamepad_width - ctx->dual_touchpad_width) / 2;
+            dst.y = ctx->y + ctx->gamepad_height;
+            dst.w = ctx->dual_touchpad_width;
+            dst.h = ctx->dual_touchpad_height;
+            SDL_RenderTexture(ctx->renderer, ctx->dual_touchpad_texture, NULL, &dst);
+        }
+        initial_dst_x = dst.x;
 
-        for (i = 0; i < ctx->num_fingers; ++i) {
-            GamepadTouchpadFinger *finger = &ctx->fingers[i];
-
-            if (finger->down) {
-                dst.x = ctx->x + (ctx->gamepad_width - ctx->touchpad_width) / 2;
-                dst.x += touchpad_area.x + finger->x * touchpad_area.w;
-                dst.x -= ctx->button_width / 2;
-                dst.y = ctx->y + ctx->gamepad_height;
-                dst.y += touchpad_area.y + finger->y * touchpad_area.h;
-                dst.y -= ctx->button_height / 2;
-                dst.w = ctx->button_width;
-                dst.h = ctx->button_height;
-                SDL_SetTextureAlphaMod(ctx->button_texture, (Uint8)(finger->pressure * SDL_ALPHA_OPAQUE));
-                SDL_RenderTexture(ctx->renderer, ctx->button_texture, NULL, &dst);
-                SDL_SetTextureAlphaMod(ctx->button_texture, SDL_ALPHA_OPAQUE);
+        for (i = 0; i < ctx->num_touchpads; ++i) {
+            GamepadTouchpad *touchpad = &ctx->touchpads[i];
+            for (int j = 0; j < touchpad->num_fingers; ++j) {
+                GamepadTouchpadFinger *finger = &touchpad->fingers[j];
+                if (finger->down) {
+                    dst.x = initial_dst_x;
+                    dst.x += touchpad->area.x + finger->x * touchpad->area.w;
+                    dst.x -= ctx->button_width / 2;
+                    dst.y = ctx->y + ctx->gamepad_height;
+                    dst.y += touchpad->area.y + finger->y * touchpad->area.h;
+                    dst.y -= ctx->button_height / 2;
+                    dst.w = ctx->button_width;
+                    dst.h = ctx->button_height;
+                    SDL_SetTextureAlphaMod(ctx->button_texture, (Uint8)((0.1f + (finger->pressure * 0.9f)) * SDL_ALPHA_OPAQUE));
+                    SDL_RenderTexture(ctx->renderer, ctx->button_texture, NULL, &dst);
+                    SDL_SetTextureAlphaMod(ctx->button_texture, SDL_ALPHA_OPAQUE);
+                }
             }
         }
+    }
+
+    if (ctx->display_mode == CONTROLLER_MODE_TESTING && ctx->showing_front) {
+        SDL_SetTextureAlphaMod(ctx->button_texture, SDL_ALPHA_OPAQUE / 2);
+        for (i = 0; i < 2; ++i) {
+            if (ctx->capsense_elements[i]) {
+                dst.w = ctx->button_width / 2;
+                dst.h = ctx->button_height / 2;
+                dst.x = ctx->x + capsense_positions[i].x - dst.w / 2;
+                dst.y = ctx->y + capsense_positions[i].y - dst.h / 2;
+                SDL_RenderTexture(ctx->renderer, ctx->button_texture, NULL, &dst);
+            }
+        }
+        SDL_SetTextureAlphaMod(ctx->button_texture, SDL_ALPHA_OPAQUE);
+        SDL_SetTextureAlphaMod(ctx->grip_sense_texture, SDL_ALPHA_OPAQUE / 2);
+        for (i = 2; i < SDL_arraysize(capsense_positions); ++i) {
+            if (ctx->capsense_elements[i]) {
+                dst.w = ctx->grip_sense_width;
+                dst.h = ctx->grip_sense_height;
+                dst.x = ctx->x + capsense_positions[i].x - dst.w / 2;
+                dst.y = ctx->y + capsense_positions[i].y - dst.h / 2;
+                SDL_RenderTexture(ctx->renderer, ctx->grip_sense_texture, NULL, &dst);
+            }
+        }
+        SDL_SetTextureAlphaMod(ctx->grip_sense_texture, SDL_ALPHA_OPAQUE);
     }
 }
 
@@ -664,18 +1041,20 @@ void DestroyGamepadImage(GamepadImage *ctx)
         SDL_DestroyTexture(ctx->front_texture);
         SDL_DestroyTexture(ctx->back_texture);
         SDL_DestroyTexture(ctx->face_abxy_texture);
+        SDL_DestroyTexture(ctx->face_axby_texture);
         SDL_DestroyTexture(ctx->face_bayx_texture);
         SDL_DestroyTexture(ctx->face_sony_texture);
         for (i = 0; i < SDL_arraysize(ctx->battery_texture); ++i) {
             SDL_DestroyTexture(ctx->battery_texture[i]);
         }
         SDL_DestroyTexture(ctx->touchpad_texture);
+        SDL_DestroyTexture(ctx->dual_touchpad_texture);
         SDL_DestroyTexture(ctx->button_texture);
         SDL_DestroyTexture(ctx->axis_texture);
+        FreeTouchpads(ctx);
         SDL_free(ctx);
     }
 }
-
 
 static const char *gamepad_button_names[] = {
     "South",
@@ -717,6 +1096,14 @@ static const char *gamepad_axis_names[] = {
 };
 SDL_COMPILE_TIME_ASSERT(gamepad_axis_names, SDL_arraysize(gamepad_axis_names) == SDL_GAMEPAD_AXIS_COUNT);
 
+static const char *capsense_names[] = {
+    "L.Stick Touch",
+    "R.Stick Touch",
+    "L.Grip Sense",
+    "R.Grip Sense",
+};
+SDL_COMPILE_TIME_ASSERT(capsense_names, SDL_arraysize(capsense_names) == SDL_GAMEPAD_CAPSENSE_COUNT);
+
 struct GamepadDisplay
 {
     SDL_Renderer *renderer;
@@ -729,6 +1116,8 @@ struct GamepadDisplay
 
     float accel_data[3];
     float gyro_data[3];
+    float gyro_drift_correction_data[3];
+
     Uint64 last_sensor_update;
 
     ControllerDisplayMode display_mode;
@@ -745,16 +1134,82 @@ GamepadDisplay *CreateGamepadDisplay(SDL_Renderer *renderer)
     if (ctx) {
         ctx->renderer = renderer;
 
-        ctx->button_texture = CreateTexture(renderer, gamepad_button_small_bmp, gamepad_button_small_bmp_len);
+        ctx->button_texture = CreateTexture(renderer, gamepad_button_small_png, gamepad_button_small_png_len);
         SDL_GetTextureSize(ctx->button_texture, &ctx->button_width, &ctx->button_height);
 
-        ctx->arrow_texture = CreateTexture(renderer, gamepad_axis_arrow_bmp, gamepad_axis_arrow_bmp_len);
+        ctx->arrow_texture = CreateTexture(renderer, gamepad_axis_arrow_png, gamepad_axis_arrow_png_len);
         SDL_GetTextureSize(ctx->arrow_texture, &ctx->arrow_width, &ctx->arrow_height);
 
         ctx->element_highlighted = SDL_GAMEPAD_ELEMENT_INVALID;
         ctx->element_selected = SDL_GAMEPAD_ELEMENT_INVALID;
+
+        SDL_zeroa(ctx->accel_data);
+        SDL_zeroa(ctx->gyro_data);
+        SDL_zeroa(ctx->gyro_drift_correction_data);
     }
     return ctx;
+}
+
+struct GyroDisplay
+{
+    SDL_Renderer *renderer;
+
+    /* Main drawing area */
+    SDL_FRect area;
+
+    /* This part displays extra info from the IMUstate in order to figure out actual polling rates. */
+    float gyro_drift_solution[3];
+    int reported_sensor_rate_hz;           /*hz - comes from HIDsdl implementation. Could be fixed, platform time, or true sensor time*/
+    Uint64 next_reported_sensor_time;      /* SDL ticks used to throttle the display */
+
+    int estimated_sensor_rate_hz;          /*hz - our estimation of the actual polling rate by observing packets received*/
+    float euler_displacement_angles[3];    /* pitch, yaw, roll */
+    Quaternion gyro_quaternion;            /* Rotation since startup/reset, comprised of each gyro speed packet times sensor delta time. */
+    EGyroCalibrationPhase current_calibration_phase;
+    float calibration_phase_progress_fraction; /* [0..1] */
+    float accelerometer_noise_sq;          /* Distance between last noise and new noise. Used to indicate motion.*/
+    float accelerometer_noise_tolerance_sq; /* Maximum amount of noise detected during the Noise Profiling Phase */
+
+    GamepadButton *reset_gyro_button;
+    GamepadButton *calibrate_gyro_button;
+};
+
+GyroDisplay *CreateGyroDisplay(SDL_Renderer *renderer)
+{
+    GyroDisplay *ctx = SDL_calloc(1, sizeof(*ctx));
+    {
+        ctx->renderer = renderer;
+        ctx->estimated_sensor_rate_hz = 0;
+        SDL_zeroa(ctx->gyro_drift_solution);
+        Quaternion quat_identity = { 0.0f, 0.0f, 0.0f, 1.0f };
+        ctx->gyro_quaternion = quat_identity;
+        ctx->reported_sensor_rate_hz = 0;
+        ctx->next_reported_sensor_time = 0;
+        ctx->current_calibration_phase = GYRO_CALIBRATION_PHASE_OFF;
+        ctx->calibration_phase_progress_fraction = 0.0f; /* [0..1] */
+        ctx->accelerometer_noise_sq = 0.0f;
+        ctx->accelerometer_noise_tolerance_sq = ACCELEROMETER_NOISE_THRESHOLD; /* Will be overwritten but this avoids divide by zero. */
+        ctx->reset_gyro_button = CreateGamepadButton(renderer, "Reset View");
+        ctx->calibrate_gyro_button = CreateGamepadButton(renderer, "Recalibrate Drift");
+    }
+
+    return ctx;
+}
+
+void SetGyroDisplayArea(GyroDisplay *ctx, const SDL_FRect *area)
+{
+    if (!ctx) {
+        return;
+    }
+
+    SDL_copyp(&ctx->area, area);
+    /* Place the reset button to the bottom right of the gyro display area.*/
+    SDL_FRect reset_button_area;
+    reset_button_area.w = SDL_max(MINIMUM_BUTTON_WIDTH, GetGamepadButtonLabelWidth(ctx->reset_gyro_button) + 2 * BUTTON_PADDING);
+    reset_button_area.h = GetGamepadButtonLabelHeight(ctx->reset_gyro_button) + BUTTON_PADDING;
+    reset_button_area.x = area->x + area->w - reset_button_area.w - BUTTON_PADDING;
+    reset_button_area.y = area->y + area->h - reset_button_area.h - BUTTON_PADDING;
+    SetGamepadButtonArea(ctx->reset_gyro_button, &reset_button_area);
 }
 
 void SetGamepadDisplayDisplayMode(GamepadDisplay *ctx, ControllerDisplayMode display_mode)
@@ -773,6 +1228,16 @@ void SetGamepadDisplayArea(GamepadDisplay *ctx, const SDL_FRect *area)
     }
 
     SDL_copyp(&ctx->area, area);
+}
+void SetGamepadDisplayGyroDriftCorrection(GamepadDisplay *ctx, float *gyro_drift_correction)
+{
+    if (!ctx) {
+        return;
+    }
+
+    ctx->gyro_drift_correction_data[0] = gyro_drift_correction[0];
+    ctx->gyro_drift_correction_data[1] = gyro_drift_correction[1];
+    ctx->gyro_drift_correction_data[2] = gyro_drift_correction[2];
 }
 
 static bool GetBindingString(const char *label, const char *mapping, char *text, size_t size)
@@ -1037,6 +1502,47 @@ static void RenderGamepadElementHighlight(GamepadDisplay *ctx, int element, cons
     }
 }
 
+void SetGamepadDisplayIMUValues(GyroDisplay *ctx, float *gyro_drift_solution, float *euler_displacement_angles, Quaternion *gyro_quaternion, int reported_senor_rate_hz, int estimated_sensor_rate_hz, EGyroCalibrationPhase calibration_phase, float drift_calibration_progress_frac, float accelerometer_noise_sq, float accelerometer_noise_tolerance_sq)
+{
+    if (!ctx) {
+        return;
+    }
+
+    const int SENSOR_UPDATE_INTERVAL_MS = 100;
+    Uint64 now = SDL_GetTicks();
+    if (now > ctx->next_reported_sensor_time) {
+        ctx->estimated_sensor_rate_hz = estimated_sensor_rate_hz;
+        if (reported_senor_rate_hz != 0) {
+            ctx->reported_sensor_rate_hz = reported_senor_rate_hz;
+        }
+        ctx->next_reported_sensor_time = now + SENSOR_UPDATE_INTERVAL_MS;
+    }
+
+    SDL_memcpy(ctx->gyro_drift_solution, gyro_drift_solution, sizeof(ctx->gyro_drift_solution));
+    SDL_memcpy(ctx->euler_displacement_angles, euler_displacement_angles, sizeof(ctx->euler_displacement_angles));
+    ctx->gyro_quaternion = *gyro_quaternion;
+    ctx->current_calibration_phase = calibration_phase;
+    ctx->calibration_phase_progress_fraction = drift_calibration_progress_frac;
+    ctx->accelerometer_noise_sq = accelerometer_noise_sq;
+    ctx->accelerometer_noise_tolerance_sq = accelerometer_noise_tolerance_sq;
+}
+
+extern GamepadButton *GetGyroResetButton(GyroDisplay *ctx)
+{
+    if (!ctx) {
+        return NULL;
+    }
+    return ctx->reset_gyro_button;
+}
+
+extern GamepadButton *GetGyroCalibrateButton(GyroDisplay *ctx)
+{
+    if (!ctx) {
+        return NULL;
+    }
+    return ctx->calibrate_gyro_button;
+}
+
 void RenderGamepadDisplay(GamepadDisplay *ctx, SDL_Gamepad *gamepad)
 {
     float x, y;
@@ -1242,20 +1748,50 @@ void RenderGamepadDisplay(GamepadDisplay *ctx, SDL_Gamepad *gamepad)
     }
 
     if (ctx->display_mode == CONTROLLER_MODE_TESTING) {
-        if (SDL_GetNumGamepadTouchpads(gamepad) > 0) {
-            int num_fingers = SDL_GetNumGamepadTouchpadFingers(gamepad, 0);
-            for (i = 0; i < num_fingers; ++i) {
-                bool down;
-                float finger_x, finger_y, finger_pressure;
+        int num_touchpads = SDL_GetNumGamepadTouchpads(gamepad);
+        if (num_touchpads > 0) {
+            for (i = 0; i < num_touchpads; ++i) {
+                int num_fingers = SDL_GetNumGamepadTouchpadFingers(gamepad, i);
+                for (int j = 0; j < num_fingers; ++j) {
+                    bool down;
+                    float finger_x, finger_y, finger_pressure;
 
-                if (!SDL_GetGamepadTouchpadFinger(gamepad, 0, i, &down, &finger_x, &finger_y, &finger_pressure)) {
-                    continue;
+                    if (!SDL_GetGamepadTouchpadFinger(gamepad, i, j, &down, &finger_x, &finger_y, &finger_pressure)) {
+                        continue;
+                    }
+
+                    SDL_snprintf(text, sizeof(text), "Pad %d Finger %d:", i, j);
+                    SDLTest_DrawString(ctx->renderer, x + center - SDL_strlen(text) * FONT_CHARACTER_SIZE, y, text);
+
+                    if (down) {
+                        SDL_SetTextureColorMod(ctx->button_texture, 10, 255, 21);
+                    } else {
+                        SDL_SetTextureColorMod(ctx->button_texture, 255, 255, 255);
+                    }
+
+                    dst.x = x + center + 2.0f;
+                    dst.y = y + FONT_CHARACTER_SIZE / 2 - ctx->button_height / 2;
+                    dst.w = ctx->button_width;
+                    dst.h = ctx->button_height;
+                    SDL_RenderTexture(ctx->renderer, ctx->button_texture, NULL, &dst);
+
+                    if (down) {
+                        SDL_snprintf(text, sizeof(text), "(%.2f,%.2f)", finger_x, finger_y);
+                        SDLTest_DrawString(ctx->renderer, x + center + ctx->button_width + 4.0f, y, text);
+                    }
+
+                    y += ctx->button_height + 2.0f;
                 }
+            }
+        }
 
-                SDL_snprintf(text, sizeof(text), "Touch finger %d:", i);
+        for (i = 0; i < SDL_GAMEPAD_CAPSENSE_COUNT; i++) {
+            const SDL_GamepadCapSenseType capsense = (SDL_GamepadCapSenseType)i;
+            if (SDL_GamepadHasCapSense(gamepad, capsense)) {
+                SDL_snprintf(text, sizeof(text), "%s:", capsense_names[i]);
                 SDLTest_DrawString(ctx->renderer, x + center - SDL_strlen(text) * FONT_CHARACTER_SIZE, y, text);
 
-                if (down) {
+                if (SDL_GetGamepadCapSense(gamepad, capsense)) {
                     SDL_SetTextureColorMod(ctx->button_texture, 10, 255, 21);
                 } else {
                     SDL_SetTextureColorMod(ctx->button_texture, 255, 255, 255);
@@ -1267,17 +1803,13 @@ void RenderGamepadDisplay(GamepadDisplay *ctx, SDL_Gamepad *gamepad)
                 dst.h = ctx->button_height;
                 SDL_RenderTexture(ctx->renderer, ctx->button_texture, NULL, &dst);
 
-                if (down) {
-                    SDL_snprintf(text, sizeof(text), "(%.2f,%.2f)", finger_x, finger_y);
-                    SDLTest_DrawString(ctx->renderer, x + center + ctx->button_width + 4.0f, y, text);
-                }
-
                 y += ctx->button_height + 2.0f;
-            }
+            };
         }
 
         has_accel = SDL_GamepadHasSensor(gamepad, SDL_SENSOR_ACCEL);
         has_gyro = SDL_GamepadHasSensor(gamepad, SDL_SENSOR_GYRO);
+
         if (has_accel || has_gyro) {
             const int SENSOR_UPDATE_INTERVAL_MS = 100;
             Uint64 now = SDL_GetTicks();
@@ -1295,19 +1827,26 @@ void RenderGamepadDisplay(GamepadDisplay *ctx, SDL_Gamepad *gamepad)
             if (has_accel) {
                 SDL_strlcpy(text, "Accelerometer:", sizeof(text));
                 SDLTest_DrawString(ctx->renderer, x + center - SDL_strlen(text) * FONT_CHARACTER_SIZE, y, text);
-                SDL_snprintf(text, sizeof(text), "(%.2f,%.2f,%.2f)", ctx->accel_data[0], ctx->accel_data[1], ctx->accel_data[2]);
+                SDL_snprintf(text, sizeof(text), "[%.2f,%.2f,%.2f]m/s%s", ctx->accel_data[0], ctx->accel_data[1], ctx->accel_data[2], SQUARED_UTF8 );
                 SDLTest_DrawString(ctx->renderer, x + center + 2.0f, y, text);
-
                 y += ctx->button_height + 2.0f;
             }
 
             if (has_gyro) {
                 SDL_strlcpy(text, "Gyro:", sizeof(text));
                 SDLTest_DrawString(ctx->renderer, x + center - SDL_strlen(text) * FONT_CHARACTER_SIZE, y, text);
-                SDL_snprintf(text, sizeof(text), "(%.2f,%.2f,%.2f)", ctx->gyro_data[0], ctx->gyro_data[1], ctx->gyro_data[2]);
+                SDL_snprintf(text, sizeof(text), "[%.2f,%.2f,%.2f]%s/s", ctx->gyro_data[0] * RAD_TO_DEG, ctx->gyro_data[1] * RAD_TO_DEG, ctx->gyro_data[2] * RAD_TO_DEG, DEGREE_UTF8);
                 SDLTest_DrawString(ctx->renderer, x + center + 2.0f, y, text);
 
-                y += ctx->button_height + 2.0f;
+                /* Display the testcontroller tool's evaluation of drift. This is also useful to get an average rate of turn in calibrated turntable tests. */
+                if (ctx->gyro_drift_correction_data[0] != 0.0f && ctx->gyro_drift_correction_data[2] != 0.0f && ctx->gyro_drift_correction_data[2] != 0.0f )
+                {
+                    y += ctx->button_height + 2.0f;
+                    SDL_strlcpy(text, "Gyro Drift:", sizeof(text));
+                    SDLTest_DrawString(ctx->renderer, x + center - SDL_strlen(text) * FONT_CHARACTER_SIZE, y, text);
+                    SDL_snprintf(text, sizeof(text), "[%.2f,%.2f,%.2f]%s/s", ctx->gyro_drift_correction_data[0] * RAD_TO_DEG, ctx->gyro_drift_correction_data[1] * RAD_TO_DEG, ctx->gyro_drift_correction_data[2] * RAD_TO_DEG, DEGREE_UTF8);
+                    SDLTest_DrawString(ctx->renderer, x + center + 2.0f, y, text);
+                }
             }
         }
     }
@@ -1324,6 +1863,298 @@ void DestroyGamepadDisplay(GamepadDisplay *ctx)
     SDL_DestroyTexture(ctx->arrow_texture);
     SDL_free(ctx);
 }
+
+void RenderSensorTimingInfo(GyroDisplay *ctx, GamepadDisplay *gamepad_display)
+{
+    /* Sensor timing section */
+    char text[128];
+    const float new_line_height = gamepad_display->button_height + 2.0f;
+    const float text_offset_x = ctx->area.x + ctx->area.w / 4.0f + 35.0f;
+    /* Anchor to bottom left of principle rect. */
+    float text_y_pos = ctx->area.y + ctx->area.h - new_line_height * 2;
+    /*
+     * Display rate of gyro as reported by the HID implementation.
+     * This could be based on a hardware time stamp (PS5), or it could be generated by the HID implementation.
+     * One should expect this to match the estimated rate below, assuming a wired connection.
+     */
+
+    SDL_strlcpy(text, "HID Sensor Time:", sizeof(text));
+    SDLTest_DrawString(ctx->renderer, text_offset_x - SDL_strlen(text) * FONT_CHARACTER_SIZE, text_y_pos, text);
+    if (ctx->reported_sensor_rate_hz > 0) {
+        /* Convert to micro seconds */
+        const int delta_time_us = (int)1e6 / ctx->reported_sensor_rate_hz;
+        SDL_snprintf(text, sizeof(text), "%d%ss %dhz", delta_time_us, MICRO_UTF8, ctx->reported_sensor_rate_hz);
+    } else {
+        SDL_snprintf(text, sizeof(text), "????%ss ???hz", MICRO_UTF8);
+    }
+    SDLTest_DrawString(ctx->renderer, text_offset_x + 2.0f, text_y_pos, text);
+
+    /*
+     * Display the instrumentation's count of all sensor packets received over time.
+     * This may represent a more accurate polling rate for the IMU
+     * But only when using a wired connection.
+     * It does not necessarily reflect the rate at which the IMU is sampled.
+     */
+
+    text_y_pos += new_line_height;
+    SDL_strlcpy(text, "Est.Sensor Time:", sizeof(text));
+    SDLTest_DrawString(ctx->renderer, text_offset_x - SDL_strlen(text) * FONT_CHARACTER_SIZE, text_y_pos, text);
+    if (ctx->estimated_sensor_rate_hz > 0) {
+        /* Convert to micro seconds */
+        const int delta_time_us = (int)1e6 / ctx->estimated_sensor_rate_hz;
+        SDL_snprintf(text, sizeof(text), "%d%ss %dhz", delta_time_us, MICRO_UTF8, ctx->estimated_sensor_rate_hz);
+    } else {
+        SDL_snprintf(text, sizeof(text), "????%ss ???hz", MICRO_UTF8);
+    }
+    SDLTest_DrawString(ctx->renderer, text_offset_x + 2.0f, text_y_pos, text);
+}
+
+void RenderGyroDriftCalibrationButton(GyroDisplay *ctx, GamepadDisplay *gamepad_display )
+{
+    char label_text[128];
+    float log_y = ctx->area.y + BUTTON_PADDING;
+    const float new_line_height = gamepad_display->button_height + 2.0f;
+    GamepadButton *start_calibration_button = GetGyroCalibrateButton(ctx);
+
+    /* Show the recalibration progress bar. */
+    float recalibrate_button_width = GetGamepadButtonLabelWidth(start_calibration_button) + 2 * BUTTON_PADDING;
+    SDL_FRect recalibrate_button_area;
+    recalibrate_button_area.x = ctx->area.x + ctx->area.w - recalibrate_button_width - BUTTON_PADDING;
+    recalibrate_button_area.y = log_y + FONT_CHARACTER_SIZE * 0.5f - gamepad_display->button_height * 0.5f;
+    recalibrate_button_area.w = GetGamepadButtonLabelWidth(start_calibration_button) + 2.0f * BUTTON_PADDING;
+    recalibrate_button_area.h = gamepad_display->button_height + BUTTON_PADDING * 2.0f;
+
+    /* Above button */
+    SDL_strlcpy(label_text, "Gyro Orientation:", sizeof(label_text));
+    SDLTest_DrawString(ctx->renderer, recalibrate_button_area.x, recalibrate_button_area.y - new_line_height, label_text);
+
+    /* Button label vs state */
+    if (ctx->current_calibration_phase == GYRO_CALIBRATION_PHASE_OFF) {
+        SDL_strlcpy(label_text, "Start Gyro Calibration", sizeof(label_text));
+    } else if (ctx->current_calibration_phase == GYRO_CALIBRATION_PHASE_NOISE_PROFILING) {
+        SDL_snprintf(label_text, sizeof(label_text), "Noise Progress: %3.0f%% ", ctx->calibration_phase_progress_fraction * 100.0f);
+    } else if (ctx->current_calibration_phase == GYRO_CALIBRATION_PHASE_DRIFT_PROFILING) {
+        SDL_snprintf(label_text, sizeof(label_text), "Drift Progress: %3.0f%% ", ctx->calibration_phase_progress_fraction * 100.0f);
+    } else if (ctx->current_calibration_phase == GYRO_CALIBRATION_PHASE_COMPLETE) {
+        SDL_strlcpy(label_text, "Recalibrate Gyro", sizeof(label_text));
+    }
+
+    SetGamepadButtonLabel(start_calibration_button, label_text);
+    SetGamepadButtonArea(start_calibration_button, &recalibrate_button_area);
+    RenderGamepadButton(start_calibration_button);
+
+    bool bExtremeNoise = ctx->accelerometer_noise_sq > ACCELEROMETER_MAX_NOISE_G_SQ;
+    /* Explicit warning message if we detect too much movement */
+    if (ctx->current_calibration_phase == GYRO_CALIBRATION_PHASE_OFF) {
+        if (bExtremeNoise) {
+            SDL_strlcpy(label_text, "GamePad Must Be Still", sizeof(label_text));
+            SDLTest_DrawString(ctx->renderer, recalibrate_button_area.x, recalibrate_button_area.y + recalibrate_button_area.h + new_line_height, label_text);
+            SDL_strlcpy(label_text, "Place GamePad On Table", sizeof(label_text));
+            SDLTest_DrawString(ctx->renderer, recalibrate_button_area.x, recalibrate_button_area.y + recalibrate_button_area.h + new_line_height * 2, label_text);
+        }
+    }
+
+    if (ctx->current_calibration_phase == GYRO_CALIBRATION_PHASE_NOISE_PROFILING ||
+        ctx->current_calibration_phase == GYRO_CALIBRATION_PHASE_DRIFT_PROFILING)
+    {
+        float flAbsoluteNoiseFraction = SDL_clamp(ctx->accelerometer_noise_sq / ACCELEROMETER_MAX_NOISE_G_SQ, 0.0f, 1.0f);
+        float flAbsoluteToleranceFraction = SDL_clamp(ctx->accelerometer_noise_tolerance_sq / ACCELEROMETER_MAX_NOISE_G_SQ, 0.0f, 1.0f);
+
+        float flMaxNoiseForThisPhase = ctx->current_calibration_phase == GYRO_CALIBRATION_PHASE_NOISE_PROFILING ? ACCELEROMETER_MAX_NOISE_G_SQ : ctx->accelerometer_noise_tolerance_sq;
+        float flRelativeNoiseFraction = SDL_clamp(ctx->accelerometer_noise_sq / flMaxNoiseForThisPhase, 0.0f, 1.0f);
+
+        float noise_bar_height = gamepad_display->button_height;
+        SDL_FRect noise_bar_rect;
+        noise_bar_rect.x = recalibrate_button_area.x;
+        noise_bar_rect.y = recalibrate_button_area.y + recalibrate_button_area.h + BUTTON_PADDING;
+        noise_bar_rect.w = recalibrate_button_area.w;
+        noise_bar_rect.h = noise_bar_height;
+
+        SDL_snprintf(label_text, sizeof(label_text), "Accelerometer Noise Tolerance: %3.3fG ", SDL_sqrtf(ctx->accelerometer_noise_tolerance_sq) );
+        SDLTest_DrawString(ctx->renderer, recalibrate_button_area.x, recalibrate_button_area.y + recalibrate_button_area.h + new_line_height * 2, label_text);
+
+        /* Adjust the noise bar rectangle based on the accelerometer noise value */
+        float noise_bar_fill_width = flAbsoluteNoiseFraction * noise_bar_rect.w; /* Scale the width based on the noise value */
+        SDL_FRect noise_bar_fill_rect;
+        noise_bar_fill_rect.x = noise_bar_rect.x + (noise_bar_rect.w - noise_bar_fill_width) * 0.5f;
+        noise_bar_fill_rect.y = noise_bar_rect.y;
+        noise_bar_fill_rect.w = noise_bar_fill_width;
+        noise_bar_fill_rect.h = noise_bar_height;
+
+        /* Set the color based on the noise value vs the tolerance */
+        Uint8 red = (Uint8)(flRelativeNoiseFraction * 255.0f);
+        Uint8 green = (Uint8)((1.0f - flRelativeNoiseFraction) * 255.0f);
+        SDL_SetRenderDrawColor(ctx->renderer, red, green, 0, 255); /* red when high noise, green when low noise */
+        SDL_RenderFillRect(ctx->renderer, &noise_bar_fill_rect);   /* draw the filled rectangle */
+
+        float tolerance_bar_fill_width = flAbsoluteToleranceFraction * noise_bar_rect.w; /* Scale the width based on the noise value */
+        SDL_FRect tolerance_bar_rect;
+        tolerance_bar_rect.x = noise_bar_rect.x + (noise_bar_rect.w - tolerance_bar_fill_width) * 0.5f;
+        tolerance_bar_rect.y = noise_bar_rect.y;
+        tolerance_bar_rect.w = tolerance_bar_fill_width;
+        tolerance_bar_rect.h = noise_bar_height;
+
+        SDL_SetRenderDrawColor(ctx->renderer, 128, 128, 0, 255);
+        SDL_RenderRect(ctx->renderer, &tolerance_bar_rect);        /* draw the tolerance rectangle */
+
+        SDL_SetRenderDrawColor(ctx->renderer, 100, 100, 100, 255); /* gray box */
+        SDL_RenderRect(ctx->renderer, &noise_bar_rect);            /* draw the outline rectangle */
+
+        /* Explicit warning message if we detect too much movement */
+        bool bTooMuchNoise = (flAbsoluteNoiseFraction == 1.0f);
+        if (bTooMuchNoise) {
+            SDL_strlcpy(label_text, "Place GamePad Down!", sizeof(label_text));
+            SDLTest_DrawString(ctx->renderer, recalibrate_button_area.x, noise_bar_rect.y + noise_bar_rect.h + new_line_height, label_text);
+        }
+
+        /* Drift progress bar */
+        /* Demonstrate how far we are through the drift progress, and how it resets when there's "high noise", i.e if flNoiseFraction == 1.0f */
+        SDL_FRect progress_bar_rect;
+        progress_bar_rect.x = recalibrate_button_area.x + BUTTON_PADDING;
+        progress_bar_rect.y = recalibrate_button_area.y + recalibrate_button_area.h * 0.5f + BUTTON_PADDING * 0.5f;
+        progress_bar_rect.w = recalibrate_button_area.w - BUTTON_PADDING * 2.0f;
+        progress_bar_rect.h = BUTTON_PADDING * 0.5f;
+
+        /* Adjust the drift bar rectangle based on the drift calibration progress fraction */
+        float drift_bar_fill_width = bTooMuchNoise ? 1.0f : ctx->calibration_phase_progress_fraction * progress_bar_rect.w;
+        SDL_FRect progress_bar_fill;
+        progress_bar_fill.x = progress_bar_rect.x;
+        progress_bar_fill.y = progress_bar_rect.y;
+        progress_bar_fill.w = drift_bar_fill_width;
+        progress_bar_fill.h = progress_bar_rect.h;
+
+        /* Set the color based on the drift calibration progress fraction */
+        SDL_SetRenderDrawColor(ctx->renderer, GYRO_COLOR_GREEN);        /* red when too much noise, green when low noise*/
+        /* Now draw the bars with the filled, then empty rectangles */
+        SDL_RenderFillRect(ctx->renderer, &progress_bar_fill);          /* draw the filled rectangle*/
+        SDL_SetRenderDrawColor(ctx->renderer, 100, 100, 100, 255);      /* gray box*/
+        SDL_RenderRect(ctx->renderer, &progress_bar_rect);              /* draw the outline rectangle*/
+
+        /* If there is too much movement, we are going to draw two diagonal red lines between the progress rect corners.*/
+        if (bTooMuchNoise) {
+            SDL_SetRenderDrawColor(ctx->renderer, GYRO_COLOR_RED);      /* red */
+            SDL_RenderFillRect(ctx->renderer, &progress_bar_fill);      /* draw the filled rectangle */
+        }
+    }
+}
+
+float RenderEulerReadout(GyroDisplay *ctx, GamepadDisplay *gamepad_display )
+{
+    /* Get the mater button's width and base our width off that */
+    GamepadButton *master_button = GetGyroCalibrateButton(ctx);
+    SDL_FRect gyro_calibrate_button_rect;
+    GetGamepadButtonArea(master_button, &gyro_calibrate_button_rect);
+
+    char text[128];
+    float log_y = gyro_calibrate_button_rect.y + gyro_calibrate_button_rect.h + BUTTON_PADDING;
+    const float new_line_height = gamepad_display->button_height + 2.0f;
+    float log_gyro_euler_text_x = gyro_calibrate_button_rect.x;
+
+    Uint8 r, g, b, a;
+    SDL_GetRenderDrawColor(ctx->renderer, &r, &g, &b, &a);
+    /* Pitch Readout */
+    SDL_SetRenderDrawColor(ctx->renderer, GYRO_COLOR_RED);
+    SDL_snprintf(text, sizeof(text), "Pitch: %6.2f%s", ctx->euler_displacement_angles[0], DEGREE_UTF8);
+    SDLTest_DrawString(ctx->renderer, log_gyro_euler_text_x + 2.0f, log_y, text);
+
+    /* Yaw Readout */
+    SDL_SetRenderDrawColor(ctx->renderer, GYRO_COLOR_GREEN);
+    log_y += new_line_height;
+    SDL_snprintf(text, sizeof(text), "  Yaw: %6.2f%s", ctx->euler_displacement_angles[1], DEGREE_UTF8);
+    SDLTest_DrawString(ctx->renderer, log_gyro_euler_text_x + 2.0f, log_y, text);
+
+    /* Roll Readout */
+    SDL_SetRenderDrawColor(ctx->renderer, GYRO_COLOR_BLUE);
+    log_y += new_line_height;
+    SDL_snprintf(text, sizeof(text), " Roll: %6.2f%s", ctx->euler_displacement_angles[2], DEGREE_UTF8);
+    SDLTest_DrawString(ctx->renderer, log_gyro_euler_text_x + 2.0f, log_y, text);
+
+    SDL_SetRenderDrawColor(ctx->renderer, r, g, b, a);
+    return log_y + new_line_height; /* Return the next y position for further rendering */
+}
+
+/* Draws the 3D cube, circles and accel arrow, positioning itself relative to the calibrate button. */
+void RenderGyroGizmo(GyroDisplay *ctx, SDL_Gamepad *gamepad, float top)
+{
+    /* Get the calibrate button's on-screen area: */
+    GamepadButton *btn = GetGyroCalibrateButton(ctx);
+    SDL_FRect btnArea;
+    GetGamepadButtonArea(btn, &btnArea);
+
+    float gizmoSize = btnArea.w;
+    /* Position it centered horizontally above the button with a small gap */
+    SDL_FRect gizmoRect;
+    gizmoRect.x = btnArea.x + (btnArea.w - gizmoSize) * 0.5f;
+    gizmoRect.y = top;
+    gizmoRect.w = gizmoSize;
+    gizmoRect.h = gizmoSize;
+
+    /* Draw the rotated cube */
+    DrawGyroDebugCube(ctx->renderer, &ctx->gyro_quaternion, &gizmoRect);
+
+    /* Draw positive axes */
+    DrawGyroDebugAxes(ctx->renderer, &ctx->gyro_quaternion, &gizmoRect);
+
+    /* Overlay the XYZ circles */
+    DrawGyroDebugCircle(ctx->renderer, &ctx->gyro_quaternion, &gizmoRect);
+
+    /* If we have accel, draw that arrow too */
+    if (SDL_GamepadHasSensor(gamepad, SDL_SENSOR_ACCEL)) {
+        float accel[3];
+        SDL_GetGamepadSensorData(gamepad, SDL_SENSOR_ACCEL, accel, SDL_arraysize(accel));
+        DrawAccelerometerDebugArrow(ctx->renderer, &ctx->gyro_quaternion, accel, &gizmoRect);
+    }
+
+    /* Follow the size of the main button, but position it below the gizmo */
+    GamepadButton *reset_button = GetGyroResetButton(ctx);
+    if (reset_button) {
+        SDL_FRect reset_area;
+        GetGamepadButtonArea(reset_button, &reset_area);
+        /* Position the reset button below the gizmo */
+        reset_area.x = btnArea.x;
+        reset_area.y = gizmoRect.y + gizmoRect.h + BUTTON_PADDING * 0.5f;
+        reset_area.w = btnArea.w;
+        reset_area.h = btnArea.h;
+        SetGamepadButtonArea(reset_button, &reset_area);
+        RenderGamepadButton(reset_button);
+    }
+}
+
+void RenderGyroDisplay(GyroDisplay *ctx, GamepadDisplay *gamepadElements, SDL_Gamepad *gamepad)
+{
+    if (!ctx)
+        return;
+
+    bool bHasAccelerometer = SDL_GamepadHasSensor(gamepad, SDL_SENSOR_ACCEL);
+    bool bHasGyroscope = SDL_GamepadHasSensor(gamepad, SDL_SENSOR_GYRO);
+    bool bHasIMU = bHasAccelerometer || bHasGyroscope;
+    if (!bHasIMU)
+        return;
+
+    Uint8 r, g, b, a;
+    SDL_GetRenderDrawColor(ctx->renderer, &r, &g, &b, &a);
+
+    RenderSensorTimingInfo(ctx, gamepadElements);
+    RenderGyroDriftCalibrationButton(ctx, gamepadElements);
+
+    /* Render Gyro calibration phases */
+    if (ctx->current_calibration_phase == GYRO_CALIBRATION_PHASE_COMPLETE) {
+        float bottom = RenderEulerReadout(ctx, gamepadElements);
+        RenderGyroGizmo(ctx, gamepad, bottom);
+    }
+    SDL_SetRenderDrawColor(ctx->renderer, r, g, b, a);
+}
+
+void DestroyGyroDisplay(GyroDisplay *ctx)
+{
+    if (!ctx) {
+        return;
+    }
+    DestroyGamepadButton(ctx->reset_gyro_button);
+    DestroyGamepadButton(ctx->calibrate_gyro_button);
+    SDL_free(ctx);
+}
+
 
 struct GamepadTypeDisplay
 {
@@ -1519,10 +2350,10 @@ JoystickDisplay *CreateJoystickDisplay(SDL_Renderer *renderer)
     if (ctx) {
         ctx->renderer = renderer;
 
-        ctx->button_texture = CreateTexture(renderer, gamepad_button_small_bmp, gamepad_button_small_bmp_len);
+        ctx->button_texture = CreateTexture(renderer, gamepad_button_small_png, gamepad_button_small_png_len);
         SDL_GetTextureSize(ctx->button_texture, &ctx->button_width, &ctx->button_height);
 
-        ctx->arrow_texture = CreateTexture(renderer, gamepad_axis_arrow_bmp, gamepad_axis_arrow_bmp_len);
+        ctx->arrow_texture = CreateTexture(renderer, gamepad_axis_arrow_png, gamepad_axis_arrow_png_len);
         SDL_GetTextureSize(ctx->arrow_texture, &ctx->arrow_width, &ctx->arrow_height);
     }
     return ctx;
@@ -1955,16 +2786,26 @@ GamepadButton *CreateGamepadButton(SDL_Renderer *renderer, const char *label)
     if (ctx) {
         ctx->renderer = renderer;
 
-        ctx->background = CreateTexture(renderer, gamepad_button_background_bmp, gamepad_button_background_bmp_len);
+        ctx->background = CreateTexture(renderer, gamepad_button_background_png, gamepad_button_background_png_len);
         SDL_GetTextureSize(ctx->background, &ctx->background_width, &ctx->background_height);
 
-        ctx->label = SDL_strdup(label);
-        ctx->label_width = (float)(FONT_CHARACTER_SIZE * SDL_strlen(label));
-        ctx->label_height = (float)FONT_CHARACTER_SIZE;
+        SetGamepadButtonLabel(ctx, label);
     }
     return ctx;
 }
 
+void SetGamepadButtonLabel(GamepadButton *ctx, const char *label)
+{
+    if (!ctx) {
+        return;
+    }
+
+    SDL_free(ctx->label);
+
+    ctx->label = SDL_strdup(label);
+    ctx->label_width = (float)(FONT_CHARACTER_SIZE * SDL_strlen(label));
+    ctx->label_height = (float)FONT_CHARACTER_SIZE;
+}
 void SetGamepadButtonArea(GamepadButton *ctx, const SDL_FRect *area)
 {
     if (!ctx) {
@@ -2467,6 +3308,7 @@ static char *JoinMapping(MappingParts *parts)
         sort_order[i].index = i;
     }
     SDL_qsort(sort_order, parts->num_elements, sizeof(*sort_order), SortMapping);
+    MoveSortedEntry("face", sort_order, parts->num_elements, true);
     MoveSortedEntry("type", sort_order, parts->num_elements, true);
     MoveSortedEntry("platform", sort_order, parts->num_elements, true);
     MoveSortedEntry("crc", sort_order, parts->num_elements, true);
@@ -2802,6 +3644,10 @@ const char *GetGamepadTypeString(SDL_GamepadType type)
         return "Joy-Con (R)";
     case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR:
         return "Joy-Con Pair";
+    case SDL_GAMEPAD_TYPE_GAMECUBE:
+        return "GameCube";
+    case SDL_GAMEPAD_TYPE_STEAM:
+        return "Steam";
     default:
         return "";
     }

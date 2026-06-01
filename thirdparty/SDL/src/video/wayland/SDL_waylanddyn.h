@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -59,6 +59,11 @@ enum libdecor_window_state;
      (WAYLAND_VERSION_MAJOR == x && WAYLAND_VERSION_MINOR > y) || \
      (WAYLAND_VERSION_MAJOR == x && WAYLAND_VERSION_MINOR == y && WAYLAND_VERSION_MICRO >= z))
 
+#define SDL_XKBCOMMON_CHECK_VERSION(x, y, z)                                  \
+    (SDL_XKBCOMMON_VERSION_MAJOR > x ||                                       \
+     (SDL_XKBCOMMON_VERSION_MAJOR == x && SDL_XKBCOMMON_VERSION_MINOR > y) || \
+     (SDL_XKBCOMMON_VERSION_MAJOR == x && SDL_XKBCOMMON_VERSION_MINOR == y && SDL_XKBCOMMON_VERSION_PATCH >= z))
+
 #ifdef HAVE_LIBDECOR_H
 #define SDL_LIBDECOR_CHECK_VERSION(x, y, z)                                 \
     (SDL_LIBDECOR_VERSION_MAJOR > x ||                                      \
@@ -111,22 +116,6 @@ extern void SDL_WAYLAND_UnloadSymbols(void);
 #define wl_proxy_marshal_flags                 (*WAYLAND_wl_proxy_marshal_flags)
 #define wl_proxy_marshal_array_flags           (*WAYLAND_wl_proxy_marshal_array_flags)
 #define wl_display_reconnect                   (*WAYLAND_wl_display_reconnect)
-
-#define wl_seat_interface                (*WAYLAND_wl_seat_interface)
-#define wl_surface_interface             (*WAYLAND_wl_surface_interface)
-#define wl_shm_pool_interface            (*WAYLAND_wl_shm_pool_interface)
-#define wl_buffer_interface              (*WAYLAND_wl_buffer_interface)
-#define wl_registry_interface            (*WAYLAND_wl_registry_interface)
-#define wl_region_interface              (*WAYLAND_wl_region_interface)
-#define wl_pointer_interface             (*WAYLAND_wl_pointer_interface)
-#define wl_keyboard_interface            (*WAYLAND_wl_keyboard_interface)
-#define wl_compositor_interface          (*WAYLAND_wl_compositor_interface)
-#define wl_output_interface              (*WAYLAND_wl_output_interface)
-#define wl_shm_interface                 (*WAYLAND_wl_shm_interface)
-#define wl_data_device_interface         (*WAYLAND_wl_data_device_interface)
-#define wl_data_offer_interface          (*WAYLAND_wl_data_offer_interface)
-#define wl_data_source_interface         (*WAYLAND_wl_data_source_interface)
-#define wl_data_device_manager_interface (*WAYLAND_wl_data_device_manager_interface)
 
 /*
  * These must be included before libdecor.h, otherwise the libdecor header

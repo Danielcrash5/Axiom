@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -595,29 +595,26 @@ bool SDL_ConvertPixels_YUV_to_RGB(int width, int height,
     const Uint8 *v = NULL;
     Uint32 y_stride = 0;
     Uint32 uv_stride = 0;
+    YCbCrType yuv_type = YCBCR_601_LIMITED;
 
     if (!GetYUVPlanes(width, height, src_format, src, src_pitch, &y, &u, &v, &y_stride, &uv_stride)) {
         return false;
     }
 
-    if (SDL_COLORSPACEPRIMARIES(src_colorspace) == SDL_COLORSPACEPRIMARIES(dst_colorspace)) {
-        YCbCrType yuv_type = YCBCR_601_LIMITED;
+    if (!GetYUVConversionType(src_colorspace, &yuv_type)) {
+        return false;
+    }
 
-        if (!GetYUVConversionType(src_colorspace, &yuv_type)) {
-            return false;
-        }
+    if (yuv_rgb_sse(src_format, dst_format, width, height, y, u, v, y_stride, uv_stride, (Uint8 *)dst, dst_pitch, yuv_type)) {
+        return true;
+    }
 
-        if (yuv_rgb_sse(src_format, dst_format, width, height, y, u, v, y_stride, uv_stride, (Uint8 *)dst, dst_pitch, yuv_type)) {
-            return true;
-        }
+    if (yuv_rgb_lsx(src_format, dst_format, width, height, y, u, v, y_stride, uv_stride, (Uint8 *)dst, dst_pitch, yuv_type)) {
+        return true;
+    }
 
-        if (yuv_rgb_lsx(src_format, dst_format, width, height, y, u, v, y_stride, uv_stride, (Uint8 *)dst, dst_pitch, yuv_type)) {
-            return true;
-        }
-
-        if (yuv_rgb_std(src_format, dst_format, width, height, y, u, v, y_stride, uv_stride, (Uint8 *)dst, dst_pitch, yuv_type)) {
-            return true;
-        }
+    if (yuv_rgb_std(src_format, dst_format, width, height, y, u, v, y_stride, uv_stride, (Uint8 *)dst, dst_pitch, yuv_type)) {
+        return true;
     }
 
     // No fast path for the RGB format, instead convert using an intermediate buffer
@@ -738,27 +735,27 @@ static bool SDL_ConvertPixels_XRGB8888_to_YUV(int width, int height, const void 
     const Uint32 p4 = ((const Uint32 *)next_row)[2 * i + 1];                                                \
     const Uint32 r = ((p1 & 0x00ff0000) + (p2 & 0x00ff0000) + (p3 & 0x00ff0000) + (p4 & 0x00ff0000)) >> 18; \
     const Uint32 g = ((p1 & 0x0000ff00) + (p2 & 0x0000ff00) + (p3 & 0x0000ff00) + (p4 & 0x0000ff00)) >> 10; \
-    const Uint32 b = ((p1 & 0x000000ff) + (p2 & 0x000000ff) + (p3 & 0x000000ff) + (p4 & 0x000000ff)) >> 2;
+    const Uint32 b = ((p1 & 0x000000ff) + (p2 & 0x000000ff) + (p3 & 0x000000ff) + (p4 & 0x000000ff)) >> 2
 
 #define READ_2x1_PIXELS                                             \
     const Uint32 p1 = ((const Uint32 *)curr_row)[2 * i];            \
     const Uint32 p2 = ((const Uint32 *)next_row)[2 * i];            \
     const Uint32 r = ((p1 & 0x00ff0000) + (p2 & 0x00ff0000)) >> 17; \
     const Uint32 g = ((p1 & 0x0000ff00) + (p2 & 0x0000ff00)) >> 9;  \
-    const Uint32 b = ((p1 & 0x000000ff) + (p2 & 0x000000ff)) >> 1;
+    const Uint32 b = ((p1 & 0x000000ff) + (p2 & 0x000000ff)) >> 1
 
 #define READ_1x2_PIXELS                                             \
     const Uint32 p1 = ((const Uint32 *)curr_row)[2 * i];            \
     const Uint32 p2 = ((const Uint32 *)curr_row)[2 * i + 1];        \
     const Uint32 r = ((p1 & 0x00ff0000) + (p2 & 0x00ff0000)) >> 17; \
     const Uint32 g = ((p1 & 0x0000ff00) + (p2 & 0x0000ff00)) >> 9;  \
-    const Uint32 b = ((p1 & 0x000000ff) + (p2 & 0x000000ff)) >> 1;
+    const Uint32 b = ((p1 & 0x000000ff) + (p2 & 0x000000ff)) >> 1
 
 #define READ_1x1_PIXEL                                  \
     const Uint32 p = ((const Uint32 *)curr_row)[2 * i]; \
     const Uint32 r = (p & 0x00ff0000) >> 16;            \
     const Uint32 g = (p & 0x0000ff00) >> 8;             \
-    const Uint32 b = (p & 0x000000ff);
+    const Uint32 b = (p & 0x000000ff)
 
 #define READ_TWO_RGB_PIXELS                                  \
     const Uint32 p = ((const Uint32 *)curr_row)[2 * i];      \
@@ -771,7 +768,7 @@ static bool SDL_ConvertPixels_XRGB8888_to_YUV(int width, int height, const void 
     const Uint32 b1 = (p1 & 0x000000ff);                     \
     const Uint32 R = (r + r1) / 2;                           \
     const Uint32 G = (g + g1) / 2;                           \
-    const Uint32 B = (b + b1) / 2;
+    const Uint32 B = (b + b1) / 2
 
 #define READ_ONE_RGB_PIXEL READ_1x1_PIXEL
 
@@ -1029,27 +1026,27 @@ static bool SDL_ConvertPixels_XBGR2101010_to_P010(int width, int height, const v
     const Uint32 p4 = ((const Uint32 *)next_row)[2 * i + 1];                                                \
     const Uint32 r = ((p1 & 0x000003ff) + (p2 & 0x000003ff) + (p3 & 0x000003ff) + (p4 & 0x000003ff)) >> 2;  \
     const Uint32 g = ((p1 & 0x000ffc00) + (p2 & 0x000ffc00) + (p3 & 0x000ffc00) + (p4 & 0x000ffc00)) >> 12; \
-    const Uint32 b = ((p1 & 0x3ff00000) + (p2 & 0x3ff00000) + (p3 & 0x3ff00000) + (p4 & 0x3ff00000)) >> 22;
+    const Uint32 b = ((p1 & 0x3ff00000) + (p2 & 0x3ff00000) + (p3 & 0x3ff00000) + (p4 & 0x3ff00000)) >> 22
 
 #define READ_2x1_PIXELS                                             \
     const Uint32 p1 = ((const Uint32 *)curr_row)[2 * i];            \
     const Uint32 p2 = ((const Uint32 *)next_row)[2 * i];            \
     const Uint32 r = ((p1 & 0x000003ff) + (p2 & 0x000003ff)) >> 1;  \
     const Uint32 g = ((p1 & 0x000ffc00) + (p2 & 0x000ffc00)) >> 11; \
-    const Uint32 b = ((p1 & 0x3ff00000) + (p2 & 0x3ff00000)) >> 21;
+    const Uint32 b = ((p1 & 0x3ff00000) + (p2 & 0x3ff00000)) >> 21
 
 #define READ_1x2_PIXELS                                             \
     const Uint32 p1 = ((const Uint32 *)curr_row)[2 * i];            \
     const Uint32 p2 = ((const Uint32 *)curr_row)[2 * i + 1];        \
     const Uint32 r = ((p1 & 0x000003ff) + (p2 & 0x000003ff)) >> 1;  \
     const Uint32 g = ((p1 & 0x000ffc00) + (p2 & 0x000ffc00)) >> 11; \
-    const Uint32 b = ((p1 & 0x3ff00000) + (p2 & 0x3ff00000)) >> 21;
+    const Uint32 b = ((p1 & 0x3ff00000) + (p2 & 0x3ff00000)) >> 21
 
 #define READ_1x1_PIXEL                                  \
     const Uint32 p = ((const Uint32 *)curr_row)[2 * i]; \
     const Uint32 r = (p & 0x000003ff);                  \
     const Uint32 g = (p & 0x000ffc00) >> 10;            \
-    const Uint32 b = (p & 0x3ff00000) >> 20;
+    const Uint32 b = (p & 0x3ff00000) >> 20
 
     const Uint8 *curr_row, *next_row;
 
@@ -1158,14 +1155,12 @@ bool SDL_ConvertPixels_RGB_to_YUV(int width, int height,
 #endif
 
     // ARGB8888 to FOURCC
-    if ((src_format == SDL_PIXELFORMAT_ARGB8888 || src_format == SDL_PIXELFORMAT_XRGB8888) &&
-        SDL_COLORSPACEPRIMARIES(src_colorspace) == SDL_COLORSPACEPRIMARIES(dst_colorspace)) {
+    if (src_format == SDL_PIXELFORMAT_ARGB8888 || src_format == SDL_PIXELFORMAT_XRGB8888) {
         return SDL_ConvertPixels_XRGB8888_to_YUV(width, height, src, src_pitch, dst_format, dst, dst_pitch, yuv_type);
     }
 
     if (dst_format == SDL_PIXELFORMAT_P010) {
-        if (src_format == SDL_PIXELFORMAT_XBGR2101010 &&
-            SDL_COLORSPACEPRIMARIES(src_colorspace) == SDL_COLORSPACEPRIMARIES(dst_colorspace)) {
+        if (src_format == SDL_PIXELFORMAT_XBGR2101010) {
             return SDL_ConvertPixels_XBGR2101010_to_P010(width, height, src, src_pitch, dst_format, dst, dst_pitch, yuv_type);
         }
 
@@ -1504,8 +1499,17 @@ static bool SDL_TARGETING("sse2") SDL_ConvertPixels_SwapNV_SSE2(int width, int h
             dstUV += 8;
             x -= 8;
         }
-        while (x--) {
-            *dstUV++ = SDL_Swap16(*srcUV++);
+        if (x > 0) {
+            const Uint8 *srcUV8 = (const Uint8 *)srcUV;
+            Uint8 *dstUV8 = (Uint8 *)dstUV;
+            srcUV += x;
+            dstUV += x;
+            while (x--) {
+                Uint8 u = *srcUV8++;
+                Uint8 v = *srcUV8++;
+                *dstUV8++ = v;
+                *dstUV8++ = u;
+            }
         }
         srcUV += srcUVPitchLeft;
         dstUV += dstUVPitchLeft;
@@ -1562,9 +1566,7 @@ static bool SDL_ConvertPixels_PackUVPlanes_to_NV_std(int width, int height, cons
         dstUV += dstUVPitchLeft;
     }
 
-    if (tmp) {
-        SDL_free(tmp);
-    }
+    SDL_free(tmp);
     return true;
 }
 
@@ -1616,9 +1618,7 @@ static bool SDL_ConvertPixels_SplitNV_to_UVPlanes_std(int width, int height, con
         dst2 += dstUVPitchLeft;
     }
 
-    if (tmp) {
-        SDL_free(tmp);
-    }
+    SDL_free(tmp);
     return true;
 }
 

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -29,7 +29,6 @@
 
 #include "SDL_vitavideo.h"
 #include "../SDL_egl_c.h"
-#include "SDL_vitagl_pvr_c.h"
 
 #define MAX_PATH 256 // vita limits are somehow wrong
 
@@ -77,7 +76,7 @@ bool VITA_GL_LoadLibrary(SDL_VideoDevice *_this, const char *path)
         PVRSRVCreateVirtualAppHint(&hint);
     }
 
-    return SDL_EGL_LoadLibrary(_this, path, (NativeDisplayType)0, 0);
+    return SDL_EGL_LoadLibrary(_this, path, EGL_DEFAULT_DISPLAY);
 }
 
 SDL_GLContext VITA_GL_CreateContext(SDL_VideoDevice *_this, SDL_Window *window)
