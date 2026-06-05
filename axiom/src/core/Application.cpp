@@ -111,7 +111,6 @@ namespace axiom {
         Logger::Get().AddSink(std::make_unique<ConsoleSink>());
 #endif
 
-        m_ImGuiLayer = IImGuiLayer::Create(m_Window);
 
         m_EventBus.Subscribe<WindowCloseEvent>(
             [this](WindowCloseEvent& e) {
@@ -150,6 +149,7 @@ namespace axiom {
             AXIOM_WARN("Engine asset path fallback is used: {}", engineAssetPath);
 
         VFS::MountPath("engine://", engineAssetPath);
+        m_ImGuiLayer = IImGuiLayer::Create(m_Window);
         Renderer2D::Init();
 
         m_Scenes.push_back(std::make_unique<Scene>());

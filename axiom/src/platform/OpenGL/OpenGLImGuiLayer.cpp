@@ -1,4 +1,5 @@
 #include "axiom/platform/OpenGL/OpenGLImGuiLayer.h"
+#include "axiom/assets/VFS.h"
 #include "axiom/core/Logger.h"
 
 #include <imgui.h>
@@ -61,9 +62,50 @@ namespace axiom {
 
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-
-		// Erst aktivieren wenn alles stabil läuft
+		io.ConfigFlags |= ImGuiConfigFlags_DpiEnableScaleViewports;
 		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
+		// =========================================================================
+	   // STANDARD-SCHRIFTARTEN AUS DEM VFS IN DEN FONT-ATLAS LADEN
+	   // =========================================================================
+		ImFontConfig fontConfig;
+		fontConfig.PixelSnapH = true; // Verhindert verschwommene Kanten
+
+		// 1. INTER REGULAR (Wird automatisch der Standard-Font für die gesamte UI)
+
+		std::vector<uint8_t> dataInter;
+		bool ok = VFS::ReadFile(
+			"engine://fonts/inter/static/Inter_18pt-Black.ttf",
+			dataInter
+		);
+
+		AXIOM_INFO("VFS Inter OK={} size={}", ok, dataInter.size());
+		if (!dataInter.empty()) {
+			m_DefaultFont = io.Fonts->AddFontFromMemoryTTF(dataInter.data(), static_cast<int>(dataInter.size()), 18.0f, &fontConfig);
+		} else {
+			AXIOM_ERROR("Failed to load Inter font from VFS. ImGui will use default font.");
+		}
+
+		// 2. JETBRAINS MONO REGULAR (Für Konsole, Logg-Ausgaben oder Text-Editoren)
+		std::vector<uint8_t> dataJB;
+		bool ok2 = VFS::ReadFile(
+			"engine://fonts/JetBrains-Mono/static/JetBrainsMono-Regular.ttf",
+			dataJB
+		);
+
+		AXIOM_INFO("VFS JB OK={} size={}", ok2, dataJB.size());
+		if (!dataJB.empty()) {
+			m_MonospaceFont = io.Fonts->AddFontFromMemoryTTF(dataJB.data(), static_cast<int>(dataJB.size()), 15.0f, &fontConfig);
+		} else {
+			AXIOM_ERROR("Failed to load JetBrains Mono font from VFS. ImGui will use default font for monospace text.");
+		}
+		if (!dataJB.empty() && !dataInter.empty()) {
+			AXIOM_INFO("Successfully loaded Inter and JetBrains Mono fonts from VFS for ImGui.");
+			io.Fonts->Build();
+		} else {
+			AXIOM_ERROR("Failed to load both fonts from VFS. ImGui will use default fonts, which may not match the intended style.");
+		}
+
 
 		SDL_GLContext glContext =
 			SDL_GL_GetCurrentContext();

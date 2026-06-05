@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <imgui.h>
 #include "axiom/platform/Window.h"
 #include "axiom/core/Layer.h"
 #include "axiom/events/Events.h"
@@ -25,7 +26,12 @@ namespace axiom {
 
 		static std::unique_ptr<IImGuiLayer> Create(std::unique_ptr<Window>& window);
 
+		ImFont* GetDefaultFont() const { return m_DefaultFont; }
+		ImFont* GetMonospaceFont() const { return m_MonospaceFont; }
+
 	protected:
 		DockspaceType m_DockspaceType;
+		ImFont* m_DefaultFont = nullptr;
+		ImFont* m_MonospaceFont = nullptr;
 	};
 }
