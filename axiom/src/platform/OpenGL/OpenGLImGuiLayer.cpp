@@ -1,6 +1,7 @@
 #include "axiom/platform/OpenGL/OpenGLImGuiLayer.h"
 #include "axiom/assets/VFS.h"
 #include "axiom/core/Logger.h"
+#include <cstring>
 
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
@@ -42,11 +43,42 @@ namespace axiom {
 		colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);
 	}
 
-#include "axiom/platform/OpenGL/OpenGLImGuiLayer.h"
+	static ImFont* AddFontFromVFS(
+		ImFontAtlas* atlas,
+		const char* vfsPath,
+		float sizePixels,
+		const ImFontConfig& fontConfig
+	) {
+		std::vector<uint8_t> fileData;
+		const bool readOk = VFS::ReadFile(vfsPath, fileData);
+		AXIOM_INFO("VFS font load path='{}' ok={} size={}", vfsPath, readOk, fileData.size());
 
-#include <imgui.h>
-#include <imgui_impl_sdl3.h>
-#include <imgui_impl_opengl3.h>
+		if (!readOk || fileData.empty()) {
+			return nullptr;
+		}
+
+		void* atlasOwnedData = IM_ALLOC(fileData.size());
+		if (atlasOwnedData == nullptr) {
+			AXIOM_ERROR("Failed to allocate {} bytes for ImGui font '{}'.", fileData.size(), vfsPath);
+			return nullptr;
+		}
+
+		std::memcpy(atlasOwnedData, fileData.data(), fileData.size());
+
+		ImFont* font = atlas->AddFontFromMemoryTTF(
+			atlasOwnedData,
+			static_cast<int>(fileData.size()),
+			sizePixels,
+			&fontConfig
+		);
+
+		if (font == nullptr) {
+			IM_FREE(atlasOwnedData);
+			AXIOM_ERROR("ImGui rejected font '{}'.", vfsPath);
+		}
+
+		return font;
+	}
 
 	OpenGLImGuiLayer::OpenGLImGuiLayer(
 		std::unique_ptr<Window>& window) {
@@ -64,48 +96,45 @@ namespace axiom {
 		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 		io.ConfigFlags |= ImGuiConfigFlags_DpiEnableScaleViewports;
 		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+		
 
+		/*
 		// =========================================================================
 	   // STANDARD-SCHRIFTARTEN AUS DEM VFS IN DEN FONT-ATLAS LADEN
 	   // =========================================================================
-		ImFontConfig fontConfig;
+		ImFontConfig fontConfig{};
 		fontConfig.PixelSnapH = true; // Verhindert verschwommene Kanten
 
 		// 1. INTER REGULAR (Wird automatisch der Standard-Font für die gesamte UI)
-
-		std::vector<uint8_t> dataInter;
-		bool ok = VFS::ReadFile(
-			"engine://fonts/inter/static/Inter_18pt-Black.ttf",
-			dataInter
-		);
-
-		AXIOM_INFO("VFS Inter OK={} size={}", ok, dataInter.size());
-		if (!dataInter.empty()) {
-			m_DefaultFont = io.Fonts->AddFontFromMemoryTTF(dataInter.data(), static_cast<int>(dataInter.size()), 18.0f, &fontConfig);
-		} else {
+		// m_DefaultFont = AddFontFromVFS(io.Fonts,			"engine://fonts/inter/static/Inter_18pt-Black.ttf",			18.0f,			fontConfig			);
+		if (m_DefaultFont == nullptr) {
 			AXIOM_ERROR("Failed to load Inter font from VFS. ImGui will use default font.");
 		}
 
 		// 2. JETBRAINS MONO REGULAR (Für Konsole, Logg-Ausgaben oder Text-Editoren)
-		std::vector<uint8_t> dataJB;
-		bool ok2 = VFS::ReadFile(
+		m_MonospaceFont = AddFontFromVFS(
+			io.Fonts,
 			"engine://fonts/JetBrains-Mono/static/JetBrainsMono-Regular.ttf",
-			dataJB
+			15.0f,
+			fontConfig
 		);
-
-		AXIOM_INFO("VFS JB OK={} size={}", ok2, dataJB.size());
-		if (!dataJB.empty()) {
-			m_MonospaceFont = io.Fonts->AddFontFromMemoryTTF(dataJB.data(), static_cast<int>(dataJB.size()), 15.0f, &fontConfig);
-		} else {
+		if (m_MonospaceFont == nullptr) {
 			AXIOM_ERROR("Failed to load JetBrains Mono font from VFS. ImGui will use default font for monospace text.");
 		}
-		if (!dataJB.empty() && !dataInter.empty()) {
-			AXIOM_INFO("Successfully loaded Inter and JetBrains Mono fonts from VFS for ImGui.");
-			io.Fonts->Build();
-		} else {
-			AXIOM_ERROR("Failed to load both fonts from VFS. ImGui will use default fonts, which may not match the intended style.");
+
+		if (m_DefaultFont == nullptr) {
+			m_DefaultFont = io.Fonts->AddFontDefault();
+			AXIOM_INFO("Using Dear ImGui default font as UI fallback.");
 		}
 
+		if (m_MonospaceFont == nullptr) {
+			m_MonospaceFont = m_DefaultFont;
+			AXIOM_INFO("Using UI font as monospace fallback.");
+		}
+
+		io.FontDefault = m_DefaultFont;
+		io.Fonts->Build();
+		AXIOM_INFO("Successfully initialized ImGui fonts.");*/
 
 		SDL_GLContext glContext =
 			SDL_GL_GetCurrentContext();

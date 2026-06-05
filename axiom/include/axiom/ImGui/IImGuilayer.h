@@ -26,12 +26,12 @@ namespace axiom {
 
 		static std::unique_ptr<IImGuiLayer> Create(std::unique_ptr<Window>& window);
 
-		ImFont* GetDefaultFont() const { return m_DefaultFont; }
-		ImFont* GetMonospaceFont() const { return m_MonospaceFont; }
+		/*ImFont* GetDefaultFont() const { return m_DefaultFont; }
+		ImFont* GetMonospaceFont() const { return m_MonospaceFont; }*/
 
 	protected:
-		DockspaceType m_DockspaceType;
+		DockspaceType m_DockspaceType;/*
 		ImFont* m_DefaultFont = nullptr;
-		ImFont* m_MonospaceFont = nullptr;
+		ImFont* m_MonospaceFont = nullptr;*/
 	};
 }
