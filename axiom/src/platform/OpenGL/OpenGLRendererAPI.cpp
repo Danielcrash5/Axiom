@@ -58,7 +58,7 @@ void OpenGLRendererAPI::Init() {
     SetClearState(true, true);
     SetRenderState({});
 
-    if (GLAD_GL_KHR_debug) {
+    if (GLAD_GL_KHR_debug && false) {
         glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
         glDebugMessageCallback(OpenGLDebugCallback, nullptr);

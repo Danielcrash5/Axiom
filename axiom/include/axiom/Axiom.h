@@ -51,6 +51,9 @@
 
 #include "axiom/profiling/Profiler.h"
 
+//TEMP: ImGui kurz testen besseres System später 
+#include <imgui.h>
+
 namespace axiom {
 
 Application* CreateApplication();

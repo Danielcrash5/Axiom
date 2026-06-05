@@ -9,6 +9,7 @@
 #include "axiom/renderer/RenderCommand.h"
 #include "axiom/ecs/Scene.h"
 #include "axiom/ecs/SystemManager.h"
+#include "axiom/ImGui/IImGuiLayer.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -108,10 +109,13 @@ namespace axiom {
         virtual void OnUpdate(double dt) {}
 
         virtual void OnRender(double alpha) {}
+		virtual void OnImGuiRender() {}
 
         void Close() {
             m_Running = false;
         }
+
+		std::unique_ptr<IImGuiLayer> m_ImGuiLayer;
 
     private:
         void MainLoop();
@@ -125,6 +129,7 @@ namespace axiom {
         void Update(double dt);
 
         void Render(double alpha);
+		void ImGuiRender();
 
         bool OnWindowClose(WindowCloseEvent& e) {
             Close();
@@ -153,6 +158,7 @@ namespace axiom {
 
         LayerStack m_LayerStack;
         EventBus m_EventBus;
+
 
         std::vector<std::unique_ptr<Scene>> m_Scenes;
         SystemManager m_SystemManager;

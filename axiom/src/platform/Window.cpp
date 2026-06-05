@@ -5,6 +5,7 @@
 #include "axiom/events/Events.h"
 #include "axiom/input/Input.h"
 #include "axiom/renderer/RendererAPI.h"
+#include <imgui_impl_sdl3.h>
 
 #include <SDL3/SDL.h>
 #include <glad/glad.h>
@@ -89,6 +90,7 @@ namespace axiom {
     void Window::PollEvents() {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+			ImGui_ImplSDL3_ProcessEvent(&event);
             switch (event.type) {
             case SDL_EVENT_QUIT: {
                 WindowCloseEvent closeEvent;
@@ -116,7 +118,7 @@ namespace axiom {
             case SDL_EVENT_KEY_DOWN:
             case SDL_EVENT_KEY_UP: {
                 KeyEvent keyEvent {
-                    static_cast<int>(event.key.scancode),
+                    static_cast<int>(event.key.key),
                     static_cast<int>(event.key.scancode),
                     event.type == SDL_EVENT_KEY_DOWN ? 1 : 0,
                     static_cast<int>(event.key.mod),

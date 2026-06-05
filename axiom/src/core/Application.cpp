@@ -111,6 +111,8 @@ namespace axiom {
         Logger::Get().AddSink(std::make_unique<ConsoleSink>());
 #endif
 
+        m_ImGuiLayer = IImGuiLayer::Create(m_Window);
+
         m_EventBus.Subscribe<WindowCloseEvent>(
             [this](WindowCloseEvent& e) {
                 return OnWindowClose(e);
@@ -168,6 +170,9 @@ namespace axiom {
                 MainUpdate();
                 double alpha = (Time::GetTime() - m_LastFixedUpdate) / m_FixedUpdateInterval;
                 Render(alpha);
+				ImGuiRender();
+
+                m_Window->SwapBuffers();
             }
 
             axiom::profiling::Profiler::EndFrame();
@@ -200,8 +205,18 @@ namespace axiom {
             layer->OnRender(alpha);
         }
 
-        m_Window->SwapBuffers();
     }
+
+	void Application::ImGuiRender() {
+		AXIOM_PROFILE_SCOPE("ImGuiRender");
+		m_ImGuiLayer->Begin();
+		OnImGuiRender();
+		for (auto& layer : m_LayerStack) {
+			AXIOM_PROFILE_SCOPE(layer->GetName());
+			layer->OnImGuiRender();
+		}
+		m_ImGuiLayer->End();
+	}
 
     void Application::PreUpdate(double dt) {
         AXIOM_PROFILE_SCOPE("PreUpdate");

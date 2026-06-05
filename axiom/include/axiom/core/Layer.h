@@ -10,8 +10,9 @@ namespace axiom {
 
 	class Layer {
 	public:
-		explicit Layer(std::string name = "Layer")
-			: m_Name(std::move(name)) {}
+		Layer(std::string name = "Layer")
+			: m_Name(std::move(name)) {
+		}
 
 		virtual ~Layer() = default;
 
@@ -24,6 +25,7 @@ namespace axiom {
 		virtual void OnUpdate(double dt) {}
 
 		virtual void OnRender(double alpha) {}
+		virtual void OnImGuiRender() {}
 
 
 		void setEventBus(EventBus& eventBus) {

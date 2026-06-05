@@ -28,6 +28,9 @@ protected:
         UpdateOverlayScene();
     }
 
+	void OnImGuiRender() override {
+		ImGui::ShowDemoWindow();
+	}
 private:
     axiom::Entity CreateQuad(
         axiom::Scene& scene,

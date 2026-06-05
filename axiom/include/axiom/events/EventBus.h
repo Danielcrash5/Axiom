@@ -5,7 +5,6 @@
 #include <vector>
 #include <typeindex>
 #include <algorithm>
-#include <mutex>
 #include <queue>
 #include <memory>
 #include <cstdint>
@@ -29,7 +28,6 @@ namespace axiom {
 
         template<typename T>
         uint64_t Subscribe(ListenerFn<T> callback, int priority = 0) {
-            std::lock_guard<std::mutex> lock(m_Mutex);
 
             std::type_index type = std::type_index(typeid(T));
 
@@ -53,7 +51,6 @@ namespace axiom {
 
         template<typename T>
         void Unsubscribe(uint64_t id) {
-            std::lock_guard<std::mutex> lock(m_Mutex);
 
             std::type_index type = std::type_index(typeid(T));
 
@@ -78,7 +75,6 @@ namespace axiom {
 
         template<typename T>
         bool Publish(T& event) {
-            std::lock_guard<std::mutex> lock(m_Mutex);
             return PublishInternal(event);
         }
 
@@ -88,7 +84,6 @@ namespace axiom {
 
         template<typename T>
         void Enqueue(T&& event) {
-            std::lock_guard<std::mutex> lock(m_Mutex);
 
             m_EventQueue.push(
                 std::make_unique<QueuedEvent<T>>(std::forward<T>(event))
@@ -100,7 +95,6 @@ namespace axiom {
         // =========================================================
 
         void DispatchQueued() {
-            std::lock_guard<std::mutex> lock(m_Mutex);
 
             while (!m_EventQueue.empty()) {
                 auto& event = m_EventQueue.front();
@@ -177,7 +171,6 @@ namespace axiom {
         std::unordered_map<std::type_index, std::vector<Listener>> m_Listeners;
         std::queue<std::unique_ptr<IQueuedEvent>> m_EventQueue;
 
-        std::mutex m_Mutex;
         uint64_t m_LastID = 0;
     };
 
