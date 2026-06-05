@@ -1,11 +1,22 @@
-add_executable(testbed
-    main.cpp
+file(GLOB_RECURSE TESTBED_SOURCES
+    CONFIGURE_DEPENDS
+    src/*.cpp
 )
+
+add_executable(testbed)
+
+target_include_directories(testbed
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_sources(testbed PRIVATE ${TESTBED_SOURCES})
 
 # Link Engine + Slang statisch
 target_link_libraries(testbed
     PRIVATE axiom_engine
 )
+
 
 # Output-Verzeichnis und Debug-Verzeichnis
 set(TESTBED_RUNTIME_DIR "${CMAKE_BINARY_DIR}/testbed")

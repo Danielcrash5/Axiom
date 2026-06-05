@@ -14,6 +14,10 @@ namespace axiom {
 			: m_Entity(handle), m_Scene(scene) {
 		}
 
+		std::string GetName() {
+			return m_Scene->m_Registry.get<TagComponent>(m_Entity).Tag;
+		}
+
 		void Destroy() {
 			m_Scene->m_Registry.destroy(m_Entity);
 		}

@@ -53,9 +53,9 @@ namespace axiom {
 		m_Level = level;
 	}
 
-	void Logger::AddSink(std::unique_ptr<LogSink> sink) {
+	void Logger::AddSink(std::shared_ptr<LogSink> sink) {
 		std::lock_guard lock(m_Mutex);
-		m_Sinks.emplace_back(std::move(sink));
+		m_Sinks.emplace_back(sink);
 	}
 
 }

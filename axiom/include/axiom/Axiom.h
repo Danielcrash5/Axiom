@@ -50,9 +50,7 @@
 #include "axiom/ecs/ISystem.h"
 
 #include "axiom/profiling/Profiler.h"
-
-//TEMP: ImGui kurz testen besseres System später 
-#include <imgui.h>
+#include "axiom/ImGui/IImGuiPanel.h"
 
 namespace axiom {
 

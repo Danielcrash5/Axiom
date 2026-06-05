@@ -21,7 +21,7 @@ namespace axiom {
 		static Logger& Get();
 
 		void SetLevel(LogLevel level);
-		void AddSink(std::unique_ptr<LogSink> sink);
+		void AddSink(std::shared_ptr<LogSink> sink);
 
 		template<typename... Args>
 		void Log(LogLevel level,
@@ -45,7 +45,7 @@ namespace axiom {
 
 	private:
 		LogLevel m_Level = LogLevel::Trace;
-		std::vector<std::unique_ptr<LogSink>> m_Sinks;
+		std::vector<std::shared_ptr<LogSink>> m_Sinks;
 		std::mutex m_Mutex;
 	};
 

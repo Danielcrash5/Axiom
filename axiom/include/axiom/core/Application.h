@@ -10,6 +10,7 @@
 #include "axiom/ecs/Scene.h"
 #include "axiom/ecs/SystemManager.h"
 #include "axiom/ImGui/IImGuiLayer.h"
+#include "axiom/ImGui/ImGuiPanelManager.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -38,6 +39,14 @@ namespace axiom {
         void PopOverlay(Layer* overlay) {
             m_LayerStack.PopOverlay(overlay);
         }
+
+		void AddImGuiPanel(const std::shared_ptr<IImGuiPanel>& panel) {
+			m_ImGuiPanelManager.AddPanel(panel);
+		}
+
+		void RemoveImGuiPanel(const std::string& name) {
+			m_ImGuiPanelManager.RemovePanel(name);
+		}
 
         static Application& Get() {
             return *s_Instance;
@@ -117,6 +126,9 @@ namespace axiom {
 
 		std::unique_ptr<IImGuiLayer> m_ImGuiLayer;
 
+        std::vector<std::unique_ptr<Scene>> m_Scenes;
+        std::vector<std::string> m_CommandLineArgs;
+
     private:
         void MainLoop();
         void Init();
@@ -143,7 +155,6 @@ namespace axiom {
             m_SystemManager.OnViewportResize(e.width, e.height);
             return false;
         }
-
     private:
         bool m_Running = true;
         std::unique_ptr<Window> m_Window;
@@ -156,13 +167,13 @@ namespace axiom {
         InputSystem m_InputSystem;
         Input m_Input;
 
+		ImGuiPanelManager m_ImGuiPanelManager;
+
         LayerStack m_LayerStack;
         EventBus m_EventBus;
 
 
-        std::vector<std::unique_ptr<Scene>> m_Scenes;
         SystemManager m_SystemManager;
-        std::vector<std::string> m_CommandLineArgs;
     };
 
 }

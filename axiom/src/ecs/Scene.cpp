@@ -16,6 +16,16 @@ namespace axiom {
 		m_Registry.destroy(entity.m_Entity);
 	}
 
+	std::vector<std::shared_ptr<Entity>> Scene::GetAllEntities() {
+		std::vector<std::shared_ptr<Entity>> entities;
+		auto view = m_Registry.view<TransformComponent>();
+		for (auto entity : view) {
+			auto temp_entity = std::make_shared<Entity>(entity, this);
+			entities.push_back(temp_entity);
+		}
+		return entities;
+	}
+
 	void Scene::Render2D() {
 		DrawCommandBuffer2D commandBuffer;
 

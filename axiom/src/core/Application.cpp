@@ -7,6 +7,7 @@
 #include "axiom/renderer/Renderer.h"
 #include "axiom/renderer/Renderer2D.h"
 #include "axiom/assets/VFS.h"
+#include "axiom/ImGui/Panels/LogPanel.h"
 
 #include <filesystem>
 #include <vector>
@@ -107,9 +108,14 @@ namespace axiom {
         props.title = m_AppName;
         m_Window = std::make_unique<Window>(props, m_EventBus);
 
+		std::shared_ptr<ImGuiPanelLogsink> logsink = std::make_shared<ImGuiPanelLogsink>();
+
+		AddImGuiPanel(std::make_shared<LogPanel>(logsink));
+
 #ifdef AXIOM_ENABLE_CONSOLE_LOG
-        Logger::Get().AddSink(std::make_unique<ConsoleSink>());
+        Logger::Get().AddSink(std::make_shared<ConsoleSink>());
 #endif
+		Logger::Get().AddSink(logsink);
 
 
         m_EventBus.Subscribe<WindowCloseEvent>(
@@ -211,6 +217,7 @@ namespace axiom {
 		AXIOM_PROFILE_SCOPE("ImGuiRender");
 		m_ImGuiLayer->Begin();
 		OnImGuiRender();
+		m_ImGuiPanelManager.ImGuiRender();
 		for (auto& layer : m_LayerStack) {
 			AXIOM_PROFILE_SCOPE(layer->GetName());
 			layer->OnImGuiRender();
@@ -269,6 +276,7 @@ namespace axiom {
             if (scene)
                 m_SystemManager.Update(*scene, dt);
         }
+		m_ImGuiPanelManager.Update(dt);
     }
 
     void Application::MainUpdate() {

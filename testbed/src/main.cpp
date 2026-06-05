@@ -1,6 +1,8 @@
 // main.cpp
 #include <axiom/Axiom.h>
 
+#include "Panels/SceneHierarchyPanel.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -20,6 +22,8 @@ protected:
 
         BuildControllerScene(GetScene());
         BuildOverlayScene(CreateScene());
+
+		AddImGuiPanel(std::make_shared<testbed::SceneHierarchyPanel>(m_Scenes));
     }
 
     void OnUpdate(double dt) override {
@@ -28,9 +32,6 @@ protected:
         UpdateOverlayScene();
     }
 
-	void OnImGuiRender() override {
-		ImGui::ShowDemoWindow();
-	}
 private:
     axiom::Entity CreateQuad(
         axiom::Scene& scene,
