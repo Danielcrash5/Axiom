@@ -1,5 +1,6 @@
 #pragma once
 #include <utility>
+#include <any>
 
 #include <entt/entt.hpp>
 #include "Scene.h"
@@ -14,7 +15,15 @@ namespace axiom {
 			: m_Entity(handle), m_Scene(scene) {
 		}
 
-		std::string GetName() {
+		entt::entity GetID() const {
+			return m_Entity;
+		}
+
+		bool operator ==(const Entity& other) const {
+			return m_Entity == other.m_Entity && m_Scene == other.m_Scene;
+		}
+
+		std::string GetName() const {
 			return m_Scene->m_Registry.get<TagComponent>(m_Entity).Tag;
 		}
 
@@ -48,6 +57,50 @@ namespace axiom {
 		template<typename T>
 		T& GetComponent() {
 			return m_Scene->m_Registry.get<T>(m_Entity);
+		}
+
+		struct ComponentInfo {
+			entt::id_type id;
+			
+			const entt::sparse_set* storage;
+
+			std::string GetName() const {
+				if (storage) {
+					std::string name{storage->info().name()};
+					return name;
+				}
+				return "Unknown Component";
+			}
+		};
+
+		std::vector<ComponentInfo> GetComponents() const {
+			std::vector<ComponentInfo> result;
+
+			
+			for (auto&& [id, storage] : m_Scene->m_Registry.storage()) {
+				if (storage.contains(m_Entity)) {
+					
+					result.push_back({id, &storage});
+				}
+			}
+
+			return result;
+		}
+
+		std::any GetComponentById(entt::id_type id) const {
+			auto* storage = m_Scene->m_Registry.storage(id);
+			if (storage && storage->contains(m_Entity)) {
+				// Wir geben den rohen Pointer verpackt in std::any zurück
+				return std::any(storage->value(m_Entity));
+			}
+			return std::any(); // Gibt ein leeres std::any zurück
+		}
+
+		std::any GetComponentByComponentInfo(const ComponentInfo& info) const {
+			if (info.storage && info.storage->contains(m_Entity)) {
+				return std::any(info.storage->value(m_Entity));
+			}
+			return std::any();
 		}
 
 		template<typename T>

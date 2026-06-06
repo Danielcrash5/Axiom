@@ -2,6 +2,7 @@
 #include <axiom/Axiom.h>
 
 #include "Panels/SceneHierarchyPanel.h"
+#include "Panels/InspectorPanel.h"
 
 #include <algorithm>
 #include <array>
@@ -22,8 +23,10 @@ protected:
 
         BuildControllerScene(GetScene());
         BuildOverlayScene(CreateScene());
+		std::shared_ptr<testbed::InspectorPanel> inspectorPanel = std::make_shared<testbed::InspectorPanel>();
 
-		AddImGuiPanel(std::make_shared<testbed::SceneHierarchyPanel>(m_Scenes));
+		AddImGuiPanel(std::make_shared<testbed::SceneHierarchyPanel>(m_Scenes, inspectorPanel));
+		AddImGuiPanel(inspectorPanel);
     }
 
     void OnUpdate(double dt) override {
