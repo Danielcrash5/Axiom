@@ -232,7 +232,8 @@ static void ImGui_ImplSDL3_UpdateIme()
         SDL_StartTextInput(window);
 }
 
-
+// Not static to allow third-party code to use that if they want to (but undocumented)
+ImGuiKey ImGui_ImplSDL3_KeyEventToImGuiKey(SDL_Keycode keycode, SDL_Scancode scancode);
 ImGuiKey ImGui_ImplSDL3_KeyEventToImGuiKey(SDL_Keycode keycode, SDL_Scancode scancode)
 {
     // Keypad doesn't have individual key values in SDL3

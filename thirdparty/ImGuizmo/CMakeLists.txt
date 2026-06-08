@@ -28,6 +28,8 @@ target_include_directories(imguizmo PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
+target_link_libraries(imguizmo PUBLIC imgui)
+
 if(IMGUIZMO_BUILD_EXAMPLE)
     include(FetchContent)
     FetchContent_Declare(

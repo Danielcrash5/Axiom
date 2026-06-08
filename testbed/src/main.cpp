@@ -23,6 +23,8 @@ protected:
 
         BuildControllerScene(GetScene());
         BuildOverlayScene(CreateScene());
+
+
 		std::shared_ptr<testbed::InspectorPanel> inspectorPanel = std::make_shared<testbed::InspectorPanel>();
 
 		AddImGuiPanel(std::make_shared<testbed::SceneHierarchyPanel>(m_Scenes, inspectorPanel));

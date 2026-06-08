@@ -27,6 +27,11 @@ namespace axiom {
 			return m_Scene->m_Registry.get<TagComponent>(m_Entity).Tag;
 		}
 
+		void SetName(const std::string& name) {
+			auto& tag = m_Scene->m_Registry.get<TagComponent>(m_Entity);
+			tag.Tag = name;
+		}
+
 		void Destroy() {
 			m_Scene->m_Registry.destroy(m_Entity);
 		}

@@ -135,9 +135,9 @@ Abgeschlossen
 
 ## Phase 5 — Debug Tools / Editor-Basis
 - [x] ImGui-Integration  
-- [ ] ImGuizmo-Integration  
+- [ ] ImGuizmo-Integration  (Erst mal auf Eisgelegt)
 - [x] Panels: Hierarchie, Inspektor, Statistiken  
-- [ ] Transform-Bearbeitung + Gizmos  
+- [x] Transform-Bearbeitung + Gizmos (leider ohne Gizmos, nur über Inspector numerische Eingabe)
 - [x] Andockbare Benutzeroberfläche  
 
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)

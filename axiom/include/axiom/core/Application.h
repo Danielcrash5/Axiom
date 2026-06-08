@@ -11,6 +11,7 @@
 #include "axiom/ecs/SystemManager.h"
 #include "axiom/ImGui/IImGuiLayer.h"
 #include "axiom/ImGui/ImGuiPanelManager.h"
+#include "axiom/ImGui/ImGuizmoManager.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -108,6 +109,10 @@ namespace axiom {
             return m_SystemManager;
         }
 
+		ImGuizmoManager& GetImGuizmoManager() {
+			return m_ImGuizmoManager;
+		}
+
     protected:
         virtual void OnInit() {}
         virtual void OnShutdown() {}
@@ -172,6 +177,7 @@ namespace axiom {
         LayerStack m_LayerStack;
         EventBus m_EventBus;
 
+		ImGuizmoManager m_ImGuizmoManager;
 
         SystemManager m_SystemManager;
     };
