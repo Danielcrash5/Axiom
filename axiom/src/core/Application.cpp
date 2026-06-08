@@ -8,8 +8,6 @@
 #include "axiom/renderer/Renderer2D.h"
 #include "axiom/assets/VFS.h"
 #include "axiom/ImGui/Panels/LogPanel.h"
-#include "axiom/ImGui/ImGuizmoManager.h"
-
 #include <filesystem>
 #include <vector>
 

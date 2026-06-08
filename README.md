@@ -144,7 +144,8 @@ Abgeschlossen
 
 ---
 
-## Phase 6 — 2D-Platformer-Prototyp
+## Phase 6 — 2D-Platformer-Prototyp 
+Nur finaler Platformer
 - [ ] Spielerbewegung  
 - [ ] Sprungmechanik  
 - [ ] Kollision (AABB)  
@@ -202,6 +203,7 @@ Abgeschlossen
 
 ## Phase 12 — Netzwerk (Asio)
 - [ ] Client/Server-Architektur  
+- [ ] UPnP-Unterstützung
 - [ ] Entitätssynchronisierung  
 - [ ] Basis-Replikation  
 
