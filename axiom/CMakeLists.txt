@@ -31,7 +31,7 @@ target_compile_definitions(axiom_engine PUBLIC GLM_ENABLE_EXPERIMENTAL)
 # OpenGL & Thirdparty
 find_package(OpenGL REQUIRED)
 target_link_libraries(axiom_engine
-    PUBLIC SDL3::SDL3 OpenGL::GL glad stb imgui
+    PUBLIC SDL3::SDL3 stb imgui Vulkan::Vulkan Vulkan::volk Vulkan::shaderc_combined
 )
 
 target_link_libraries(axiom_engine PUBLIC EnTT::EnTT)

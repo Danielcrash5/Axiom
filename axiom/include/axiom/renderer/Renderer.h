@@ -1,69 +1,45 @@
 #pragma once
-#include <glm/glm.hpp>
-#include <vector>
-#include "Model.h"
-#include "RenderCommand.h"
-#include "IndirectDrawBuffer.h"
+
+#include "RendererAPI.h"
+
+#include "axiom/renderer/vulkan/VulkanContext.h"
+#include "axiom/renderer/vulkan/VulkanPhysicalDevice.h"
+#include "axiom/renderer/vulkan/VulkanDevice.h"
+#include "axiom/renderer/vulkan/VulkanSwapchain.h"
+
+#include <memory>
 
 namespace axiom {
-	struct ClearState {
-		bool ClearColor = true;
-		bool ClearDepth = true;
+    class Window;
 
-		glm::vec4 Color = { 0.1f, 0.1f, 0.1f, 1.0f };
-		float Depth = 1.0f;
-	};
+    class Renderer {
+    public:
+        Renderer() = default;
+        ~Renderer() = default;
 
-	struct SceneData {
-		glm::mat4 ViewProjection;
-	};
+        void Initialize(
+            std::shared_ptr<Window> window,
+            RendererAPI api);
 
-	class Renderer {
-	public:
-		static void Init();
+        void Shutdown();
 
-		static void BeginScene(const glm::mat4& ViewProjection, ClearState clearState);
+        void BeginFrame();
+        void EndFrame();
 
-		static void EndScene();
-		static void Flush();
-		static const glm::mat4& GetViewProjection();
+        RendererAPI GetAPI() const {
+            return m_API;
+        }
 
-		static void Submit(const std::shared_ptr<Model>& model, const glm::mat4& transform);
-		static void Submit(
-			const std::shared_ptr<VertexArray>& vao,
-			const std::shared_ptr<Material>& material,
-			uint32_t indexCount,
-			const glm::mat4& transform
-		);
-		static void SubmitLines(
-			const std::shared_ptr<VertexArray>& vao,
-			const std::shared_ptr<Material>& material,
-			uint32_t indexCount
-		);
+    private:
+        void InitializeVulkan(std::shared_ptr<Window> window);
+        void InitializeOpenGL(std::shared_ptr<Window> window);
 
-	friend class Renderer2D;
+    private:
+        RendererAPI m_API = RendererAPI::Vulkan;
 
-	private:
-		struct DrawSubmission {
-			std::shared_ptr<VertexArray> VertexArray;
-			std::shared_ptr<Material> Material;
-			uint32_t IndexCount = 0;
-			uint32_t IndexOffset = 0;
-			glm::mat4 Transform { 1.0f };
-		};
-
-		static SceneData s_SceneData;
-		static std::vector<DrawSubmission> s_DrawQueue;
-		static std::shared_ptr<IndirectDrawBuffer> s_IndirectBuffer;
-
-		static void Submit(
-			const std::shared_ptr<VertexArray>& vao,
-			const std::shared_ptr<Material>& material,
-			uint32_t indexCount,
-			const glm::mat4& transform,
-			uint32_t indexOffset
-		);
-		static void FlushQueue();
-	};
-
+        VulkanContext m_Context;
+        VulkanPhysicalDevice m_PhysicalDevice;
+        VulkanDevice m_Device;
+        VulkanSwapchain m_Swapchain;
+    };
 }

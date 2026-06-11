@@ -6,7 +6,7 @@
 #include "axiom/core/Layerstack.h"
 #include "axiom/input/Input.h"
 #include "axiom/input/InputSystem.h"
-#include "axiom/renderer/RenderCommand.h"
+#include "axiom/renderer/Renderer.h"
 #include "axiom/ecs/Scene.h"
 #include "axiom/ecs/SystemManager.h"
 #include "axiom/ImGui/IImGuiLayer.h"
@@ -62,7 +62,7 @@ namespace axiom {
             return m_EventBus;
         }
 
-        std::unique_ptr<Window>& GetWindow() {
+        std::shared_ptr<Window> GetWindow() {
             return m_Window;
         }
 
@@ -153,14 +153,16 @@ namespace axiom {
         bool OnWindowResize(WindowResizeEvent& e) {
             m_Width = e.width;
             m_Height = e.height;
-            RenderCommand::SetViewport(0, 0, e.width, e.height);
+            //RenderCommand::SetViewport(0, 0, e.width, e.height);
             m_SystemManager.OnViewportResize(e.width, e.height);
             return false;
         }
     private:
         bool m_Running = true;
-        std::unique_ptr<Window> m_Window;
+        std::shared_ptr<Window> m_Window;
         std::string m_AppName;
+
+        Renderer m_Renderer;
 
         uint32_t m_Width, m_Height;
 

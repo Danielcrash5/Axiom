@@ -49,7 +49,7 @@ private:
         auto& transform = entity.GetComponent<axiom::TransformComponent>();
         transform.Translation = position;
         transform.Scale = glm::vec3(size, 1.0f);
-        entity.AddComponent<axiom::SpriteRendererComponent>(color);
+//        entity.AddComponent<axiom::SpriteRendererComponent>(color);
         return entity;
     }
 
@@ -70,8 +70,8 @@ private:
     }
 
     void SetColor(axiom::Entity entity, const glm::vec4& color) {
-        if (entity.HasComponent<axiom::SpriteRendererComponent>())
-            entity.GetComponent<axiom::SpriteRendererComponent>().Color = color;
+//        if (entity.HasComponent<axiom::SpriteRendererComponent>())
+  //          entity.GetComponent<axiom::SpriteRendererComponent>().Color = color;
         if (entity.HasComponent<axiom::CircleRendererComponent>())
             entity.GetComponent<axiom::CircleRendererComponent>().Color = color;
     }

@@ -5,7 +5,7 @@
 #include "axiom/core/Time.h"
 #include "axiom/profiling/Profiler.h"
 #include "axiom/renderer/Renderer.h"
-#include "axiom/renderer/Renderer2D.h"
+#include "axiom/renderer/Renderer.h"
 #include "axiom/assets/VFS.h"
 #include "axiom/ImGui/Panels/LogPanel.h"
 #include <filesystem>
@@ -105,7 +105,9 @@ namespace axiom {
         props.height = m_Height;
         props.width = m_Width;
         props.title = m_AppName;
-        m_Window = std::make_unique<Window>(props, m_EventBus);
+        m_Window = std::make_shared<Window>(props, m_EventBus);
+
+        m_Renderer.Initialize(m_Window, RendererAPI::Vulkan);
 
 		std::shared_ptr<ImGuiPanelLogsink> logsink = std::make_shared<ImGuiPanelLogsink>();
 
@@ -132,9 +134,6 @@ namespace axiom {
         m_Input.Init(m_Window->GetNativeHandle());
         m_InputSystem.Init();
 
-        Renderer::Init();
-        RenderCommand::SetViewport(0, 0, m_Width, m_Height);
-
         VFS::Init();
         bool engineAssetPathUsedFallback = false;
         const std::string engineAssetPath = ResolveAssetPath(
@@ -154,11 +153,8 @@ namespace axiom {
             AXIOM_WARN("Engine asset path fallback is used: {}", engineAssetPath);
 
         VFS::MountPath("engine://", engineAssetPath);
-        m_ImGuiLayer = IImGuiLayer::Create(m_Window);
-        Renderer2D::Init();
-
-        m_Scenes.push_back(std::make_unique<Scene>());
-
+        //m_ImGuiLayer = IImGuiLayer::Create(m_Window);
+        
         OnInit();
     }
 
@@ -307,7 +303,8 @@ namespace axiom {
         AXIOM_PROFILE_SCOPE("Application::Shutdown");
         OnShutdown();
         m_LayerStack.Shutdown();
-        Renderer2D::Shutdown();
+        m_Renderer.Shutdown();
+        //Renderer2D::Shutdown();
         VFS::Shutdown();
     }
 

@@ -1,9 +1,9 @@
 #include "axiom/ecs/Render2DSystem.h"
 #include "axiom/ecs/Entity.h"
 #include "axiom/ecs/Scene.h"
-#include "axiom/renderer/DrawCommandBuffer.h"
-#include "axiom/renderer/Renderer.h"
-#include "axiom/renderer/Renderer2D.h"
+//#include "axiom/renderer/DrawCommandBuffer.h"
+//#include "axiom/renderer/Renderer.h"
+//#include "axiom/renderer/Renderer2D.h"
 
 #include <glm/gtc/matrix_inverse.hpp>
 
@@ -29,7 +29,7 @@ namespace axiom {
     void Render2DSystem::Render(Scene& scene, double alpha) {
         (void)alpha;
 
-        Entity cameraEntity = scene.GetPrimaryCameraEntity();
+        /*Entity cameraEntity = scene.GetPrimaryCameraEntity();
         if (!cameraEntity)
             return;
 
@@ -72,7 +72,7 @@ namespace axiom {
         commandBuffer.Sort();
         commandBuffer.Execute();
         Renderer2D::EndScene();
-        Renderer::EndScene();
+        Renderer::EndScene();*/
     }
 
 } // namespace axiom

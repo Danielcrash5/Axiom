@@ -11,8 +11,8 @@
 #include "VFS.h"
 #include "TextureLoadInfo.h"
 #include "axiom/core/UUID.h"
-#include "axiom/renderer/Shader.h"
-#include "axiom/renderer/Texture2D.h"
+//#include "axiom/renderer/Shader.h"
+//#include "axiom/renderer/Texture2D.h"
 
 namespace axiom {
 
@@ -86,22 +86,22 @@ namespace axiom {
         static std::shared_ptr<T> LoadAsset(UUID assetId, Args&&... args) {
             const std::string& virtualPath = s_assetPaths.at(assetId);
 
-            if constexpr (std::is_same_v<T, Texture2D>) {
-                if constexpr (sizeof...(Args) == 0) {
+            if /*constexpr (std::is_same_v<T, Texture2D>)*/(false) {
+                /*if constexpr (sizeof...(Args) == 0) {
                     return LoadTextureAsset(virtualPath, TexturePresets::Albedo());
                 } else {
                     static_assert(sizeof...(Args) == 1, "Texture2D assets accept zero or one TextureLoadInfo argument");
                     return LoadTextureAsset(virtualPath, std::forward<Args>(args)...);
-                }
-            } else if constexpr (std::is_same_v<T, Shader>) {
-                static_assert(sizeof...(Args) == 0, "Shader assets do not accept extra arguments");
-                return LoadShaderAsset(virtualPath);
+                }*/
+            } else if /*constexpr (std::is_same_v<T, Shader>)*/(false) {
+               /* static_assert(sizeof...(Args) == 0, "Shader assets do not accept extra arguments");
+                return LoadShaderAsset(virtualPath);*/
             } else {
                 static_assert(!sizeof(T), "Unsupported asset type");
             }
         }
 
-        static std::shared_ptr<Texture2D> LoadTextureAsset(
+       /* static std::shared_ptr<Texture2D> LoadTextureAsset(
             const std::string& virtualPath,
             const TextureLoadInfo& info
         ) {
@@ -121,7 +121,7 @@ namespace axiom {
 
             std::string src(data.begin(), data.end());
             return Shader::CreateFromMemory(src, virtualPath);
-        }
+        }*/
 
         static inline std::unordered_map<UUID, std::shared_ptr<void>> s_assets;
         static inline std::unordered_map<std::string, UUID> s_assetIds;

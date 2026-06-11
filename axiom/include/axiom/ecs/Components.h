@@ -1,7 +1,7 @@
 #pragma once
 
 #include "axiom/core/UUID.h"
-#include "axiom/renderer/Sprite.h"
+//#include "axiom/renderer/Sprite.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -51,7 +51,7 @@ namespace axiom {
         }
     };
 
-    struct SpriteRendererComponent {
+    /*struct SpriteRendererComponent {
         glm::vec4 Color{1.0f, 1.0f, 1.0f, 1.0f};
         Sprite SpriteData{};
         float TilingFactor = 1.0f;
@@ -68,7 +68,7 @@ namespace axiom {
         bool HasTexture() const {
             return static_cast<bool>(SpriteData.Texture);
         }
-    };
+    };*/
 
     struct CircleRendererComponent {
         glm::vec4 Color{1.0f, 1.0f, 1.0f, 1.0f};
