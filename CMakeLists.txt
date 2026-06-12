@@ -20,8 +20,6 @@ set(SDL_TESTS OFF CACHE BOOL "" FORCE)
 set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(thirdparty/SDL)
 
-# GLAD - OpenGL Loader
-add_subdirectory(thirdparty/glad)
 
 add_subdirectory(thirdparty/stb)
 

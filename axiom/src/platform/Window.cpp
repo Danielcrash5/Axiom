@@ -4,11 +4,9 @@
 #include "axiom/events/EventBus.h"
 #include "axiom/events/Events.h"
 #include "axiom/input/Input.h"
-#include "axiom/renderer/RendererAPI.h"
 #include <imgui_impl_sdl3.h>
 
 #include <SDL3/SDL.h>
-#include <glad/glad.h>
 
 #include <stdexcept>
 #include <string>
