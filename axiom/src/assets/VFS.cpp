@@ -1,13 +1,14 @@
 #include "axiom/assets/VFS.h"
 
-#include <fstream>
 #include <algorithm>
-#include <cctype>
-#include <cstddef>
+#include <filesystem>
+#include <fstream>
 
 extern "C" {
-#include <compat/unzip.h> // minizip-ng Kompatibilitäts-API
+#include <compat/unzip.h>
 }
+
+namespace fs = std::filesystem;
 
 namespace axiom {
 
@@ -15,28 +16,10 @@ namespace axiom {
 
     static std::string NormalizePath(std::string path) {
         std::replace(path.begin(), path.end(), '\\', '/');
-        const size_t schemeEnd = path.find("://");
-        size_t start = schemeEnd == std::string::npos ? 1 : schemeEnd + 3;
-
-        for (size_t i = start; i < path.size(); ++i) {
-            if (path[i] == '/' && path[i - 1] == '/') {
-                path.erase(path.begin() + static_cast<std::ptrdiff_t>(i));
-                --i;
-            }
-        }
+        while (path.find("//") != std::string::npos &&
+               path.find("://") != path.find("//"))
+            path.replace(path.find("//"), 2, "/");
         return path;
-    }
-
-    static bool ends_with_ignore_case(const std::string& value, const std::string& suffix) {
-        if (value.size() < suffix.size())
-            return false;
-
-        size_t offset = value.size() - suffix.size();
-        for (size_t i = 0; i < suffix.size(); ++i) {
-            if (std::tolower(static_cast<unsigned char>(value[offset + i])) != std::tolower(static_cast<unsigned char>(suffix[i])))
-                return false;
-        }
-        return true;
     }
 
     void VFS::Init() {
@@ -44,111 +27,295 @@ namespace axiom {
     }
 
     void VFS::Shutdown() {
-        for (auto& [root, mp] : s_mounts) {
-            if (mp.type == MountType::Zip && mp.zipHandle) {
+        for (auto& [root, mp] : s_mounts)
+            if (mp.type == MountType::Zip && mp.zipHandle)
                 unzClose(reinterpret_cast<unzFile>(mp.zipHandle));
-                mp.zipHandle = nullptr;
-            }
-        }
         s_mounts.clear();
     }
 
-    void VFS::Mount(const std::string& root, const std::string& path, MountType type) {
-        std::string normalizedRoot = NormalizePath(root);
-        std::string normalizedPath = NormalizePath(path);
-
-        MountPoint mp;
+    void VFS::Mount(const std::string& root, const std::string& path,
+                    MountType type, bool readOnly) {
+        MountPoint mp {};
         mp.type = type;
-        mp.physicalPath = normalizedPath;
+        mp.physicalPath = NormalizePath(path);
+        mp.readOnly = readOnly;
 
         if (type == MountType::Zip) {
-            unzFile zf = unzOpen64(normalizedPath.c_str());
-            if (!zf) {
-                // Zip konnte nicht geöffnet werden – Mount wird ignoriert
-                return;
-            }
+            auto zf = unzOpen64(mp.physicalPath.c_str());
+            if (!zf) return;
             mp.zipHandle = zf;
+            mp.readOnly = true;
         }
 
-        s_mounts[normalizedRoot] = mp;
+        s_mounts[NormalizePath(root)] = std::move(mp);
     }
 
-    void VFS::MountPath(const std::string& root, const std::string& path) {
-        std::string normalizedPath = NormalizePath(path);
-        if (ends_with_ignore_case(normalizedPath, ".zip") || ends_with_ignore_case(normalizedPath, ".pak") || ends_with_ignore_case(normalizedPath, ".apack") || ends_with_ignore_case(normalizedPath, ".axpack")) {
-            Mount(root, normalizedPath, MountType::Zip);
-        } else {
-            Mount(root, normalizedPath, MountType::Directory);
-        }
+    void VFS::MountPath(const std::string& root, const std::string& path,
+                        bool readOnly) {
+        auto p = NormalizePath(path);
+        auto lower = p;
+        std::ranges::transform(lower, lower.begin(), ::tolower);
+
+        if (lower.ends_with(".zip") || lower.ends_with(".pak") ||
+            lower.ends_with(".axpack"))
+            Mount(root, p, MountType::Zip, true);
+        else
+            Mount(root, p, MountType::Directory, readOnly);
     }
 
-    static bool starts_with(const std::string& s, const std::string& prefix) {
-        return s.size() >= prefix.size()
-            && std::equal(prefix.begin(), prefix.end(), s.begin());
+    bool VFS::Unmount(const std::string& root) {
+        auto it = s_mounts.find(NormalizePath(root));
+        if (it == s_mounts.end()) return false;
+
+        if (it->second.type == MountType::Zip && it->second.zipHandle)
+            unzClose(reinterpret_cast<unzFile>(it->second.zipHandle));
+
+        s_mounts.erase(it);
+        return true;
     }
 
-    bool VFS::ReadFile(const std::string& virtualPath, std::vector<uint8_t>& outData) {
-        std::string normalizedPath = NormalizePath(virtualPath);
+    bool VFS::ResolvePath(const std::string& virtualPath, ResolvedPath& out) {
+        auto path = NormalizePath(virtualPath);
+
+        size_t bestLen = 0;
+        MountPoint* bestMount = nullptr;
+        std::string bestRoot;
 
         for (auto& [root, mp] : s_mounts) {
-            if (!starts_with(normalizedPath, root))
-                continue;
-
-            std::string relative = normalizedPath.substr(root.size());
-
-            if (mp.type == MountType::Directory) {
-                std::string fullPath = mp.physicalPath;
-                if (!fullPath.empty() && fullPath.back() != '/' && fullPath.back() != '\\')
-                    fullPath += '/';
-                fullPath += relative;
-
-                std::ifstream file(fullPath, std::ios::binary);
-                if (!file)
-                    return false;
-
-                outData.assign(std::istreambuf_iterator<char>(file),
-                               std::istreambuf_iterator<char>());
-                return true;
-            }
-
-            if (mp.type == MountType::Zip && mp.zipHandle) {
-                unzFile zf = reinterpret_cast<unzFile>(mp.zipHandle);
-
-                // Datei im Zip suchen (case-insensitive = 1)
-                if (unzLocateFile(zf, relative.c_str(), 1) != UNZ_OK)
-                    return false;
-
-                if (unzOpenCurrentFile(zf) != UNZ_OK)
-                    return false;
-
-                unz_file_info64 info {};
-                if (unzGetCurrentFileInfo64(zf, &info, nullptr, 0, nullptr, 0, nullptr, 0) != UNZ_OK) {
-                    unzCloseCurrentFile(zf);
-                    return false;
-                }
-
-                outData.resize(static_cast<size_t>(info.uncompressed_size));
-                uint8_t* dst = outData.data();
-                size_t remaining = outData.size();
-
-                while (remaining > 0) {
-                    int read = unzReadCurrentFile(zf, dst, static_cast<unsigned int>(remaining));
-                    if (read < 0) {
-                        unzCloseCurrentFile(zf);
-                        return false;
-                    }
-                    if (read == 0)
-                        break;
-                    dst += read;
-                    remaining -= static_cast<size_t>(read);
-                }
-
-                unzCloseCurrentFile(zf);
-                return remaining == 0;
+            if (path.starts_with(root) && root.size() > bestLen) {
+                bestLen = root.size();
+                bestMount = &mp;
+                bestRoot = root;
             }
         }
 
-        return false;
+        if (!bestMount) return false;
+
+        out.mount = bestMount;
+        out.relativePath = path.substr(bestRoot.size());
+
+        if (bestMount->type == MountType::Directory)
+            out.physicalPath =
+            (fs::path(bestMount->physicalPath) / out.relativePath).string();
+
+        return true;
     }
+
+    bool VFS::ReadFile(const std::string& virtualPath,
+                       std::vector<uint8_t>& outData) {
+        ResolvedPath rp;
+        if (!ResolvePath(virtualPath, rp)) return false;
+
+        if (rp.mount->type == MountType::Directory) {
+            std::ifstream f(rp.physicalPath, std::ios::binary);
+            if (!f) return false;
+
+            outData.assign(std::istreambuf_iterator<char>(f), {});
+            return true;
+        }
+
+        auto zf = reinterpret_cast<unzFile>(rp.mount->zipHandle);
+
+        if (unzLocateFile(zf, rp.relativePath.c_str(), 1) != UNZ_OK)
+            return false;
+
+        if (unzOpenCurrentFile(zf) != UNZ_OK)
+            return false;
+
+        unz_file_info64 info {};
+        unzGetCurrentFileInfo64(zf, &info, nullptr, 0, nullptr, 0, nullptr, 0);
+
+        outData.resize(static_cast<size_t>(info.uncompressed_size));
+
+        int read = unzReadCurrentFile(
+            zf, outData.data(),
+            static_cast<unsigned int>(outData.size()));
+
+        unzCloseCurrentFile(zf);
+
+        return read >= 0;
+    }
+
+    bool VFS::ReadTextFile(const std::string& virtualPath,
+                           std::string& outText) {
+        std::vector<uint8_t> data;
+        if (!ReadFile(virtualPath, data)) return false;
+
+        outText.assign(data.begin(), data.end());
+        return true;
+    }
+
+    bool VFS::WriteFile(const std::string& virtualPath,
+                        const std::vector<uint8_t>& data) {
+        ResolvedPath rp;
+        if (!ResolvePath(virtualPath, rp)) return false;
+
+        if (rp.mount->type != MountType::Directory) return false;
+        if (rp.mount->readOnly) return false;
+
+        fs::create_directories(fs::path(rp.physicalPath).parent_path());
+
+        std::ofstream f(rp.physicalPath, std::ios::binary);
+        if (!f) return false;
+
+        f.write(reinterpret_cast<const char*>(data.data()),
+                static_cast<std::streamsize>(data.size()));
+
+        return f.good();
+    }
+
+    bool VFS::WriteTextFile(const std::string& virtualPath,
+                            const std::string& text) {
+        return WriteFile(virtualPath,
+                         std::vector<uint8_t>(text.begin(), text.end()));
+    }
+
+    bool VFS::Exists(const std::string& virtualPath) {
+        ResolvedPath rp;
+        if (!ResolvePath(virtualPath, rp)) return false;
+
+        if (rp.mount->type == MountType::Directory)
+            return fs::exists(rp.physicalPath);
+
+        auto zf = reinterpret_cast<unzFile>(rp.mount->zipHandle);
+        return unzLocateFile(zf, rp.relativePath.c_str(), 1) == UNZ_OK;
+    }
+
+    bool VFS::CreateDirectory(const std::string& virtualPath) {
+        ResolvedPath rp;
+        if (!ResolvePath(virtualPath, rp)) return false;
+
+        if (rp.mount->type != MountType::Directory) return false;
+        if (rp.mount->readOnly) return false;
+
+        return fs::create_directories(rp.physicalPath) || fs::exists(rp.physicalPath);
+    }
+
+    std::vector<std::string> VFS::ListFiles(const std::string& virtualPath,
+                                            bool recursive) {
+        std::vector<std::string> result;
+
+        ResolvedPath rp;
+        if (!ResolvePath(virtualPath, rp)) return result;
+
+        if (rp.mount->type == MountType::Directory) {
+            if (!fs::exists(rp.physicalPath))
+                return result;
+
+            if (recursive) {
+                for (auto& e : fs::recursive_directory_iterator(rp.physicalPath))
+                    if (e.is_regular_file())
+                        result.push_back(e.path().string());
+            }
+            else {
+                for (auto& e : fs::directory_iterator(rp.physicalPath))
+                    if (e.is_regular_file())
+                        result.push_back(e.path().string());
+            }
+        }
+        else {
+            auto zf = reinterpret_cast<unzFile>(rp.mount->zipHandle);
+
+            if (unzGoToFirstFile(zf) != UNZ_OK)
+                return result;
+
+            do {
+                char filename[1024] {};
+                unzGetCurrentFileInfo64(
+                    zf, nullptr,
+                    filename, sizeof(filename),
+                    nullptr, 0, nullptr, 0);
+
+                std::string name = filename;
+
+                if (recursive) {
+                    if (name.starts_with(rp.relativePath))
+                        result.push_back(name);
+                }
+                else {
+                    if (name.starts_with(rp.relativePath))
+                        result.push_back(name);
+                }
+            } while (unzGoToNextFile(zf) == UNZ_OK);
+        }
+
+        return result;
+    }
+
+    std::vector<uint8_t> VFS::ReadFile(const std::string& virtualPath) {
+        std::vector<uint8_t> data;
+        ReadFile(virtualPath, data);
+        return data;
+    }
+
+    uint64_t VFS::GetFileSize(const std::string& virtualPath) {
+        ResolvedPath rp;
+        if (!ResolvePath(virtualPath, rp))
+            return 0;
+
+        if (rp.mount->type == MountType::Directory) {
+            if (!std::filesystem::exists(rp.physicalPath))
+                return 0;
+
+            return static_cast<uint64_t>(std::filesystem::file_size(rp.physicalPath));
+        }
+
+        auto zf = reinterpret_cast<unzFile>(rp.mount->zipHandle);
+
+        if (unzLocateFile(zf, rp.relativePath.c_str(), 1) != UNZ_OK)
+            return 0;
+
+        unz_file_info64 info {};
+        if (unzGetCurrentFileInfo64(zf, &info, nullptr, 0, nullptr, 0, nullptr, 0) != UNZ_OK)
+            return 0;
+
+        return static_cast<uint64_t>(info.uncompressed_size);
+    }
+
+    std::filesystem::file_time_type VFS::GetLastWriteTime(const std::string& virtualPath) {
+        ResolvedPath rp;
+        if (!ResolvePath(virtualPath, rp))
+            return {};
+
+        if (rp.mount->type != MountType::Directory)
+            return {};
+
+        if (!std::filesystem::exists(rp.physicalPath))
+            return {};
+
+        return std::filesystem::last_write_time(rp.physicalPath);
+    }
+
+    std::vector<std::string> VFS::ListDirectories(
+        const std::string& virtualPath,
+        bool recursive) {
+        std::vector<std::string> result;
+
+        ResolvedPath rp;
+        if (!ResolvePath(virtualPath, rp))
+            return result;
+
+        if (rp.mount->type != MountType::Directory)
+            return result;
+
+        if (!std::filesystem::exists(rp.physicalPath))
+            return result;
+
+        if (recursive) {
+            for (auto& e : std::filesystem::recursive_directory_iterator(rp.physicalPath)) {
+                if (e.is_directory())
+                    result.push_back(e.path().string());
+            }
+        }
+        else {
+            for (auto& e : std::filesystem::directory_iterator(rp.physicalPath)) {
+                if (e.is_directory())
+                    result.push_back(e.path().string());
+            }
+        }
+
+        return result;
+    }
+
 
 } // namespace axiom

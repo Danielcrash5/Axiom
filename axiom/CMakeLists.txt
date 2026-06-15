@@ -28,8 +28,38 @@ if(AXIOM_ENABLE_CONSOLE_LOG)
 endif()
 target_compile_definitions(axiom_engine PUBLIC GLM_ENABLE_EXPERIMENTAL)
 
-# OpenGL & Thirdparty
-find_package(OpenGL REQUIRED)
+if(AXIOM_RENDERER_VULKAN)
+    target_compile_definitions(
+        axiom_engine
+        PRIVATE
+        AXIOM_HAS_VULKAN
+    )
+endif()
+
+if(AXIOM_RENDERER_WEBGPU)
+    target_compile_definitions(
+        axiom_engine
+        PRIVATE
+        AXIOM_HAS_WEBGPU
+    )
+endif()
+
+if(AXIOM_RENDERER_VULKAN)
+
+    find_package(Vulkan REQUIRED COMPONENTS
+        volk
+        shaderc_combined
+    )
+
+    target_link_libraries(axiom_engine PRIVATE
+        Vulkan::Vulkan
+        Vulkan::volk
+        Vulkan::shaderc_combined
+    )
+
+endif()
+
+# Thirdparty
 target_link_libraries(axiom_engine
     PUBLIC SDL3::SDL3 stb imgui
 )

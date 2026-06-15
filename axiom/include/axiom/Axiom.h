@@ -18,7 +18,6 @@
 
 #include "axiom/assets/VFS.h"
 #include "axiom/assets/AssetManager.h"
-#include "axiom/assets/TextureLoadInfo.h"
 
 #include "axiom/renderer/Renderer.h"
 
