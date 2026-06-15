@@ -1,7 +1,7 @@
 #include "axiom/ecs/Scene.h"
 #include "axiom/ecs/Entity.h"
-#include "axiom/renderer/DrawCommandBuffer.h"
-#include "axiom/renderer/Renderer2D.h"
+//#include "axiom/renderer/DrawCommandBuffer.h"
+//#include "axiom/renderer/Renderer2D.h"
 
 namespace axiom {
 	Entity Scene::CreateEntity(const std::string& name) {
@@ -27,7 +27,7 @@ namespace axiom {
 	}
 
 	void Scene::Render2D() {
-		DrawCommandBuffer2D commandBuffer;
+		/*DrawCommandBuffer2D commandBuffer;
 
 		auto spriteView = m_Registry.view<TransformComponent, SpriteRendererComponent>();
 		for (auto entity : spriteView) {
@@ -50,7 +50,7 @@ namespace axiom {
 		}
 
 		commandBuffer.Sort();
-		commandBuffer.Execute();
+		commandBuffer.Execute();*/
 	}
 
 	Entity Scene::GetPrimaryCameraEntity() {

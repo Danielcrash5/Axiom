@@ -86,12 +86,12 @@ namespace testbed {
 			DrawVec3Control("Rotation", transform.Rotation);
 			DrawVec3Control("Scale", transform.Scale, 1.0f);
 					  });
-		if (entity.HasComponent<axiom::SpriteRendererComponent>()) {
+/*		if (entity.HasComponent<axiom::SpriteRendererComponent>()) {
 			DrawComponent<axiom::SpriteRendererComponent>("Sprite Renderer", entity.GetComponent<axiom::SpriteRendererComponent>(), [](auto& spriteRenderer) {
 				ImGui::ColorEdit4("Color", glm::value_ptr(spriteRenderer.Color));
 				ImGui::DragFloat("Tiling Factor", &spriteRenderer.TilingFactor, 0.1f, 0.0f, 100.0f);
 						  });
-		}
+		} */
 		if (entity.HasComponent<axiom::CameraComponent>()) {
 			DrawComponent<axiom::CameraComponent>("Camera", entity.GetComponent<axiom::CameraComponent>(), [](auto& camera) {
 				ImGui::Checkbox("Primary", &camera.Primary);

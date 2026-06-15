@@ -10,6 +10,10 @@ set(AXIOM_ENGINE_ASSET_DIR "${CMAKE_SOURCE_DIR}/axiom/assets" CACHE PATH "Engine
 set(AXIOM_ENGINE_PACK_NAME "engine.AxPack" CACHE STRING "Engine asset pack file name")
 set(AXIOM_ENGINE_ASSET_PATH "./${AXIOM_ENGINE_PACK_NAME}" CACHE STRING "Engine asset path used by runtime" FORCE)
 
+option(AXIOM_RENDERER_VULKAN "Enable Vulkan Renderer" ON)
+option(AXIOM_RENDERER_WEBGPU "Enable WebGPU Renderer" OFF)
+
+
 # Thirdparty Libraries
 
 set(THIRDPARTY_DIR ${CMAKE_SOURCE_DIR}/thirdparty)
@@ -19,7 +23,6 @@ set(SDL_STATIC ON CACHE BOOL "" FORCE)
 set(SDL_TESTS OFF CACHE BOOL "" FORCE)
 set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(thirdparty/SDL)
-
 
 add_subdirectory(thirdparty/stb)
 

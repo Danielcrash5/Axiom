@@ -32,32 +32,13 @@ namespace axiom {
             s_SDLInitialized = true;
         }
 
-        if (RendererAPI::GetAPI() == RendererAPIType::OpenGL) {
-            SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
-            SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-        }
-
         SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE;
-        if (RendererAPI::GetAPI() == RendererAPIType::OpenGL)
-            flags |= SDL_WINDOW_OPENGL;
+        flags |= SDL_WINDOW_VULKAN;
+        flags |= SDL_WINDOW_OPENGL;
 
         m_Window = SDL_CreateWindow(props.title.c_str(), static_cast<int>(props.width), static_cast<int>(props.height), flags);
         if (!m_Window)
             throw std::runtime_error(std::string("Failed to create SDL3 window: ") + SDL_GetError());
-
-        if (RendererAPI::GetAPI() == RendererAPIType::OpenGL) {
-            m_GLContext = SDL_GL_CreateContext(m_Window);
-            if (!m_GLContext)
-                throw std::runtime_error(std::string("Failed to create SDL3 OpenGL context: ") + SDL_GetError());
-
-            if (!SDL_GL_MakeCurrent(m_Window, m_GLContext))
-                throw std::runtime_error(std::string("Failed to activate SDL3 OpenGL context: ") + SDL_GetError());
-
-            if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(SDL_GL_GetProcAddress)))
-                throw std::runtime_error("Failed to initialize GLAD");
-        }
 
         m_Vsync = props.vsync;
         SDL_GL_SetSwapInterval(m_Vsync ? 1 : 0);
@@ -191,7 +172,7 @@ namespace axiom {
         return m_Height;
     }
 
-    void* Window::GetNativeHandle() const {
+    SDL_Window* Window::GetNativeHandle() const {
         return m_Window;
     }
 

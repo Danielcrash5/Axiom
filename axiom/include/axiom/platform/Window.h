@@ -29,7 +29,7 @@ namespace axiom {
         uint32_t GetWidth() const;
         uint32_t GetHeight() const;
 
-        void* GetNativeHandle() const;
+        SDL_Window* GetNativeHandle() const;
 
         bool VsyncEnabled() { return m_Vsync;  }
         void ToggleVsync();
