@@ -153,7 +153,7 @@ namespace axiom {
         bool OnWindowResize(WindowResizeEvent& e) {
             m_Width = e.width;
             m_Height = e.height;
-            //RenderCommand::SetViewport(0, 0, e.width, e.height);
+            m_Renderer->on_window_resize(m_Width, m_Height);
             m_SystemManager.OnViewportResize(e.width, e.height);
             return false;
         }
@@ -162,7 +162,7 @@ namespace axiom {
         std::shared_ptr<Window> m_Window;
         std::string m_AppName;
 
-        Renderer m_Renderer;
+        std::unique_ptr<Renderer> m_Renderer;
 
         uint32_t m_Width, m_Height;
 

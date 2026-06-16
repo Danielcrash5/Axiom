@@ -33,8 +33,11 @@ namespace axiom {
         }
 
         SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE;
+#if defined(AXIOM_RENDERER_VULKAN)
         flags |= SDL_WINDOW_VULKAN;
-        flags |= SDL_WINDOW_OPENGL;
+#else
+
+#endif
 
         m_Window = SDL_CreateWindow(props.title.c_str(), static_cast<int>(props.width), static_cast<int>(props.height), flags);
         if (!m_Window)
@@ -69,7 +72,7 @@ namespace axiom {
     void Window::PollEvents() {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-			ImGui_ImplSDL3_ProcessEvent(&event);
+			//ImGui_ImplSDL3_ProcessEvent(&event);
             switch (event.type) {
             case SDL_EVENT_QUIT: {
                 WindowCloseEvent closeEvent;

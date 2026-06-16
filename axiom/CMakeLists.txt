@@ -12,6 +12,26 @@ target_compile_definitions(axiom_engine PUBLIC
     AXIOM_ENGINE_ASSET_PATH="${AXIOM_ENGINE_ASSET_PATH}"
 )
 
+set(EXCLUDE_DIR_VULKAN "src/renderer/Backends/Vulkan")
+set(EXCLUDE_DIR_WEBGPU "src/renderer/Backends/WebGPU")
+
+set(FILTERED_SOURCES "")
+
+foreach(FILE_PATH ${AXIOM_SOURCES})
+    set(KEEP_FILE TRUE)
+    
+    if(NOT AXIOM_RENDERER_VULKAN AND FILE_PATH MATCHES "${EXCLUDE_DIR_VULKAN}")
+        set(KEEP_FILE FALSE)
+    endif()
+    
+    if(NOT AXIOM_RENDERER_WEBGPU AND FILE_PATH MATCHES "${EXCLUDE_DIR_WEBGPU}")
+        set(KEEP_FILE FALSE)
+    endif()
+    
+    if(KEEP_FILE)
+        list(APPEND FILTERED_SOURCES ${FILE_PATH})
+    endif()
+endforeach()
 
 target_sources(axiom_engine PRIVATE ${AXIOM_SOURCES})
 

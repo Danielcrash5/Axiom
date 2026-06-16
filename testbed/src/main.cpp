@@ -19,22 +19,22 @@ protected:
     void OnInit() override {
         axiom::VFS::MountPath("game://", AXIOM_GAME_ASSET_PATH);
 
-        m_Render2DSystem = RegisterSystem<axiom::Render2DSystem>(GetWidth(), GetHeigth());
+       /* m_Render2DSystem = RegisterSystem<axiom::Render2DSystem>(GetWidth(), GetHeigth());
 
         BuildControllerScene(GetScene());
-        BuildOverlayScene(CreateScene());
+        BuildOverlayScene(CreateScene());*/
 
 
-		std::shared_ptr<testbed::InspectorPanel> inspectorPanel = std::make_shared<testbed::InspectorPanel>();
+		/*std::shared_ptr<testbed::InspectorPanel> inspectorPanel = std::make_shared<testbed::InspectorPanel>();
 
 		AddImGuiPanel(std::make_shared<testbed::SceneHierarchyPanel>(m_Scenes, inspectorPanel));
-		AddImGuiPanel(inspectorPanel);
+		AddImGuiPanel(inspectorPanel);*/
     }
 
     void OnUpdate(double dt) override {
-        UpdateCamera(dt);
+       /* UpdateCamera(dt);
         UpdateControllerView();
-        UpdateOverlayScene();
+        UpdateOverlayScene();*/
     }
 
 private:
@@ -300,7 +300,7 @@ private:
     }
 
 private:
-    std::shared_ptr<axiom::Render2DSystem> m_Render2DSystem;
+    //std::shared_ptr<axiom::Render2DSystem> m_Render2DSystem;
 
     axiom::Entity m_MainCamera;
     axiom::Entity m_OverlayCamera;

@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 #include "Asset.h"
+#include "AssetLoader.h"
 
 namespace axiom {
     class AssetManager {
