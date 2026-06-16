@@ -5,7 +5,7 @@
 #include "axiom/core/Time.h"
 #include "axiom/profiling/Profiler.h"
 #include "axiom/renderer/Renderer.h"
-#include "axiom/renderer/Renderer.h"
+#include <axiom/renderer/RendererRHI.h>
 #include "axiom/assets/VFS.h"
 #include "axiom/ImGui/Panels/LogPanel.h"
 #include <filesystem>
@@ -106,14 +106,6 @@ namespace axiom {
 		props.width = m_Width;
 		props.title = m_AppName;
 		m_Window = std::make_shared<Window>(props, m_EventBus);
-		try {
-			m_Renderer = std::make_unique<Renderer>(m_Window->GetNativeHandle());
-		}
-		catch (const std::exception& e) {
-			AXIOM_FATAL("Fataler Fehler beim Start der Engine: {}", e.what());
-			m_Running = false;
-			return;
-		}
 
 		std::shared_ptr<ImGuiPanelLogsink> logsink = std::make_shared<ImGuiPanelLogsink>();
 
@@ -161,6 +153,15 @@ namespace axiom {
 		VFS::MountPath("engine://", engineAssetPath);
 		//m_ImGuiLayer = IImGuiLayer::Create(m_Window);
 
+		try {
+			m_Renderer = std::make_unique<Renderer>(m_Window->GetNativeHandle());
+		}
+		catch (const std::exception& e) {
+			AXIOM_FATAL("Fataler Fehler beim Start der Engine: {}", e.what());
+			m_Running = false;
+			return;
+		}
+
 		OnInit();
 	}
 
@@ -196,7 +197,8 @@ namespace axiom {
 	void Application::Render(double alpha) {
 		AXIOM_PROFILE_SCOPE("Render");
 
-		if (m_Renderer->begin_frame()) {
+		CommandBuffer cmd;
+		if (m_Renderer->begin_frame(cmd)) {
 
 			// User render
 			OnRender(alpha);

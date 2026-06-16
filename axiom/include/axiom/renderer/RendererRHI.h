@@ -1,14 +1,37 @@
 #pragma once
-#include "RHICommon.h"
-#include <expected>
+
+#include <string_view>
+#include <cstdint>
+#include <memory>
 
 struct SDL_Window;
 
 namespace axiom {
 
-    // Vorwärtsdeklaration für den konkreten Zustand (wird in der CPP definiert)
-    struct GraphicsDeviceImpl;
     struct CommandBufferImpl;
+    struct GraphicsDeviceImpl;
+
+    enum class BufferUsage : uint32_t {
+        Vertex = 1 << 0,
+        Index = 1 << 1,
+        Uniform = 1 << 2,
+        Storage = 1 << 3,
+        Indirect = 1 << 4
+    };
+
+    using BufferHandle = uint32_t;
+    using TextureHandle = uint32_t;
+    enum class TextureFormat {
+        RGBA8
+    };
+
+    struct TransientAllocation {
+        BufferHandle bufferHandle;
+        uint64_t offset;
+        void* pMappedData;
+    };
+
+    class GraphicsDevice;
 
     class CommandBuffer {
     public:
@@ -20,10 +43,8 @@ namespace axiom {
         void draw_indexed_indirect(BufferHandle indirectBuffer, uint64_t offset, uint32_t drawCount);
         void push_constants(const void* data, uint32_t size);
 
-        // Erlaubt dem Backend, an die echten Daten zu kommen
-        CommandBufferImpl* get_impl() {
-            return m_impl;
-        }
+        // Backend-Schnittstelle zum Setzen des nativen Handles
+        void set_native_handle(void* cmdBuffer, GraphicsDevice* device);
 
     private:
         CommandBufferImpl* m_impl = nullptr;
@@ -34,16 +55,21 @@ namespace axiom {
         GraphicsDevice(SDL_Window* window);
         ~GraphicsDevice();
 
+        bool begin_frame(CommandBuffer& outCmdBuffer);
+        void end_frame();
+        void handle_resize(int newWidth, int newHeight);
+
         BufferHandle create_buffer(uint64_t size, BufferUsage usage);
         TextureHandle create_texture(TextureFormat format, uint32_t width, uint32_t height);
-
-        bool begin_frame();
-        void end_frame();
         void submit(CommandBuffer& cmd);
-        void handle_resize(int newWidth, int newHeight);
+
+        TransientAllocation allocate_transient(uint64_t size, uint32_t alignment = 16);
+
+        // Liefert das rohe VkBuffer-Handle direkt als void* zurück
+        void* get_native_buffer_handle(BufferHandle handle);
 
     private:
         GraphicsDeviceImpl* m_impl = nullptr;
     };
 
-} // namespace Axiom
+} // namespace axiom

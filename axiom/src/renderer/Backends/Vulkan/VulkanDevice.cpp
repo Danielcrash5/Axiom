@@ -1,19 +1,35 @@
 #define VOLK_IMPLEMENTATION
 #include <Volk/volk.h>
 
+// VMA Konfiguration für die Kopplung mit Volk
+#define VMA_IMPLEMENTATION
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
+#include <vma/vk_mem_alloc.h>
+
 #include <axiom/renderer/RendererRHI.h>
 #include <axiom/core/Logger.h>
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_vulkan.h> // SDLs Vulkan-Anbindung
+#include <SDL3/SDL_vulkan.h>
 #include <stdexcept>
 #include <vector>
 #include <iostream>
 #include <algorithm>
+#include <limits>
 
 namespace axiom {
+
 	inline constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-	// Das private Herz unseres Vulkan-Geräts
+	// Interne Struktur für das Tracking allokierter Buffer im Ressourcen-Pool
+	struct VulkanBufferResource {
+		VkBuffer buffer = VK_NULL_HANDLE;
+		VmaAllocation allocation = nullptr;
+		VmaAllocationInfo allocInfo {};
+		uint64_t size = 0;
+	};
+
+	// Private Datenstruktur (Pimpl-Versteck für Vulkan-Interna)
 	struct GraphicsDeviceImpl {
 		VkInstance instance = VK_NULL_HANDLE;
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
@@ -30,26 +46,32 @@ namespace axiom {
 		std::vector<VkImage> swapchainImages;
 		std::vector<VkImageView> swapchainImageViews;
 
-		// Synchronisation für Doppel-Pufferung (In-Flight)
+		// Synchronisation für In-Flight-Frames
 		std::vector<VkSemaphore> imageAvailableSemaphores;
 		std::vector<VkSemaphore> renderFinishedSemaphores;
 		std::vector<VkFence> inFlightFences;
 
-		uint32_t currentFrameIndex = 0; // Schaltet jeden Frame zwischen 0 und 1 um
-		uint32_t currentSwapchainImageIndex = 0; // Welches konkrete Swapchain-Bild wir gerade nutzen
-
-		// Command Pools und Command Buffer pro In-Flight-Frame
+		// Command-Infrastruktur pro Frame
 		std::vector<VkCommandPool> commandPools;
 		std::vector<VkCommandBuffer> commandBuffers;
+
+		// Speicherverwaltung
+		VmaAllocator allocator = VK_NULL_HANDLE;
+		std::vector<VulkanBufferResource> buffers;
+
+		uint32_t currentFrameIndex = 0;
+		uint32_t currentSwapchainImageIndex = 0;
+
+		// Transient Allocator Daten
+		static constexpr uint64_t TRANSIENT_POOL_SIZE = 16 * 1024 * 1024; // 16 MB pro Frame
+		std::vector<BufferHandle> transientBuffers;
+		uint64_t transientOffset = 0;
 	};
 
+	// Interne Hilfsfunktion zur Erstellung/Wiedererstellung der Swapchain
 	void create_swapchain_internal(GraphicsDeviceImpl* impl, VkSwapchainKHR oldSwapchain = VK_NULL_HANDLE) {
-		// Falls wir ein Re-Creation durchführen, müssen wir zuerst auf die GPU warten,
-		// damit wir keine Ressourcen löschen, die gerade noch im Flug sind!
 		if (oldSwapchain != VK_NULL_HANDLE) {
 			vkDeviceWaitIdle(impl->device);
-
-			// Die alten ImageViews zerstören
 			for (auto imageView : impl->swapchainImageViews) {
 				vkDestroyImageView(impl->device, imageView, nullptr);
 			}
@@ -57,24 +79,16 @@ namespace axiom {
 			impl->swapchainImages.clear();
 		}
 
-		// 1. Surface via SDL3 erstellen (nur beim ersten Mal!)
 		if (impl->surface == VK_NULL_HANDLE) {
 			if (!SDL_Vulkan_CreateSurface(impl->window, impl->instance, nullptr, &impl->surface)) {
-				throw std::runtime_error(std::string("Vulkan Surface Fehler: ") + SDL_GetError());
-			}
-
-			VkBool32 presentSupport = false;
-			vkGetPhysicalDeviceSurfaceSupportKHR(impl->physicalDevice, impl->graphicsQueueFamilyIndex, impl->surface, &presentSupport);
-			if (!presentSupport) {
-				throw std::runtime_error("Graphics Queue unterstützt keine Präsentation!");
+				throw std::runtime_error(std::string("[Vulkan] Surface-Erstellung fehlgeschlagen: ") + SDL_GetError());
 			}
 		}
 
-		// 2. Capabilities abfragen, um neue Dimensionen zu validieren
 		VkSurfaceCapabilitiesKHR capabilities;
 		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(impl->physicalDevice, impl->surface, &capabilities);
 
-		// Wenn das Fenster minimiert ist, sind die Extents 0. Wir fangen das ab.
+		// Abfangen, falls das Fenster minimiert ist (Breite/Höhe ist 0)
 		if (capabilities.currentExtent.width == 0 || capabilities.currentExtent.height == 0) {
 			impl->swapchainExtent = { 0, 0 };
 			return;
@@ -92,7 +106,6 @@ namespace axiom {
 			};
 		}
 
-		// 3. Format bestimmen (wie gehabt)
 		uint32_t formatCount = 0;
 		vkGetPhysicalDeviceSurfaceFormatsKHR(impl->physicalDevice, impl->surface, &formatCount, nullptr);
 		std::vector<VkSurfaceFormatKHR> formats(formatCount);
@@ -111,7 +124,6 @@ namespace axiom {
 			imageCount = capabilities.maxImageCount;
 		}
 
-		// 4. Swapchain erzeugen – hier übergeben wir die OLD Swapchain
 		VkSwapchainCreateInfoKHR createInfo {
 			.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 			.surface = impl->surface,
@@ -124,23 +136,21 @@ namespace axiom {
 			.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
 			.preTransform = capabilities.currentTransform,
 			.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-			.presentMode = VK_PRESENT_MODE_FIFO_KHR,
+			.presentMode = VK_PRESENT_MODE_FIFO_KHR, // Standard-VSync
 			.clipped = VK_TRUE,
-			.oldSwapchain = oldSwapchain // VULKAN OPTIMIERUNG
+			.oldSwapchain = oldSwapchain
 		};
 
 		VkSwapchainKHR newSwapchain;
 		if (vkCreateSwapchainKHR(impl->device, &createInfo, nullptr, &newSwapchain) != VK_SUCCESS) {
-			throw std::runtime_error("Vulkan Swapchain konnte nicht neu erstellt werden!");
+			throw std::runtime_error("[Vulkan] Konnte Swapchain nicht erzeugen!");
 		}
 
-		// Jetzt, wo die neue steht, können wir die alte physisch zerstören
 		if (oldSwapchain != VK_NULL_HANDLE) {
 			vkDestroySwapchainKHR(impl->device, oldSwapchain, nullptr);
 		}
 		impl->swapchain = newSwapchain;
 
-		// 5. Images & Views neu aufbauen
 		vkGetSwapchainImagesKHR(impl->device, impl->swapchain, &imageCount, nullptr);
 		impl->swapchainImages.resize(imageCount);
 		vkGetSwapchainImagesKHR(impl->device, impl->swapchain, &imageCount, impl->swapchainImages.data());
@@ -154,40 +164,37 @@ namespace axiom {
 				.format = impl->swapchainFormat,
 				.subresourceRange = {
 					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+					.baseMipLevel = 0,
 					.levelCount = 1,
+					.baseArrayLayer = 0,
 					.layerCount = 1
 				}
 			};
-			vkCreateImageView(impl->device, &viewInfo, nullptr, &impl->swapchainImageViews[i]);
+			if (vkCreateImageView(impl->device, &viewInfo, nullptr, &impl->swapchainImageViews[i]) != VK_SUCCESS) {
+				throw std::runtime_error("[Vulkan] ImageView-Erstellung für Swapchain-Bild fehlgeschlagen!");
+			}
 		}
-	}
-
-	// RHI-Funktion ausführen
-	void GraphicsDevice::handle_resize(int newWidth, int newHeight) {
-		// Ruft den internen Worker auf und reicht die aktuelle Swapchain als 'old' ein
-		create_swapchain_internal(m_impl, m_impl->swapchain);
 	}
 
 	GraphicsDevice::GraphicsDevice(SDL_Window* window) {
 		m_impl = new GraphicsDeviceImpl();
 		m_impl->window = window;
 
-		// 1. Volk initialisieren (lädt vkCreateInstance aus dem Treiber/Loader)
+		// 1. Volk initialisieren
 		if (volkInitialize() != VK_SUCCESS) {
-			throw std::runtime_error("Volk konnte nicht initialisiert werden! Ist ein Grafiktreiber installiert?");
+			throw std::runtime_error("[Vulkan] Volk Meta-Loader konnte nicht initialisiert werden!");
 		}
 
-		// 2. Vulkan Instanz erstellen
+		// 2. Instanz aufbauen (Vulkan 1.3 zwingend für Dynamic Rendering)
 		VkApplicationInfo appInfo {
 			.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 			.pApplicationName = "Axiom Engine",
 			.applicationVersion = VK_MAKE_VERSION(1, 0, 0),
 			.pEngineName = "Axiom",
 			.engineVersion = VK_MAKE_VERSION(1, 0, 0),
-			.apiVersion = VK_API_VERSION_1_3 // Vulkan 1.3 garantiert uns Dynamic Rendering!
+			.apiVersion = VK_API_VERSION_1_3
 		};
 
-		// SDL3 Extensions für das Window-Surface abfragen
 		uint32_t extensionCount = 0;
 		const char* const* sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&extensionCount);
 
@@ -199,61 +206,51 @@ namespace axiom {
 		};
 
 		if (vkCreateInstance(&createInfo, nullptr, &m_impl->instance) != VK_SUCCESS) {
-			throw std::runtime_error("Vulkan Instance konnte nicht erstellt werden!");
+			throw std::runtime_error("[Vulkan] Instance-Erstellung fehlgeschlagen!");
 		}
-
-		// Volk mit der erstellten Instanz füttern (lädt alle instanzabhängigen Funktionen)
 		volkLoadInstance(m_impl->instance);
 
-		// 3. Passende GPU (Physical Device) auswählen
+		// 3. Physikalische GPU wählen
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(m_impl->instance, &deviceCount, nullptr);
-		if (deviceCount == 0) {
-			throw std::runtime_error("Keine GPU mit Vulkan-Unterstützung gefunden!");
-		}
+		if (deviceCount == 0) throw std::runtime_error("[Vulkan] Keine GPU mit Vulkan-Support gefunden!");
 
 		std::vector<VkPhysicalDevice> devices(deviceCount);
 		vkEnumeratePhysicalDevices(m_impl->instance, &deviceCount, devices.data());
 
-		// Einfache Strategie: Wir nehmen die erste dedizierte GPU, sonst die erste beste
-		for (const auto& device : devices) {
+		for (const auto& dev : devices) {
 			VkPhysicalDeviceProperties props;
-			vkGetPhysicalDeviceProperties(device, &props);
-
+			vkGetPhysicalDeviceProperties(dev, &props);
 			if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-				m_impl->physicalDevice = device;
-				AXIOM_INFO("Gewählte GPU: {} (Dedicated)", props.deviceName);
+				m_impl->physicalDevice = dev;
+				AXIOM_INFO("[Vulkan] GPU gewählt: {} (Dediziert)", props.deviceName);
 				break;
 			}
 		}
-
 		if (m_impl->physicalDevice == VK_NULL_HANDLE) {
 			m_impl->physicalDevice = devices[0];
 			VkPhysicalDeviceProperties props;
 			vkGetPhysicalDeviceProperties(m_impl->physicalDevice, &props);
-			AXIOM_INFO("Gewählte GPU: {} (Fallback)", props.deviceName);
+			AXIOM_INFO("[Vulkan] GPU gewählt: {} (Fallback)", props.deviceName);
 		}
 
-		// 4. Queue Families suchen
+		// 4. Queue Families auflösen
 		uint32_t queueFamilyCount = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(m_impl->physicalDevice, &queueFamilyCount, nullptr);
 		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 		vkGetPhysicalDeviceQueueFamilyProperties(m_impl->physicalDevice, &queueFamilyCount, queueFamilies.data());
 
-		bool foundGraphicsQueue = false;
+		bool foundGraphics = false;
 		for (uint32_t i = 0; i < queueFamilyCount; i++) {
 			if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 				m_impl->graphicsQueueFamilyIndex = i;
-				foundGraphicsQueue = true;
+				foundGraphics = true;
 				break;
 			}
 		}
+		if (!foundGraphics) throw std::runtime_error("[Vulkan] Keine Graphics Queue Family gefunden!");
 
-		if (!foundGraphicsQueue) {
-			throw std::runtime_error("Keine passende Graphics Queue Family gefunden!");
-		}
-
-		// 5. Logisches Device mit Dynamic Rendering Features erstellen
+		// 5. Logisches Device erstellen und Dynamic Rendering aktivieren
 		float queuePriority = 1.0f;
 		VkDeviceQueueCreateInfo queueCreateInfo {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -262,20 +259,16 @@ namespace axiom {
 			.pQueuePriorities = &queuePriority
 		};
 
-		// Hier aktivieren wir die Vulkan 1.3 Features (Dynamic Rendering)
 		VkPhysicalDeviceVulkan13Features features13 {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
-			.dynamicRendering = VK_TRUE // Schaltet vkCmdBeginRendering frei!
+			.dynamicRendering = VK_TRUE // Schaltet vkCmdBeginRendering frei
 		};
 
-		// Erwähnte Extensions (z.B. KHR_swapchain für die Bildausgabe)
-		std::vector<const char*> deviceExtensions = {
-			VK_KHR_SWAPCHAIN_EXTENSION_NAME
-		};
+		std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 		VkDeviceCreateInfo deviceCreateInfo {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-			.pNext = &features13, // Features an die Kette hängen
+			.pNext = &features13,
 			.queueCreateInfoCount = 1,
 			.pQueueCreateInfos = &queueCreateInfo,
 			.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size()),
@@ -283,100 +276,141 @@ namespace axiom {
 		};
 
 		if (vkCreateDevice(m_impl->physicalDevice, &deviceCreateInfo, nullptr, &m_impl->device) != VK_SUCCESS) {
-			throw std::runtime_error("Logisches Vulkan Device konnte nicht erstellt werden!");
+			throw std::runtime_error("[Vulkan] Logisches Device konnte nicht erzeugt werden!");
 		}
-
-		// Volk mit dem Device füttern (lädt alle geräteabhängigen Funktionen mit maximaler Performance)
 		volkLoadDevice(m_impl->device);
 
-		// Queue abgreifen
 		vkGetDeviceQueue(m_impl->device, m_impl->graphicsQueueFamilyIndex, 0, &m_impl->graphicsQueue);
 
-		// Swapchain generieren
+		// 6. Swapchain initialisieren
 		create_swapchain_internal(m_impl);
 
+		// 7. Synchronisations-Strukturen aufbauen
 		m_impl->imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		m_impl->renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		m_impl->inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
-		VkSemaphoreCreateInfo semaphoreInfo { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+		VkSemaphoreCreateInfo semInfo { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 		VkFenceCreateInfo fenceInfo {
 			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-			.flags = VK_FENCE_CREATE_SIGNALED_BIT // WICHTIG: Startet signalisiert, damit der erste Frame nicht unendlich wartet!
+			.flags = VK_FENCE_CREATE_SIGNALED_BIT // Startet geöffnet!
 		};
 
 		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-			if (vkCreateSemaphore(m_impl->device, &semaphoreInfo, nullptr, &m_impl->imageAvailableSemaphores[i]) != VK_SUCCESS ||
-				vkCreateSemaphore(m_impl->device, &semaphoreInfo, nullptr, &m_impl->renderFinishedSemaphores[i]) != VK_SUCCESS ||
-				vkCreateFence(m_impl->device, &fenceInfo, nullptr, &m_impl->inFlightFences[i]) != VK_SUCCESS) {
-				throw std::runtime_error("Vulkan Synchronisationsobjekte konnten nicht erstellt werden!");
-			}
+			vkCreateSemaphore(m_impl->device, &semInfo, nullptr, &m_impl->imageAvailableSemaphores[i]);
+			vkCreateSemaphore(m_impl->device, &semInfo, nullptr, &m_impl->renderFinishedSemaphores[i]);
+			vkCreateFence(m_impl->device, &fenceInfo, nullptr, &m_impl->inFlightFences[i]);
 		}
 
+		// 8. Command Pools und primary Command Buffer allokieren
 		m_impl->commandPools.resize(MAX_FRAMES_IN_FLIGHT);
 		m_impl->commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
 		VkCommandPoolCreateInfo poolInfo {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-			// TRANSIENT bedeutet: Wir zerstören/resetten die Buffer hieraus sehr häufig
 			.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
 			.queueFamilyIndex = m_impl->graphicsQueueFamilyIndex
 		};
 
 		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-			if (vkCreateCommandPool(m_impl->device, &poolInfo, nullptr, &m_impl->commandPools[i]) != VK_SUCCESS) {
-				throw std::runtime_error("VkCommandPool konnte nicht erstellt werden!");
-			}
+			vkCreateCommandPool(m_impl->device, &poolInfo, nullptr, &m_impl->commandPools[i]);
 
-			// Direkt einen primären Command Buffer aus dem neuen Pool allokieren
 			VkCommandBufferAllocateInfo allocInfo {
 				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 				.commandPool = m_impl->commandPools[i],
 				.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 				.commandBufferCount = 1
 			};
+			vkAllocateCommandBuffers(m_impl->device, &allocInfo, &m_impl->commandBuffers[i]);
+		}
 
-			if (vkAllocateCommandBuffers(m_impl->device, &allocInfo, &m_impl->commandBuffers[i]) != VK_SUCCESS) {
-				throw std::runtime_error("VkCommandBuffer konnte nicht allokiert werden!");
-			}
+		// 9. VMA (Vulkan Memory Allocator) initialisieren
+		VmaVulkanFunctions vmaFunctions {
+			.vkGetInstanceProcAddr = vkGetInstanceProcAddr,
+			.vkGetDeviceProcAddr = vkGetDeviceProcAddr
+		};
+
+		VmaAllocatorCreateInfo allocAllocInfo {
+			.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
+			.physicalDevice = m_impl->physicalDevice,
+			.device = m_impl->device,
+			.pVulkanFunctions = &vmaFunctions,
+			.instance = m_impl->instance,
+			.vulkanApiVersion = VK_API_VERSION_1_3
+		};
+		vmaCreateAllocator(&allocAllocInfo, &m_impl->allocator);
+
+		// Zwei große transiente Buffer erzeugen (einen pro In-Flight-Frame)
+		m_impl->transientBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			// Wir flaggen den Buffer als Vertex-, Index- und Uniform-tauglich
+			m_impl->transientBuffers[i] = create_buffer(
+				GraphicsDeviceImpl::TRANSIENT_POOL_SIZE,
+				static_cast<BufferUsage>(
+				static_cast<uint32_t>(BufferUsage::Vertex) |
+				static_cast<uint32_t>(BufferUsage::Index) |
+				static_cast<uint32_t>(BufferUsage::Uniform)
+			)
+			);
 		}
 	}
 
 	GraphicsDevice::~GraphicsDevice() {
 		if (m_impl) {
 			if (m_impl->device != VK_NULL_HANDLE) {
-				// 1. Image Views freigeben
+				vkDeviceWaitIdle(m_impl->device);
+
+				for (auto& buf : m_impl->buffers) {
+					if (buf.buffer != VK_NULL_HANDLE) {
+						vmaDestroyBuffer(m_impl->allocator, buf.buffer, buf.allocation);
+					}
+				}
+
+				if (m_impl->allocator != VK_NULL_HANDLE) {
+					vmaDestroyAllocator(m_impl->allocator);
+				}
+
+				for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+					vkDestroyCommandPool(m_impl->device, m_impl->commandPools[i], nullptr);
+					vkDestroySemaphore(m_impl->device, m_impl->imageAvailableSemaphores[i], nullptr);
+					vkDestroySemaphore(m_impl->device, m_impl->renderFinishedSemaphores[i], nullptr);
+					vkDestroyFence(m_impl->device, m_impl->inFlightFences[i], nullptr);
+				}
+
 				for (auto imageView : m_impl->swapchainImageViews) {
 					vkDestroyImageView(m_impl->device, imageView, nullptr);
 				}
-				// 2. Swapchain zerstören
 				vkDestroySwapchainKHR(m_impl->device, m_impl->swapchain, nullptr);
-
 				vkDestroyDevice(m_impl->device, nullptr);
 			}
 
 			if (m_impl->instance != VK_NULL_HANDLE) {
-				// 3. Surface zerstören
 				if (m_impl->surface != VK_NULL_HANDLE) {
 					vkDestroySurfaceKHR(m_impl->instance, m_impl->surface, nullptr);
 				}
 				vkDestroyInstance(m_impl->instance, nullptr);
 			}
-
-			vkDestroyCommandPool(m_impl->device, pool, nullptr);
 			delete m_impl;
 		}
 	}
 
-	// Stubs für den Compiler-Erfolg
-	BufferHandle GraphicsDevice::create_buffer(uint64_t size, BufferUsage usage) {
-		return 0;
-	}
-	TextureHandle GraphicsDevice::create_texture(TextureFormat format, uint32_t width, uint32_t height) {
-		return 0;
+	void GraphicsDevice::handle_resize(int, int) {
+		create_swapchain_internal(m_impl, m_impl->swapchain);
 	}
 
-	bool GraphicsDevice::begin_frame() {
+	void* GraphicsDevice::get_native_buffer_handle(BufferHandle handle) {
+		if (!m_impl || static_cast<size_t>(handle) >= m_impl->buffers.size()) {
+			return nullptr;
+		}
+		return static_cast<void*>(m_impl->buffers[static_cast<size_t>(handle)].buffer);
+	}
+
+	bool GraphicsDevice::begin_frame(CommandBuffer& outCmdBuffer) {
+		if (m_impl->swapchainExtent.width == 0 || m_impl->swapchainExtent.height == 0) {
+			return false;
+		}
+
+		// Achtung: m_impl->device nutzen!
 		vkWaitForFences(m_impl->device, 1, &m_impl->inFlightFences[m_impl->currentFrameIndex], VK_TRUE, std::numeric_limits<uint64_t>::max());
 
 		uint32_t imageIndex;
@@ -386,32 +420,33 @@ namespace axiom {
 		);
 
 		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-			handle_resize(0, 0);
+			handle_resize(0, 0); // Richtiger Aufruf über Member-Kontext
 			return false;
 		}
 		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-			throw std::runtime_error("Fehler beim Anfordern des nächsten Swapchain-Bildes!");
+			throw std::runtime_error("[Vulkan] Konnte kein neues Swapchain-Bild akquirieren!");
 		}
 
 		m_impl->currentSwapchainImageIndex = imageIndex;
 		vkResetFences(m_impl->device, 1, &m_impl->inFlightFences[m_impl->currentFrameIndex]);
 
-		// NEU: Den Command Pool für diesen Frame komplett zurücksetzen (löscht alle alten Befehle)
 		vkResetCommandPool(m_impl->device, m_impl->commandPools[m_impl->currentFrameIndex], 0);
 
-		// NEU: Command Buffer Aufzeichnung starten
 		VkCommandBufferBeginInfo beginInfo {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT // Wird nur genau einmal abgeschickt
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
 		};
-
 		vkBeginCommandBuffer(m_impl->commandBuffers[m_impl->currentFrameIndex], &beginInfo);
+
+		m_impl->transientOffset = 0;
+
+		// Weitergabe des rohen Handles an das RHI-Objekt
+		outCmdBuffer.set_native_handle(m_impl->commandBuffers[m_impl->currentFrameIndex], this);
 
 		return true;
 	}
 
 	void GraphicsDevice::end_frame() {
-		// NEU: Command Buffer Aufzeichnung beenden
 		vkEndCommandBuffer(m_impl->commandBuffers[m_impl->currentFrameIndex]);
 
 		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -421,7 +456,6 @@ namespace axiom {
 			.waitSemaphoreCount = 1,
 			.pWaitSemaphores = &m_impl->imageAvailableSemaphores[m_impl->currentFrameIndex],
 			.pWaitDstStageMask = waitStages,
-			// MODIFIZIERT: Jetzt übergeben wir den echten aufgezeichneten Command Buffer!
 			.commandBufferCount = 1,
 			.pCommandBuffers = &m_impl->commandBuffers[m_impl->currentFrameIndex],
 			.signalSemaphoreCount = 1,
@@ -429,7 +463,7 @@ namespace axiom {
 		};
 
 		if (vkQueueSubmit(m_impl->graphicsQueue, 1, &submitInfo, m_impl->inFlightFences[m_impl->currentFrameIndex]) != VK_SUCCESS) {
-			throw std::runtime_error("Fehler beim Abschicken der Befehle an die GPU!");
+			throw std::runtime_error("[Vulkan] Befehlsabgabe an die Queue schlug fehl!");
 		}
 
 		VkPresentInfoKHR presentInfo {
@@ -442,18 +476,76 @@ namespace axiom {
 		};
 
 		VkResult result = vkQueuePresentKHR(m_impl->graphicsQueue, &presentInfo);
-
 		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
 			handle_resize(0, 0);
 		}
 		else if (result != VK_SUCCESS) {
-			throw std::runtime_error("Fehler beim Präsentieren des Swapchain-Bildes!");
+			throw std::runtime_error("[Vulkan] Präsentation des Frames fehlgeschlagen!");
 		}
 
 		m_impl->currentFrameIndex = (m_impl->currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+
+
 	}
 
-	void GraphicsDevice::submit(CommandBuffer& cmd) {
+	TransientAllocation GraphicsDevice::allocate_transient(uint64_t size, uint32_t alignment) {
+		// Alignment-Korrektur (Vulkan verlangt oft spezifische Ausrichtungen, z.B. 16 oder 64 Bytes)
+		uint64_t alignedOffset = (m_impl->transientOffset + alignment - 1) & ~(alignment - 1);
+
+		if (alignedOffset + size > GraphicsDeviceImpl::TRANSIENT_POOL_SIZE) {
+			throw std::runtime_error("[Vulkan] Transient Allocator Out of Memory! Pool-Größe reicht nicht aus.");
+		}
+
+		// Offset updaten
+		m_impl->transientOffset = alignedOffset + size;
+
+		// Aktiven physischen Buffer dieses Frames holen
+		BufferHandle activeBuffer = m_impl->transientBuffers[m_impl->currentFrameIndex];
+		const auto& internalBuffer = m_impl->buffers[activeBuffer];
+
+		// Pointer errechnen
+		uint8_t* basePointer = static_cast<uint8_t*>(internalBuffer.allocInfo.pMappedData);
+
+		return TransientAllocation {
+			.bufferHandle = activeBuffer,
+			.offset = alignedOffset,
+			.pMappedData = basePointer + alignedOffset
+		};
+	}
+
+	BufferHandle GraphicsDevice::create_buffer(uint64_t size, BufferUsage usage) {
+		VkBufferCreateInfo bufferInfo {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			.size = size,
+			.sharingMode = VK_SHARING_MODE_EXCLUSIVE
+		};
+
+		if (static_cast<uint32_t>(usage) & static_cast<uint32_t>(BufferUsage::Vertex))   bufferInfo.usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		if (static_cast<uint32_t>(usage) & static_cast<uint32_t>(BufferUsage::Index))    bufferInfo.usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+		if (static_cast<uint32_t>(usage) & static_cast<uint32_t>(BufferUsage::Uniform))  bufferInfo.usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+		if (static_cast<uint32_t>(usage) & static_cast<uint32_t>(BufferUsage::Storage))  bufferInfo.usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		if (static_cast<uint32_t>(usage) & static_cast<uint32_t>(BufferUsage::Indirect)) bufferInfo.usage |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+
+		VmaAllocationCreateInfo allocCreateInfo {
+			.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+			.usage = VMA_MEMORY_USAGE_AUTO
+		};
+
+		VulkanBufferResource res {};
+		res.size = size;
+
+		if (vmaCreateBuffer(m_impl->allocator, &bufferInfo, &allocCreateInfo, &res.buffer, &res.allocation, &res.allocInfo) != VK_SUCCESS) {
+			throw std::runtime_error("[Vulkan] VMA konnt den Buffer-Speicher nicht bereitstellen!");
+		}
+
+		m_impl->buffers.push_back(res);
+		return static_cast<BufferHandle>(m_impl->buffers.size() - 1);
+	}
+
+	TextureHandle GraphicsDevice::create_texture(TextureFormat, uint32_t, uint32_t) {
+		return 0;
+	}
+	void GraphicsDevice::submit(CommandBuffer&) {
 	}
 
 } // namespace Axiom

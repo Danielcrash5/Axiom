@@ -7,6 +7,7 @@ struct SDL_Window;
 namespace axiom {
 
     class GraphicsDevice; // Vorwärtsdeklaration
+    class CommandBuffer;
 
     class Renderer {
     public:
@@ -18,7 +19,7 @@ namespace axiom {
         Renderer& operator=(const Renderer&) = delete;
 
         // Der zentrale Engine-Loop Aufruf
-        bool begin_frame();
+        bool begin_frame(CommandBuffer& outCmdBuffer);
         void end_frame();
 
         void on_window_resize(int newWidth, int newHeight);

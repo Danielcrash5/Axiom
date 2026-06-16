@@ -26,9 +26,9 @@ namespace axiom {
 		AXIOM_INFO("Renderer-Subsystem sauber heruntergefahren.");
 	}
 
-	bool Renderer::begin_frame() {
-		// Ruft das gewählte Hardware-Backend auf
-		return m_device->begin_frame();
+	// In src/renderer/Renderer.cpp
+	bool Renderer::begin_frame(CommandBuffer& outCmdBuffer) {
+		return m_device->begin_frame(outCmdBuffer);
 	}
 
 	void Renderer::end_frame() {
