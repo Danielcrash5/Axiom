@@ -130,6 +130,7 @@ namespace axiom {
         void push_constants(const void* data, uint32_t size);
 
         void begin_rendering(TextureHandle swapchainTexture, float r, float g, float b, float a);
+        void begin_rendering(float r, float g, float b, float a);
         void end_rendering();
 
         void bind_pipeline(PipelineHandle pipeline);
@@ -142,6 +143,8 @@ namespace axiom {
         CommandBufferImpl* m_impl = nullptr;
     };
 
+    using ShaderModuleHandle = void*;
+
     class GraphicsDevice {
     public:
         GraphicsDevice(SDL_Window* window);
@@ -152,6 +155,9 @@ namespace axiom {
         bool begin_frame(CommandBuffer& outCmdBuffer);
         void end_frame();
         void handle_resize(int newWidth, int newHeight);
+
+        ShaderModuleHandle create_shader_module(const ShaderModuleDesc& desc);
+        void destroy_shader_module(ShaderModuleHandle handle);
 
         BufferHandle create_buffer(uint64_t size, BufferUsage usage);
         TextureHandle create_texture(TextureFormat format, uint32_t width, uint32_t height);
@@ -167,7 +173,6 @@ namespace axiom {
 
         void* get_native_pipeline(PipelineHandle handle);
         void* get_native_pipeline_layout(PipelineHandle handle);
-        void get_swapchain_extent(uint32_t& outWidth, uint32_t& outHeight);
         void* get_current_swapchain_image();
         void* get_current_swapchain_image_view();
 

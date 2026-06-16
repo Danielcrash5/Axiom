@@ -16,8 +16,79 @@
 #include <iostream>
 #include <algorithm>
 #include <limits>
+#include <unordered_map>
 
 namespace axiom {
+	struct VulkanBufferResource {
+		VkBuffer buffer;
+		// ... was auch immer hier drin liegt
+	};
+
+	struct PipelineResource {
+		VkPipeline pipeline;
+		// ... 
+	};
+
+
+	// Private Datenstruktur (Pimpl-Versteck für Vulkan-Interna)
+	struct GraphicsDeviceImpl {
+		VkInstance instance = VK_NULL_HANDLE;
+		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+		VkDevice device = VK_NULL_HANDLE;
+		VkQueue graphicsQueue = VK_NULL_HANDLE;
+		uint32_t graphicsQueueFamilyIndex = 0;
+		SDL_Window* window = nullptr;
+
+		// Swapchain Ressourcen
+		VkSurfaceKHR surface = VK_NULL_HANDLE;
+		VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+		VkFormat swapchainFormat = VK_FORMAT_UNDEFINED;
+		VkExtent2D swapchainExtent = { 0, 0 };
+		std::vector<VkImage> swapchainImages;
+		std::vector<VkImageView> swapchainImageViews;
+
+		// Synchronisation für In-Flight-Frames
+		std::vector<VkSemaphore> imageAvailableSemaphores;
+		std::vector<VkSemaphore> renderFinishedSemaphores;
+		std::vector<VkFence> inFlightFences;
+
+		// Command-Infrastruktur pro Frame
+		std::vector<VkCommandPool> commandPools;
+		std::vector<VkCommandBuffer> commandBuffers;
+
+		// Speicherverwaltung
+		VmaAllocator allocator = VK_NULL_HANDLE;
+		std::vector<VulkanBufferResource> buffers;
+
+		uint32_t currentFrameIndex = 0;
+		uint32_t currentSwapchainImageIndex = 0;
+
+		// Transient Allocator Daten
+		static constexpr uint64_t TRANSIENT_POOL_SIZE = 16 * 1024 * 1024; // 16 MB pro Frame
+		std::vector<BufferHandle> transientBuffers;
+		uint64_t transientOffset = 0;
+		std::vector<PipelineResource> pipelines;
+	};
+
+	ShaderModuleHandle GraphicsDevice::create_shader_module(const ShaderModuleDesc& desc) {
+		VkShaderModuleCreateInfo createInfo {};
+		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		createInfo.codeSize = desc.spirvCode.size() * sizeof(uint32_t);
+		createInfo.pCode = desc.spirvCode.data();
+
+		VkShaderModule shaderModule;
+		if (vkCreateShaderModule(m_impl->device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+			// Fehlerbehandlung
+			return nullptr;
+		}
+
+		return reinterpret_cast<ShaderModuleHandle>(shaderModule);
+	}
+
+	void GraphicsDevice::destroy_shader_module(ShaderModuleHandle handle) {
+		if (!handle) return;
+		vkDestroyShaderModule(m_impl->device, reinterpret_cast<VkShaderModule>(handle), nullptr);
+	}
 	
 	static VkFormat translate_vertex_format(VertexFormat format) {
 		switch (format) {
@@ -247,45 +318,6 @@ namespace axiom {
 		uint64_t size = 0;
 	};
 
-	// Private Datenstruktur (Pimpl-Versteck für Vulkan-Interna)
-	struct GraphicsDeviceImpl {
-		VkInstance instance = VK_NULL_HANDLE;
-		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-		VkDevice device = VK_NULL_HANDLE;
-		VkQueue graphicsQueue = VK_NULL_HANDLE;
-		uint32_t graphicsQueueFamilyIndex = 0;
-		SDL_Window* window = nullptr;
-
-		// Swapchain Ressourcen
-		VkSurfaceKHR surface = VK_NULL_HANDLE;
-		VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-		VkFormat swapchainFormat = VK_FORMAT_UNDEFINED;
-		VkExtent2D swapchainExtent = { 0, 0 };
-		std::vector<VkImage> swapchainImages;
-		std::vector<VkImageView> swapchainImageViews;
-
-		// Synchronisation für In-Flight-Frames
-		std::vector<VkSemaphore> imageAvailableSemaphores;
-		std::vector<VkSemaphore> renderFinishedSemaphores;
-		std::vector<VkFence> inFlightFences;
-
-		// Command-Infrastruktur pro Frame
-		std::vector<VkCommandPool> commandPools;
-		std::vector<VkCommandBuffer> commandBuffers;
-
-		// Speicherverwaltung
-		VmaAllocator allocator = VK_NULL_HANDLE;
-		std::vector<VulkanBufferResource> buffers;
-
-		uint32_t currentFrameIndex = 0;
-		uint32_t currentSwapchainImageIndex = 0;
-
-		// Transient Allocator Daten
-		static constexpr uint64_t TRANSIENT_POOL_SIZE = 16 * 1024 * 1024; // 16 MB pro Frame
-		std::vector<BufferHandle> transientBuffers;
-		uint64_t transientOffset = 0;
-		std::vector<PipelineResource> pipelines;
-	};
 
 	// Interne Hilfsfunktion zur Erstellung/Wiedererstellung der Swapchain
 	void create_swapchain_internal(GraphicsDeviceImpl* impl, VkSwapchainKHR oldSwapchain = VK_NULL_HANDLE) {
@@ -765,11 +797,6 @@ namespace axiom {
 		return 0;
 	}
 	void GraphicsDevice::submit(CommandBuffer&) {
-	}
-
-	void* GraphicsDevice::get_current_swapchain_image_view() {
-		if (!m_impl || m_impl->swapchainImageViews.empty()) return nullptr;
-		return m_impl->swapchainImageViews[m_impl->currentSwapchainImageIndex];
 	}
 
 	void* GraphicsDevice::get_current_swapchain_image() {
