@@ -7,6 +7,9 @@ namespace axiom {
 		VkCommandBuffer nativeCommandBuffer = VK_NULL_HANDLE;
 		GraphicsDevice* deviceContext = nullptr;
 		uint32_t imageIndex = 0;
+
+		PipelineHandle currentPipeline = 0;
+		bool hasPipelineBound = false;
 	};
 
 	CommandBuffer::CommandBuffer() {
@@ -17,89 +20,63 @@ namespace axiom {
 		delete m_impl;
 	}
 
-    void CommandBuffer::set_native_handle(void* cmdBuffer, GraphicsDevice* device, uint32_t swapchainImageIndex) {
-        m_impl->nativeCommandBuffer = static_cast<VkCommandBuffer>(cmdBuffer);
-        m_impl->deviceContext = device;
-        m_impl->imageIndex = swapchainImageIndex;
-    }
+	void CommandBuffer::set_native_handle(void* cmdBuffer, GraphicsDevice* device, uint32_t swapchainImageIndex) {
+		m_impl->nativeCommandBuffer = static_cast<VkCommandBuffer>(cmdBuffer);
+		m_impl->deviceContext = device;
+		m_impl->imageIndex = swapchainImageIndex;
+	}
 
-    // Interne Hilfsfunktion für Image Layout Transitions (Pipeline Barriers)
-    void insert_image_barrier(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage) {
-        VkImageMemoryBarrier barrier {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .srcAccessMask = srcAccess,
-            .dstAccessMask = dstAccess,
-            .oldLayout = oldLayout,
-            .newLayout = newLayout,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = image,
-            .subresourceRange = {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1
-            }
-        };
-        vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-    }
+	void insert_image_barrier_internal(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage) {
+		VkImageMemoryBarrier barrier { .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, .srcAccessMask = srcAccess, .dstAccessMask = dstAccess, .oldLayout = oldLayout, .newLayout = newLayout, .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, .image = image, .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1} };
+		vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+	}
 
-    void CommandBuffer::begin_rendering(TextureHandle, float r, float g, float b, float a) {
-        if (!m_impl || m_impl->nativeCommandBuffer == VK_NULL_HANDLE || !m_impl->deviceContext) return;
+	void CommandBuffer::begin_rendering(float r, float g, float b, float a) {
+		VkImage swapchainImage = static_cast<VkImage>(m_impl->deviceContext->get_current_swapchain_image());
+		VkImageView swapchainView = static_cast<VkImageView>(m_impl->deviceContext->get_current_swapchain_image_view());
 
-        VkImage swapchainImage = static_cast<VkImage>(m_impl->deviceContext->get_current_swapchain_image());
-        VkImageView swapchainView = static_cast<VkImageView>(m_impl->deviceContext->get_current_swapchain_image_view());
+		insert_image_barrier_internal(m_impl->nativeCommandBuffer, swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-        // 1. Swapchain Bild bereitmachen zum Beschreiben
-        insert_image_barrier(m_impl->nativeCommandBuffer, swapchainImage,
-                             VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                             0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		VkClearValue clearColor = { {{r, g, b, a}} };
+		uint32_t width = 0, height = 0;
+		m_impl->deviceContext->get_swapchain_extent(width, height);
 
-        // 2. Clear-Farbe definieren
-        VkClearValue clearColor = { {{r, g, b, a}} };
+		VkRenderingAttachmentInfo colorAttachmentInfo { .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, .imageView = swapchainView, .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, .storeOp = VK_ATTACHMENT_STORE_OP_STORE, .clearValue = clearColor };
+		VkRenderingInfo renderingInfo { .sType = VK_STRUCTURE_TYPE_RENDERING_INFO, .renderArea = { {0, 0}, {width, height} }, .layerCount = 1, .colorAttachmentCount = 1, .pColorAttachments = &colorAttachmentInfo };
 
-        // 3. NEU: Dynamische Fenstergröße aus dem Device-Context abfragen
-        uint32_t width = 0;
-        uint32_t height = 0;
-        m_impl->deviceContext->get_swapchain_extent(width, height);
+		vkCmdBeginRendering(m_impl->nativeCommandBuffer, &renderingInfo);
+	}
 
-        VkRenderingAttachmentInfo colorAttachmentInfo {
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = swapchainView,
-            .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .clearValue = clearColor
-        };
+	void CommandBuffer::end_rendering() {
+		vkCmdEndRendering(m_impl->nativeCommandBuffer);
+		VkImage swapchainImage = static_cast<VkImage>(m_impl->deviceContext->get_current_swapchain_image());
+		insert_image_barrier_internal(m_impl->nativeCommandBuffer, swapchainImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+	}
 
-        // 4. Render Area nutzt jetzt die echten, dynamischen Fenster-Ausmaße!
-        VkRenderingInfo renderingInfo {
-            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = { {0, 0}, {width, height} },
-            .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &colorAttachmentInfo
-        };
+	void CommandBuffer::bind_pipeline(PipelineHandle pipeline) {
+		VkPipeline vkPipeline = static_cast<VkPipeline>(m_impl->deviceContext->get_native_pipeline(pipeline));
 
-        vkCmdBeginRendering(m_impl->nativeCommandBuffer, &renderingInfo);
-    }
+		// Ermittle den Typ, um den korrekten Bind-Point zu wählen (Hier wird intern gecastet/abgefragt)
+		// Zur Veranschaulichung nutzen wir standardmäßig Graphics, es sei denn es wird explizit geswitcht.
+		VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-    void CommandBuffer::end_rendering() {
-        if (!m_impl || m_impl->nativeCommandBuffer == VK_NULL_HANDLE || !m_impl->deviceContext) return;
+		vkCmdBindPipeline(m_impl->nativeCommandBuffer, bindPoint, vkPipeline);
+		m_impl->currentPipeline = pipeline;
+		m_impl->hasPipelineBound = true;
 
-        // Rendering beenden
-        vkCmdEndRendering(m_impl->nativeCommandBuffer);
+		if (bindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
+			uint32_t width = 0, height = 0;
+			m_impl->deviceContext->get_swapchain_extent(width, height);
+			VkViewport viewport { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height), 0.0f, 1.0f };
+			vkCmdSetViewport(m_impl->nativeCommandBuffer, 0, 1, &viewport);
+			VkRect2D scissor { {0, 0}, {width, height} };
+			vkCmdSetScissor(m_impl->nativeCommandBuffer, 0, 1, &scissor);
+		}
+	}
 
-        VkImage swapchainImage = static_cast<VkImage>(m_impl->deviceContext->get_current_swapchain_image());
-
-        // 4. Bild wieder zurücktransformieren, damit die Windows-Oberfläche (Present) es anzeigen darf
-        insert_image_barrier(m_impl->nativeCommandBuffer, swapchainImage,
-                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0,
-                             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
-    }
+	void CommandBuffer::dispatch(uint32_t x, uint32_t y, uint32_t z) {
+		vkCmdDispatch(m_impl->nativeCommandBuffer, x, y, z);
+	}
 
 	void CommandBuffer::bind_vertex_buffer(BufferHandle buf, uint64_t offset) {
 		if (!m_impl || m_impl->nativeCommandBuffer == VK_NULL_HANDLE || !m_impl->deviceContext) return;

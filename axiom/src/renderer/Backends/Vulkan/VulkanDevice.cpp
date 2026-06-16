@@ -18,6 +18,224 @@
 #include <limits>
 
 namespace axiom {
+	
+	static VkFormat translate_vertex_format(VertexFormat format) {
+		switch (format) {
+		case VertexFormat::Vec2:       return VK_FORMAT_R32G32_SFLOAT;
+		case VertexFormat::Vec3:       return VK_FORMAT_R32G32B32_SFLOAT;
+		case VertexFormat::Vec4:       return VK_FORMAT_R32G32B32A32_SFLOAT;
+		case VertexFormat::ColorRGBA8: return VK_FORMAT_R8G8B8A8_UNORM;
+		}
+		return VK_FORMAT_UNDEFINED;
+	}
+
+	static VkPrimitiveTopology translate_topology(PrimitiveTopology topology) {
+		switch (topology) {
+		case PrimitiveTopology::Triangles: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+		case PrimitiveTopology::Lines:     return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+		case PrimitiveTopology::Points:    return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+		}
+		return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	}
+
+	static VkDescriptorType translate_descriptor_type(DescriptorType type) {
+		switch (type) {
+		case DescriptorType::UniformBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		case DescriptorType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		case DescriptorType::ImageSampler:  return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		}
+		return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	}
+
+	static VkShaderStageFlagBits translate_shader_stage(ShaderStage stage) {
+		switch (stage) {
+		case ShaderStage::Vertex:    return VK_SHADER_STAGE_VERTEX_BIT;
+		case ShaderStage::Fragment:  return VK_SHADER_STAGE_FRAGMENT_BIT;
+		case ShaderStage::Compute:   return VK_SHADER_STAGE_COMPUTE_BIT;
+		case ShaderStage::Geometry:  return VK_SHADER_STAGE_GEOMETRY_BIT;
+		case ShaderStage::Mesh:      return VK_SHADER_STAGE_MESH_BIT_EXT;
+		default:                     return VK_SHADER_STAGE_ALL;
+		}
+	}
+
+	PipelineHandle GraphicsDevice::create_pipeline(const PipelineStateDesc& desc) {
+		std::vector<VkShaderModule> modulesToDestroy;
+		std::vector<VkPipelineShaderStageCreateInfo> shaderStagesCreateInfo;
+
+		for (const auto& stageDesc : desc.stages) {
+			VkShaderModuleCreateInfo modInfo {
+				.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+				.codeSize = stageDesc.spirvCode.size() * sizeof(uint32_t),
+				.pCode = stageDesc.spirvCode.data()
+			};
+			VkShaderModule mod;
+			if (vkCreateShaderModule(m_impl->device, &modInfo, nullptr, &mod) != VK_SUCCESS) {
+				throw std::runtime_error("[Vulkan] Konnte Shader-Modul nicht erstellen.");
+			}
+			modulesToDestroy.push_back(mod);
+
+			shaderStagesCreateInfo.push_back({
+				.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+				.stage = translate_shader_stage(stageDesc.stage),
+				.module = mod,
+				.pName = stageDesc.entryPoint.c_str()
+											 });
+		}
+
+		// --- DESCRIPTOR SET LAYOUT GENERATION FROM REFLECTION ---
+		std::unordered_map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> setBindingsMap;
+		for (const auto& rhiBind : desc.reflectedBindings) {
+			VkDescriptorSetLayoutBinding vkBind {
+				.binding = rhiBind.binding,
+				.descriptorType = translate_descriptor_type(rhiBind.type),
+				.descriptorCount = 1,
+				.stageFlags = rhiBind.stageFlags,
+				.pImmutableSamplers = nullptr
+			};
+			setBindingsMap[rhiBind.set].push_back(vkBind);
+		}
+
+		std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+		for (auto& [setIndex, bindings] : setBindingsMap) {
+			VkDescriptorSetLayoutCreateInfo setLayoutInfo {
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+				.bindingCount = static_cast<uint32_t>(bindings.size()),
+				.pBindings = bindings.data()
+			};
+			VkDescriptorSetLayout setLayout;
+			vkCreateDescriptorSetLayout(m_impl->device, &setLayoutInfo, nullptr, &setLayout);
+			descriptorSetLayouts.push_back(setLayout);
+		}
+
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size()),
+			.pSetLayouts = descriptorSetLayouts.data()
+		};
+
+		VkPushConstantRange pushRange;
+		if (desc.pushConstantSize > 0) {
+			pushRange = {
+				.stageFlags = VK_SHADER_STAGE_ALL,
+				.offset = 0,
+				.size = desc.pushConstantSize
+			};
+			pipelineLayoutInfo.pushConstantRangeCount = 1;
+			pipelineLayoutInfo.pPushConstantRanges = &pushRange;
+		}
+
+		VkPipelineLayout pipelineLayout;
+		vkCreatePipelineLayout(m_impl->device, &pipelineLayoutInfo, nullptr, &pipelineLayout);
+
+		VkPipeline pipeline = VK_NULL_HANDLE;
+
+		// --- COMPUTE PIPELINE BUILDER ---
+		if (desc.type == PipelineType::Compute) {
+			VkComputePipelineCreateInfo computeInfo {
+				.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+				.stage = shaderStagesCreateInfo[0],
+				.layout = pipelineLayout
+			};
+			vkCreateComputePipelines(m_impl->device, VK_NULL_HANDLE, 1, &computeInfo, nullptr, &pipeline);
+		}
+		// --- GRAPHICS PIPELINE BUILDER (DYNAMIC RENDERING) ---
+		else if (desc.type == PipelineType::Graphics) {
+			VkPipelineRenderingCreateInfo renderingInfo {
+				.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+				.colorAttachmentCount = 1,
+				.pColorAttachmentFormats = &m_impl->swapchainFormat
+			};
+
+			VkPipelineColorBlendAttachmentState blendAttachment {
+				.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+			};
+
+			if (desc.blendMode == BlendMode::AlphaBlend) {
+				blendAttachment.blendEnable = VK_TRUE;
+				blendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+				blendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+				blendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+				blendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+				blendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+				blendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+			}
+
+			VkPipelineColorBlendStateCreateInfo blending { .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO, .attachmentCount = 1, .pAttachments = &blendAttachment };
+			VkPipelineInputAssemblyStateCreateInfo inputAssembly { .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO, .topology = translate_topology(desc.topology) };
+			VkPipelineViewportStateCreateInfo viewportState { .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO, .viewportCount = 1, .scissorCount = 1 };
+
+			std::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+			VkPipelineDynamicStateCreateInfo dynamicInfo { .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO, .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
+			VkPipelineRasterizationStateCreateInfo rasterizer { .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO, .polygonMode = VK_POLYGON_MODE_FILL, .cullMode = VK_CULL_MODE_NONE, .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE, .lineWidth = 1.0f };
+			VkPipelineMultisampleStateCreateInfo multisampling { .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO, .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT };
+
+			// Dynamischer Vertex-Input-Zusammenbau
+			VkVertexInputBindingDescription bindingDesc {
+				.binding = 0,
+				.stride = desc.vertexLayout.stride,
+				.inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+			};
+
+			std::vector<VkVertexInputAttributeDescription> attribDescs;
+			attribDescs.reserve(desc.vertexLayout.elements.size());
+			for (const auto& el : desc.vertexLayout.elements) {
+				attribDescs.push_back({
+					.location = el.location,
+					.binding = 0,
+					.format = translate_vertex_format(el.format),
+					.offset = el.offset
+									  });
+			}
+
+			VkPipelineVertexInputStateCreateInfo vertexInput {
+				.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+				.vertexBindingDescriptionCount = desc.vertexLayout.elements.empty() ? 0u : 1u,
+				.pVertexBindingDescriptions = desc.vertexLayout.elements.empty() ? nullptr : &bindingDesc,
+				.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribDescs.size()),
+				.pVertexAttributeDescriptions = attribDescs.empty() ? nullptr : attribDescs.data()
+			};
+
+			VkGraphicsPipelineCreateInfo pipelineInfo {
+				.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+				.pNext = &renderingInfo,
+				.stageCount = static_cast<uint32_t>(shaderStagesCreateInfo.size()),
+				.pStages = shaderStagesCreateInfo.data(),
+				.pVertexInputState = &vertexInput,
+				.pInputAssemblyState = &inputAssembly,
+				.pViewportState = &viewportState,
+				.pRasterizationState = &rasterizer,
+				.pMultisampleState = &multisampling,
+				.pColorBlendState = &blending,
+				.pDynamicState = &dynamicInfo,
+				.layout = pipelineLayout,
+				.renderPass = VK_NULL_HANDLE
+			};
+			vkCreateGraphicsPipelines(m_impl->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
+		}
+
+		for (auto mod : modulesToDestroy) {
+			vkDestroyShaderModule(m_impl->device, mod, nullptr);
+		}
+
+		m_impl->pipelines.push_back({ pipeline, pipelineLayout, desc.type });
+		return static_cast<PipelineHandle>(m_impl->pipelines.size() - 1);
+	}
+
+	void* GraphicsDevice::get_native_pipeline(PipelineHandle handle) {
+		return m_impl->pipelines[handle].pipeline;
+	}
+	void* GraphicsDevice::get_native_pipeline_layout(PipelineHandle handle) {
+		return m_impl->pipelines[handle].layout;
+	}
+	void GraphicsDevice::get_swapchain_extent(uint32_t& w, uint32_t& h) {
+		w = m_impl->swapchainExtent.width; h = m_impl->swapchainExtent.height;
+	}
+	void* GraphicsDevice::get_current_swapchain_image() {
+		return m_impl->swapchainImages[m_impl->currentSwapchainImageIndex];
+	}
+	void* GraphicsDevice::get_current_swapchain_image_view() {
+		return m_impl->swapchainImageViews[m_impl->currentSwapchainImageIndex];
+	}
 
 	inline constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -66,6 +284,7 @@ namespace axiom {
 		static constexpr uint64_t TRANSIENT_POOL_SIZE = 16 * 1024 * 1024; // 16 MB pro Frame
 		std::vector<BufferHandle> transientBuffers;
 		uint64_t transientOffset = 0;
+		std::vector<PipelineResource> pipelines;
 	};
 
 	// Interne Hilfsfunktion zur Erstellung/Wiedererstellung der Swapchain

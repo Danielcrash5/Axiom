@@ -68,13 +68,15 @@ if(AXIOM_RENDERER_VULKAN)
 
     find_package(Vulkan REQUIRED COMPONENTS
         volk
-        shaderc_combined
+    )
+
+    target_include_directories(axiom_engine PRIVATE
+    ${Vulkan_INCLUDE_DIRS}
     )
 
     target_link_libraries(axiom_engine PRIVATE
         Vulkan::Vulkan
         Vulkan::volk
-        Vulkan::shaderc_combined
     )
 
 endif()
