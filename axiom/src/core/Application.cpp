@@ -199,7 +199,9 @@ namespace axiom {
 
 		CommandBuffer cmd;
 		if (m_Renderer->begin_frame(cmd)) {
+			cmd.begin_rendering(0, 0.1f, 0.1f, 0.15f, 1.0f);
 
+			// 2. Schließe das Rendern ab
 			// User render
 			OnRender(alpha);
 
@@ -215,6 +217,9 @@ namespace axiom {
 				AXIOM_PROFILE_SCOPE(layer->GetName());
 				layer->OnRender(alpha);
 			}
+
+			cmd.end_rendering();
+
 
 			m_Renderer->end_frame();
 		}

@@ -43,8 +43,11 @@ namespace axiom {
         void draw_indexed_indirect(BufferHandle indirectBuffer, uint64_t offset, uint32_t drawCount);
         void push_constants(const void* data, uint32_t size);
 
+        void begin_rendering(TextureHandle swapchainTexture, float r, float g, float b, float a);
+        void end_rendering();
+
         // Backend-Schnittstelle zum Setzen des nativen Handles
-        void set_native_handle(void* cmdBuffer, GraphicsDevice* device);
+        void set_native_handle(void* cmdBuffer, GraphicsDevice* device, uint32_t swapchainImageIndex);
 
     private:
         CommandBufferImpl* m_impl = nullptr;
@@ -67,6 +70,12 @@ namespace axiom {
 
         // Liefert das rohe VkBuffer-Handle direkt als void* zurück
         void* get_native_buffer_handle(BufferHandle handle);
+
+        // Gibt die aktuelle Ausdehnung der Swapchain zurück
+        void get_swapchain_extent(uint32_t& outWidth, uint32_t& outHeight);
+
+        void* get_current_swapchain_image_view();
+        void* get_current_swapchain_image();
 
     private:
         GraphicsDeviceImpl* m_impl = nullptr;

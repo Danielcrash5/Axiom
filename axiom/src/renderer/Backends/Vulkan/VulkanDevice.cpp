@@ -441,7 +441,7 @@ namespace axiom {
 		m_impl->transientOffset = 0;
 
 		// Weitergabe des rohen Handles an das RHI-Objekt
-		outCmdBuffer.set_native_handle(m_impl->commandBuffers[m_impl->currentFrameIndex], this);
+		outCmdBuffer.set_native_handle(m_impl->commandBuffers[m_impl->currentFrameIndex], this, m_impl->currentSwapchainImageIndex);
 
 		return true;
 	}
@@ -546,6 +546,26 @@ namespace axiom {
 		return 0;
 	}
 	void GraphicsDevice::submit(CommandBuffer&) {
+	}
+
+	void* GraphicsDevice::get_current_swapchain_image_view() {
+		if (!m_impl || m_impl->swapchainImageViews.empty()) return nullptr;
+		return m_impl->swapchainImageViews[m_impl->currentSwapchainImageIndex];
+	}
+
+	void* GraphicsDevice::get_current_swapchain_image() {
+		if (!m_impl || m_impl->swapchainImages.empty()) return nullptr;
+		return m_impl->swapchainImages[m_impl->currentSwapchainImageIndex];
+	}
+
+	void GraphicsDevice::get_swapchain_extent(uint32_t& outWidth, uint32_t& outHeight) {
+		if (!m_impl) {
+			outWidth = 0;
+			outHeight = 0;
+			return;
+		}
+		outWidth = m_impl->swapchainExtent.width;
+		outHeight = m_impl->swapchainExtent.height;
 	}
 
 } // namespace Axiom
