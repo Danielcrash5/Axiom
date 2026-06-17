@@ -13,6 +13,26 @@ set(AXIOM_ENGINE_ASSET_PATH "./${AXIOM_ENGINE_PACK_NAME}" CACHE STRING "Engine a
 option(AXIOM_RENDERER_VULKAN "Enable Vulkan Renderer" ON)
 option(AXIOM_RENDERER_WEBGPU "Enable WebGPU Renderer" OFF)
 
+if(AXIOM_RENDERER_WEBGPU)
+    if(WIN32)
+        set(DAWN_ENABLE_D3D12 ON CACHE BOOL "" FORCE)
+    endif()
+    set(DAWN_ENABLE_VULKAN ON CACHE BOOL "" FORCE)
+    set(DAWN_ENABLE_OPENGLES ON CACHE BOOL "" FORCE)
+    set(DAWN_ENABLE_METAL OFF CACHE BOOL "" FORCE)
+    
+    # Ballast abwerfen, um die Build-Zeit drastisch zu senken
+    set(DAWN_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+    set(DAWN_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(DAWN_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+    
+    # CRITICAL für die ZIP-Variante: Sagt Dawn, wo die extrahierten Abhängigkeiten liegen
+    set(DAWN_FETCH_DEPENDENCIES OFF CACHE BOOL "" FORCE)
+    set(DAWN_THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/dawn/third_party" CACHE STRING "" FORCE)
+
+    add_subdirectory(thirdparty/dawn)
+endif()
+
 
 # Thirdparty Libraries
 

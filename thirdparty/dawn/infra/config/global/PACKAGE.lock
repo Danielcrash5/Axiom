@@ -1,0 +1,40 @@
+{
+	"lucicfg": "1.46.2",
+	"packages": [
+		{
+			"name": "@dawn-project",
+			"deps": [
+				"@chromium-luci",
+				"@chromium-targets"
+			],
+			"lucicfg": "1.45.6",
+			"resources": [
+				"milestones.json"
+			],
+			"entrypoints": [
+				"main.star"
+			]
+		},
+		{
+			"name": "@chromium-luci",
+			"source": {
+				"repo": "https://chromium.googlesource.com/infra/chromium/+/refs/heads/main",
+				"revision": "8c0ad4ba2dc0a7f10a34376a631159162a823eeb",
+				"path": "starlark-libs/chromium-luci"
+			},
+			"lucicfg": "1.46.1"
+		},
+		{
+			"name": "@chromium-targets",
+			"source": {
+				"repo": "https://chromium.googlesource.com/chromium/src/+/refs/heads/main",
+				"revision": "3c5f0f53124b4aea944cdad1b7760f337368b6cb",
+				"path": "infra/config/targets"
+			},
+			"deps": [
+				"@chromium-luci"
+			],
+			"lucicfg": "1.46.1"
+		}
+	]
+}

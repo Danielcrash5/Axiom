@@ -62,6 +62,8 @@ if(AXIOM_RENDERER_WEBGPU)
         PRIVATE
         AXIOM_HAS_WEBGPU
     )
+
+    target_link_libraries(axiom_engine PRIVATE dawn::webgpu_dawn)
 endif()
 
 if(AXIOM_RENDERER_VULKAN)

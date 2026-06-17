@@ -4,8 +4,8 @@
 #include "axiom/core/Logger.h"
 #include "axiom/core/Time.h"
 #include "axiom/profiling/Profiler.h"
-#include "axiom/renderer/Renderer.h"
-#include <axiom/renderer/RendererRHI.h>
+//#include "axiom/renderer/Renderer.h"
+//#include <axiom/renderer/RendererRHI.h>
 #include "axiom/assets/VFS.h"
 #include "axiom/ImGui/Panels/LogPanel.h"
 #include <filesystem>
@@ -150,17 +150,17 @@ namespace axiom {
 		if (engineAssetPathUsedFallback)
 			AXIOM_WARN("Engine asset path fallback is used: {}", engineAssetPath);
 
-		VFS::MountPath("engine://", engineAssetPath);
+		VFS::MountPath("engine://", AXIOM_ENGINE_ASSET_PATH);
 		//m_ImGuiLayer = IImGuiLayer::Create(m_Window);
 
-		try {
+		/*try {
 			m_Renderer = std::make_unique<Renderer>(m_Window->GetNativeHandle());
 		}
 		catch (const std::exception& e) {
 			AXIOM_FATAL("Fataler Fehler beim Start der Engine: {}", e.what());
 			m_Running = false;
 			return;
-		}
+		}*/
 
 		OnInit();
 	}
@@ -197,32 +197,32 @@ namespace axiom {
 	void Application::Render(double alpha) {
 		AXIOM_PROFILE_SCOPE("Render");
 
-		CommandBuffer cmd;
-		if (m_Renderer->begin_frame(cmd)) {
-			cmd.begin_rendering(0, 0.1f, 0.1f, 0.15f, 1.0f);
+		//CommandBuffer cmd;
+		//if (m_Renderer->begin_frame(cmd)) {
+		//	cmd.begin_rendering(0, 0.1f, 0.1f, 0.15f, 1.0f);
 
-			// 2. Schließe das Rendern ab
-			// User render
-			OnRender(alpha);
+		//	// 2. Schließe das Rendern ab
+		//	// User render
+		//	OnRender(alpha);
 
-			// System render
-			m_SystemManager.BeginRenderFrame();
-			for (auto& scene : m_Scenes) {
-				if (scene)
-					m_SystemManager.Render(*scene, alpha);
-			}
+		//	// System render
+		//	m_SystemManager.BeginRenderFrame();
+		//	for (auto& scene : m_Scenes) {
+		//		if (scene)
+		//			m_SystemManager.Render(*scene, alpha);
+		//	}
 
-			// Layer rendering
-			for (auto& layer : m_LayerStack) {
-				AXIOM_PROFILE_SCOPE(layer->GetName());
-				layer->OnRender(alpha);
-			}
+		//	// Layer rendering
+		//	for (auto& layer : m_LayerStack) {
+		//		AXIOM_PROFILE_SCOPE(layer->GetName());
+		//		layer->OnRender(alpha);
+		//	}
 
-			cmd.end_rendering();
+		//	cmd.end_rendering();
 
 
-			m_Renderer->end_frame();
-		}
+		//	m_Renderer->end_frame();
+		//}
 	}
 
 	void Application::ImGuiRender() {

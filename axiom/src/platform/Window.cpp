@@ -35,8 +35,6 @@ namespace axiom {
         SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE;
 #if defined(AXIOM_RENDERER_VULKAN)
         flags |= SDL_WINDOW_VULKAN;
-#else
-
 #endif
 
         m_Window = SDL_CreateWindow(props.title.c_str(), static_cast<int>(props.width), static_cast<int>(props.height), flags);

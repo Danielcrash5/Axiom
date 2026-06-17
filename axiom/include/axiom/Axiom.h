@@ -19,7 +19,7 @@
 #include "axiom/assets/VFS.h"
 #include "axiom/assets/AssetManager.h"
 
-#include "axiom/renderer/Renderer.h"
+//#include "axiom/renderer/Renderer.h"
 
 #include "axiom/ecs/Components.h"
 #include "axiom/ecs/Entity.h"
