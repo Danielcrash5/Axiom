@@ -7,8 +7,10 @@ namespace axiom {
         Texture1D,
         Texture2D,
         Texture3D,
-        TextureCube,
+
         Texture2DArray,
+
+        TextureCube,
         TextureCubeArray
     };
 
@@ -18,6 +20,9 @@ namespace axiom {
 
         RGBA16_FLOAT,
         RGBA32_FLOAT,
+
+        BGRA8_UNORM,
+        BGRA8_SRGB,
 
         D24S8,
         D32_FLOAT

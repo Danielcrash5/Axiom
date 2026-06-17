@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../resources/handles.h"
 #include "../resources/texture.h"
 #include "../resources/buffer.h"
 #include "../resources/sampler.h"
