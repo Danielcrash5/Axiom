@@ -55,10 +55,16 @@ set(MZ_LZMA OFF CACHE BOOL "" FORCE)
 set(MZ_ZSTD OFF CACHE BOOL "" FORCE)
 set(MZ_OPENSSL OFF CACHE BOOL "" FORCE)
 set(MZ_LIBCOMP OFF CACHE BOOL "" FORCE)
+set(MZ_PPMD OFF CACHE BOOL "" FORCE)
+set(MZ_FETCH_LIBS OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(thirdparty/minizip-ng)
 
 add_subdirectory(tools/packtool)
+
+add_subdirectory(thirdparty/nlohmann_json)
+
+add_subdirectory(thirdparty/cereal)
 
 add_subdirectory(thirdparty/entt)
 

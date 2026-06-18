@@ -85,7 +85,7 @@ endif()
 
 # Thirdparty
 target_link_libraries(axiom_engine
-    PUBLIC SDL3::SDL3 stb imgui
+    PUBLIC SDL3::SDL3 stb imgui nlohmann_json::nlohmann_json cereal::cereal
 )
 
 target_link_libraries(axiom_engine PUBLIC EnTT::EnTT)

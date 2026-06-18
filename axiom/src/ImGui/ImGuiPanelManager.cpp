@@ -1,5 +1,7 @@
 #include "axiom/ImGui/ImGuiPanelManager.h"
 
+#include <algorithm>
+
 namespace axiom {
 	void ImGuiPanelManager::Update(double deltaTime) {
 		for (const auto& panel : m_Panels) {
