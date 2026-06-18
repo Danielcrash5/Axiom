@@ -155,6 +155,10 @@ namespace axiom {
             case SDL_EVENT_GAMEPAD_REMOVED:
                 Input::OnGamepadChanged();
                 break;
+            case SDL_EVENT_JOYSTICK_ADDED:
+            case SDL_EVENT_JOYSTICK_REMOVED:
+                Input::OnJoystickChanged();
+                break;
             default:
                 break;
             }

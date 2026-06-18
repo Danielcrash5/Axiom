@@ -13,6 +13,12 @@ namespace axiom {
         MouseButton,
         GamepadButton,
         GamepadAxis,
+        JoystickButton,
+        JoystickAxis,
+        JoystickHat,
+        CustomButton,
+        CustomAxis,
+        CustomHat,
         MouseAxis
     };
 
@@ -23,6 +29,8 @@ namespace axiom {
     struct ButtonBinding {
         InputType type;
         int code;
+        int deviceId = 0;
+        int index = 0;
     };
 
     // ======================
@@ -32,6 +40,7 @@ namespace axiom {
     struct AxisBinding {
         InputType type;
         int code;
+        int deviceId = 0;
 
         float scale = 1.0f;
         float deadzone = 0.0f;
@@ -47,11 +56,13 @@ namespace axiom {
     public:
 
         // ---- Buttons ----
-        void BindButton(const std::string& action, InputType type, int code);
+        void BindButton(const std::string& action, InputType type, int code, int deviceId = 0);
+        void BindHat(const std::string& action, InputType type, JoystickHat mask, int hat = 0, int deviceId = 0);
+        void BindJoystickHat(const std::string& action, JoystickHat mask, int hat = 0, int deviceId = 0);
         bool IsActionPressed(const std::string& action) const;
         bool IsActionJustPressed(const std::string& action) const;
 
-        void RebindButton(const std::string& action, size_t index, InputType type, int code);
+        void RebindButton(const std::string& action, size_t index, InputType type, int code, int deviceId = 0);
 
         // ---- Axis 1D ----
         void BindAxis(const std::string& axis, const AxisBinding& binding);

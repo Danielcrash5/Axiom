@@ -12,6 +12,8 @@
 #include "axiom/input/KeyCodes.h"
 #include "axiom/input/MouseCodes.h"
 #include "axiom/input/GamepadCodes.h"
+#include "axiom/input/JoystickCodes.h"
+#include "axiom/input/CustomInputDevice.h"
 #include "axiom/input/Input.h"
 #include "axiom/input/InputSystem.h"
 #include "axiom/input/ActionMap.h"

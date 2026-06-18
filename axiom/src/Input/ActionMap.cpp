@@ -6,12 +6,20 @@ namespace axiom {
 
     // ================= BUTTONS =================
 
-    void ActionMap::BindButton(const std::string& action, InputType type, int code) {
-        m_ButtonBindings[action].push_back({ type, code });
+    void ActionMap::BindButton(const std::string& action, InputType type, int code, int deviceId) {
+        m_ButtonBindings[action].push_back({ type, code, deviceId });
     }
 
-    void ActionMap::RebindButton(const std::string& action, size_t index, InputType type, int code) {
-        m_ButtonBindings[action][index] = { type, code };
+    void ActionMap::BindHat(const std::string& action, InputType type, JoystickHat mask, int hat, int deviceId) {
+        m_ButtonBindings[action].push_back({ type, static_cast<int>(mask), deviceId, hat });
+    }
+
+    void ActionMap::BindJoystickHat(const std::string& action, JoystickHat mask, int hat, int deviceId) {
+        BindHat(action, InputType::JoystickHat, mask, hat, deviceId);
+    }
+
+    void ActionMap::RebindButton(const std::string& action, size_t index, InputType type, int code, int deviceId) {
+        m_ButtonBindings[action][index] = { type, code, deviceId };
     }
 
     bool ActionMap::IsActionPressed(const std::string& action) const {
@@ -28,7 +36,19 @@ namespace axiom {
                 if (Input::IsMousePressed(binding.code)) return true;
                 break;
             case InputType::GamepadButton:
-                if (Input::IsGamepadPressed(binding.code)) return true;
+                if (Input::IsGamepadPressed(binding.code, binding.deviceId)) return true;
+                break;
+            case InputType::JoystickButton:
+                if (Input::IsJoystickButtonPressed(binding.code, binding.deviceId)) return true;
+                break;
+            case InputType::JoystickHat:
+                if (Input::IsJoystickHatPressed(static_cast<JoystickHat>(binding.code), binding.index, binding.deviceId)) return true;
+                break;
+            case InputType::CustomButton:
+                if (Input::IsCustomDeviceButtonPressed(binding.code, binding.deviceId)) return true;
+                break;
+            case InputType::CustomHat:
+                if (Input::IsCustomDeviceHatPressed(static_cast<JoystickHat>(binding.code), binding.index, binding.deviceId)) return true;
                 break;
             default: break;
             }
@@ -49,6 +69,21 @@ namespace axiom {
                 break;
             case InputType::MouseButton:
                 if (Input::IsMouseJustPressed(binding.code)) return true;
+                break;
+            case InputType::GamepadButton:
+                if (Input::IsGamepadJustPressed(binding.code, binding.deviceId)) return true;
+                break;
+            case InputType::JoystickButton:
+                if (Input::IsJoystickButtonJustPressed(binding.code, binding.deviceId)) return true;
+                break;
+            case InputType::JoystickHat:
+                if (Input::IsJoystickHatJustPressed(static_cast<JoystickHat>(binding.code), binding.index, binding.deviceId)) return true;
+                break;
+            case InputType::CustomButton:
+                if (Input::IsCustomDeviceButtonJustPressed(binding.code, binding.deviceId)) return true;
+                break;
+            case InputType::CustomHat:
+                if (Input::IsCustomDeviceHatJustPressed(static_cast<JoystickHat>(binding.code), binding.index, binding.deviceId)) return true;
                 break;
             default: break;
             }
@@ -83,7 +118,15 @@ namespace axiom {
                 break;
 
             case InputType::GamepadAxis:
-                input = Input::GetGamepadAxis(binding.code);
+                input = Input::GetGamepadAxis(binding.code, binding.deviceId);
+                break;
+
+            case InputType::JoystickAxis:
+                input = Input::GetJoystickAxis(binding.code, binding.deviceId, binding.deadzone);
+                break;
+
+            case InputType::CustomAxis:
+                input = Input::GetCustomDeviceAxis(binding.code, binding.deviceId, binding.deadzone);
                 break;
 
             case InputType::MouseAxis:
