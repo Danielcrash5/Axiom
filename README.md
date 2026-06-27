@@ -293,7 +293,7 @@ Nur finaler Platformer
 - [ ] Linux
 - [ ] Android
 - [ ] VR
-      ** KEINE APPLE GERÄTE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!** 😤😤🤬
+     
 ---
 
 ## Multithreading
@@ -306,6 +306,7 @@ Nur finaler Platformer
 - [ ] Thread-Pool  
 - [ ] Asynchrones Asset-Loading  
 - [ ] Parallele ECS-Verarbeitung  
-- [ ] Parallele Renderer-Kommandos  
+- [ ] Parallele Renderer-Kommandos
+- [ ] Fibers
 
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
