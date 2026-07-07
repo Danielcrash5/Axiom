@@ -258,28 +258,47 @@ struct RenderItem {
 
 ## 9. 2D-Primitive (erste Zielsetzung: komplette 2D-Szene)
 
-Alle Linien-artigen Primitive werden als **echte Geometrie (Dreiecke)** erzeugt, nicht als GPU-native Line-Primitives – analog zu SVG-Stroke-Rendering, damit Breite, Joins und Caps korrekt funktionieren.
+Linienartige Primitive (Linie/Linestrip, Rechteck-Outline) werden als **echte Geometrie (Dreiecke)** erzeugt, nicht als GPU-native Line-Primitives – analog zu SVG-Stroke-Rendering, damit Breite, Joins und Caps korrekt funktionieren. **Der Kreis ist die Ausnahme:** er wird nicht tesselliert, sondern als **2D-SDF auf einem Quad** gezeichnet.
 
 | Primitiv | Beschreibung |
 |---|---|
 | **Skinned Mesh (2D)** | Vertex-Skinning über Bone-Weights/Indices im Vertexformat |
-| **Kreis** | Als Polygon-Geometrie tesselliert (konfigurierbare Segmentanzahl), kein GPU-Primitive |
+| **Kreis** | Quad-Geometrie (2 Dreiecke) + Signed-Distance-Field im Fragment-Shader, kein Tesselations-Aufwand |
 | **Linie / Linestrip** | Stroke-Tesselation zu Dreiecksgeometrie; Endcaps: `Butt`, `Round`, `Square`; Joins: `Miter`, `Round`, `Bevel` – wie HTML Canvas/SVG |
 | **Rechteck** | Nur Outline (Stroke), aus Linien-Tesselator abgeleitet (4 Segmente + Eck-Joins) |
 | **Quad/Sprite** | Gefüllt, mit oder ohne Textur |
 
-Ein `GeometryBuilder` erzeugt aus den High-Level-Beschreibungen (Punkte, Breite, Join/Cap-Typ) Vertex-/Index-Buffer:
+**Kreis als SDF:** Die Geometrie ist ein simples Quad (dieselbe wie beim Sprite), die eigentliche Form entsteht im Fragment-Shader über die Distanzfunktion zum Kreismittelpunkt. Zwei Parameter steuern das Aussehen:
+
+- **`thickness`** (Bereich `[0, 1]`): `1.0` = vollständig gefüllte Fläche (Disk). Werte `< 1.0` machen aus dem Kreis einen Ring – `thickness` bestimmt die Breite des Rings relativ zum Radius (also wie weit die innere Kante vom Rand entfernt ist).
+- **`feather`**: Weichheit der Kante (Anti-Aliasing/weicher Verlauf statt hartem Cutoff), typischerweise als Distanz in normalisierten UV-Einheiten oder Pixeln.
+
+```cpp
+struct CircleComponent {
+    float radius;
+    float thickness = 1.0f; // 1.0 = geschlossene Fläche, <1.0 = Ring
+    float feather = 0.01f;  // Kantenweichheit
+};
+```
+
+Fragment-Shader-Prinzip (WGSL-artiges Pseudo):
+```
+let dist = length(localUV);              // 0 im Zentrum, 1 am Kreisrand
+let innerEdge = 1.0 - thickness;         // 0.0 bei thickness=1 (voller Disk)
+let outerAlpha = 1.0 - smoothstep(1.0 - feather, 1.0, dist);
+let innerAlpha = select(1.0, smoothstep(innerEdge - feather, innerEdge, dist), thickness < 1.0);
+let alpha = outerAlpha * innerAlpha;
+```
+
+Da der Kreis nur ein Quad + Material ist, läuft er durch denselben Submission-/Sortier-/Batching-Pfad wie jedes andere `RenderItem` – kein eigener Geometrie-Builder nötig, nur ein eigenes Kreis-Material/-Shader mit `thickness`/`feather` als Uniform-Parameter.
+
+Ein `GeometryBuilder` erzeugt aus den High-Level-Beschreibungen (Punkte, Breite, Join/Cap-Typ) Vertex-/Index-Buffer für die linienartigen Primitive:
 
 ```cpp
 class LineStrokeBuilder {
 public:
     static MeshData build(std::span<const glm::vec2> points, float width,
                            JoinType join, CapType cap);
-};
-
-class CircleBuilder {
-public:
-    static MeshData build(float radius, uint32_t segments);
 };
 ```
 
@@ -402,7 +421,7 @@ Ein `PostEffectPass` bekommt eine `RenderLayerMask targetLayers`. Items, deren L
 
 **Phase 5 – 2D-Geometrie**
 13. `GeometryBuilder`: Quad (mit/ohne Textur) zuerst, da einfachster Fall
-14. `CircleBuilder` (Segment-Tesselation)
+14. Kreis-SDF-Shader/-Material (`thickness`/`feather` als Uniform-Parameter, nutzt dieselbe Quad-Geometrie, kein eigener Builder nötig)
 15. `LineStrokeBuilder`: erst Linien ohne Joins/Caps, dann Miter/Round/Bevel-Joins, dann Butt/Round/Square-Caps
 16. Rechteck-Outline (Wiederverwendung von `LineStrokeBuilder`, 4 Segmente + Eckbehandlung)
 17. 2D-Skinned-Mesh (Bone-Weights im Vertexformat, CPU- oder Shader-Skinning entscheiden)
