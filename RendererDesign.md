@@ -391,13 +391,108 @@ uint64_t sortKey = (uint64_t(layer) << 48) | (uint64_t(shaderId) << 32)
 
 ---
 
-## 11. Post-Effekte pro Layer
+## 11. Views, Kameras & Render-to-Texture
+
+**Eine `View` ist Kamera + Ziel-Textur + sichtbare Layer.** Der Renderer kennt beliebig viele registrierte Views und führt den `RenderGraph` **pro View einmal komplett aus** – z.B. eine Game-View auf den Swapchain und gleichzeitig eine Editor-View auf eine Offscreen-Textur, die der Editor dann z.B. in ein UI-Fenster zeichnet.
+
+```cpp
+struct Viewport { uint32_t x, y, width, height; };
+
+enum class RenderTargetKind { Swapchain, Texture };
+
+struct RenderTarget {
+    RenderTargetKind kind;
+    TextureHandle texture; // nur gültig wenn kind == Texture
+};
+
+struct View {
+    glm::mat4 viewMatrix;
+    glm::mat4 projectionMatrix;   // orthographic (2D) oder perspective (3D)
+    RenderLayerMask visibleLayers;
+    RenderTarget target;
+    Viewport viewport;
+    int priority = 0;             // Ausführungsreihenfolge unter mehreren Views
+};
+
+using ViewID = uint32_t;
+
+class Renderer {
+public:
+    ViewID registerView(const View& view);
+    void updateView(ViewID, const View&);
+    void removeView(ViewID);
+    void renderFrame(); // iteriert alle Views nach priority, führt Graph pro View aus
+};
+```
+
+**Frame-Ablauf pro View:**
+
+```
+für jede View (sortiert nach priority):
+    RenderContext.currentView = view
+    RenderQueueSystem.build(itemPool, passDescriptors, view)
+        → filtert zusätzlich zu descriptor.acceptedLayers auch nach view.visibleLayers
+        → optional: Frustum-Culling gegen view.viewMatrix/projectionMatrix
+    RenderGraph.compile()/execute() für diese View
+        → transiente Resourcen (z.B. "SceneColor") sind PRO VIEW neu angelegt,
+          nicht global geteilt – außer ein Pass registriert sie explizit
+          als frame-shared (z.B. eine einmal berechnete Shadow Map für alle Views)
+        → letzter Pass schreibt in view.target (Swapchain oder Texture)
+```
+
+Die `acceptedLayers` eines Passes (Abschnitt 10) und die `visibleLayers` einer View werden kombiniert (UND-verknüpft) – ein Pass sieht also nur Items, die sowohl für ihn als auch für die aktuelle View bestimmt sind.
+
+**Beispiel – Editor-Kamera neben Game-Kamera:**
+
+```cpp
+View gameView {
+    .viewMatrix = camera.view(), .projectionMatrix = camera.projection(),
+    .visibleLayers = gameplayLayers,
+    .target = { RenderTargetKind::Swapchain, {} },
+    .priority = 0
+};
+
+View editorView {
+    .viewMatrix = editorCam.view(), .projectionMatrix = editorCam.projection(),
+    .visibleLayers = gameplayLayers | gizmoLayer,   // sieht zusätzlich Editor-Gizmos
+    .target = { RenderTargetKind::Texture, editorViewportTexture },
+    .priority = 1
+};
+
+renderer.registerView(gameView);
+renderer.registerView(editorView);
+```
+
+Beide Views laufen durch denselben `RenderGraph`/dieselben Passes – kein separater "Editor-Renderer" nötig. Render-to-Texture ist damit generell verfügbar: Minimap-Kamera, Portrait-Render für ein Inventar-UI, Editor-Viewport – alles einfach eine `View` mit `target.kind = Texture` statt `Swapchain`.
+
+**FXAA als Beispiel-Pass (funktioniert identisch für 2D und 3D):**
+
+```cpp
+class FXAAPass : public RenderPass {
+public:
+    void setup(RenderGraphBuilder& builder) override {
+        m_input = builder.read("SceneColor");        // von Pass2D UND/ODER Pass3D geschrieben
+        m_output = builder.write(currentViewTarget());
+    }
+    void execute(RenderContext& ctx, CommandList& cmd) override {
+        cmd.bindPipeline(m_fxaaPipeline);
+        cmd.bindGroup(0, resolveBindGroup(m_input));
+        cmd.draw(3, 1, 0, 0); // Fullscreen-Triangle
+    }
+};
+```
+
+Da sowohl `Pass2D` als auch `Pass3DOpaque`/`Pass3DTransparent` in dieselbe `"SceneColor"`-Resource schreiben können (der Graph unterstützt mehrere Writer mit Dependency-Ordering, Abschnitt 3), braucht FXAA keinen Sonderfall für 2D vs. 3D – es ist einfach ein weiterer Pass, der diese Resource liest und in `view.target` schreibt.
+
+---
+
+## 12. Post-Effekte pro Layer
 
 Ein `PostEffectPass` bekommt eine `RenderLayerMask targetLayers`. Items, deren Layer in der Maske eines isolierenden Effekts liegen, werden in ein separates Zwischentarget gerendert, das der Pass verarbeitet, bevor final compositiert wird (z.B. "alles schwarz außer Characters-Layer").
 
 ---
 
-## 12. Roadmap
+## 13. Roadmap
 
 **Phase 1 – RHI-Fundament (WebGPU)**
 1. `IRHIBackend`-Interface definieren (Buffers, Textures, Pipelines, BindGroups)
@@ -434,18 +529,25 @@ Ein `PostEffectPass` bekommt eine `RenderLayerMask targetLayers`. Items, deren L
 22. `Pass2D` (SortMode `BackToFront`) nutzt `BatchBuilder` intern
 23. `PassUI` als separater Pass mit eigenem Deskriptor
 
-**Phase 7 – Post-FX**
-21. `PostEffectPass`-Infrastruktur mit `RenderLayerMask`-Filter
-22. Beispiel-Effekt: Layer-Isolation (z.B. alles außer Characters schwärzen)
+**Phase 7 – Views, Render-to-Texture & FXAA**
+24. `View`/`RenderTarget`-Struktur + `Renderer::registerView/updateView/removeView`
+25. `Renderer::renderFrame()`: iteriert Views nach `priority`, führt Graph pro View aus
+26. `RenderQueueSystem` um View-Filterung erweitern (`acceptedLayers` UND `visibleLayers`)
+27. Render-to-Texture end-to-end testen: eine View auf Swapchain, eine zweite auf Offscreen-Textur (z.B. simulierter Editor-Viewport)
+28. `FXAAPass`: liest `SceneColor`, schreibt in `view.target` – Test mit Pass2D-Output
 
-**Phase 8 – Erste komplette 2D-Szene**
-23. End-to-End-Test: mehrere Layer, gemischte Materialien, Post-FX, Batching – alles über WebGPU
+**Phase 8 – Post-FX (Layer-Masking)**
+29. `PostEffectPass`-Infrastruktur mit `RenderLayerMask`-Filter
+30. Beispiel-Effekt: Layer-Isolation (z.B. alles außer Characters schwärzen)
 
-**Phase 9 – Danach**
-24. Vulkan-Backend hinter demselben `IRHIBackend`-Interface
-25. Echtes Bindless via Descriptor Indexing (Vulkan)
-26. 3D-Passes (Opaque/Transparent) inkl. Front-to-Back-Sortierung für Early-Z
-27. Compute-Shader-getriebene Effekte (Fluid, Deformation – Anknüpfung an bestehende Engine-Systeme)
+**Phase 9 – Erste komplette 2D-Szene**
+31. End-to-End-Test: mehrere Layer, gemischte Materialien, Post-FX, FXAA, Batching, Editor-View + Game-View gleichzeitig – alles über WebGPU
+
+**Phase 10 – Danach**
+32. Vulkan-Backend hinter demselben `IRHIBackend`-Interface
+33. Echtes Bindless via Descriptor Indexing (Vulkan)
+34. 3D-Passes (Opaque/Transparent) inkl. Front-to-Back-Sortierung für Early-Z
+35. Compute-Shader-getriebene Effekte (Fluid, Deformation – Anknüpfung an bestehende Engine-Systeme)
 
 ---
 
