@@ -495,59 +495,62 @@ Ein `PostEffectPass` bekommt eine `RenderLayerMask targetLayers`. Items, deren L
 ## 13. Roadmap
 
 **Phase 1 – RHI-Fundament (WebGPU)**
-1. `IRHIBackend`-Interface definieren (Buffers, Textures, Pipelines, BindGroups)
-2. WebGPU-Implementierung: Device/Queue-Setup, `CommandList` → `GPUCommandEncoder`
-3. Pipeline-Erzeugung aus `VertexLayout` + `ShaderDesc` (WGSL zunächst statisch, kein Hot-Reload)
-4. Buffer-/Texture-Upload-Pfad (Staging, Copy-Commands)
+1. `IRHIBackend`-Interface definieren (zunächst nur Buffers, Textures – Pipelines/BindGroups folgen in Phase 3, sobald `VertexLayout`/`ShaderDesc` existieren)
+2. WebGPU-Implementierung: Device/Queue-Setup, `CommandList` → `GPUCommandEncoder` (zunächst nur Copy-Commands, `bindPipeline`/`draw`/etc. folgen in Phase 3)
+3. Buffer-/Texture-Upload-Pfad (Staging, Copy-Commands)
 
 **Phase 2 – RenderGraph-Grundgerüst**
-5. `RenderPass`-Interface + `RenderGraph` (addPass, compile, execute)
-6. Virtuelle Resource-Handles + einfaches Transient-Aliasing
-7. Ein minimaler Test-Pass (Clear-Screen) end-to-end durchs Backend
+4. `RenderPass`-Interface + `RenderGraph` (addPass, compile, execute)
+5. Virtuelle Resource-Handles + einfaches Transient-Aliasing
+6. Ein minimaler Test-Pass (Clear-Screen) end-to-end durchs Backend
 
-**Phase 3 – Material & Bindless**
-8. `Material`-Klasse + `ShaderID`-Verwaltung
-9. `BindlessTextureHeap` (Slot-Pool-Variante für WebGPU, siehe Abschnitt 6.1)
-10. `ResourceBinding`: direktes Binding vs. Bindless-Index
+**Phase 3 – Material, Pipelines & Bindless**
+7. `VertexLayout` + `ShaderDesc` (Abschnitt 5/6) definieren
+8. `IRHIBackend::createPipeline(const PipelineDesc&)` + `PipelineDesc` (baut auf `VertexLayout`/`ShaderDesc` auf)
+9. `IRHIBackend`: BindGroup-Erzeugung (`createBindGroup`) ergänzen
+10. `CommandList` vervollständigen: `bindPipeline`, `bindVertexBuffer`, `bindIndexBuffer`, `bindGroup`, `draw`, `drawIndexed`, `dispatch`
+11. `Material`-Klasse + `ShaderID`-Verwaltung
+12. `BindlessTextureHeap` (Slot-Pool-Variante für WebGPU, siehe Abschnitt 6.1)
+13. `ResourceBinding`: direktes Binding vs. Bindless-Index
 
 **Phase 4 – RenderLayer & ECS-Anbindung**
-11. `RenderLayerRegistry` (Bit-Vergabe, Serialisierung; Editor-UI folgt separat)
-12. `MaterialComponent` / `RenderLayerComponent` + `RenderSubmissionSystem` (Auto-Association-Logik)
+14. `RenderLayerRegistry` (Bit-Vergabe, Serialisierung; Editor-UI folgt separat)
+15. `MaterialComponent` / `RenderLayerComponent` + `RenderSubmissionSystem` (Auto-Association-Logik)
 
 **Phase 5 – 2D-Geometrie**
-13. `GeometryBuilder`: Quad (mit/ohne Textur) zuerst, da einfachster Fall
-14. Kreis-SDF-Shader/-Material (`thickness`/`feather` als Uniform-Parameter, nutzt dieselbe Quad-Geometrie, kein eigener Builder nötig)
-15. `LineStrokeBuilder`: erst Linien ohne Joins/Caps, dann Miter/Round/Bevel-Joins, dann Butt/Round/Square-Caps
-16. Rechteck-Outline (Wiederverwendung von `LineStrokeBuilder`, 4 Segmente + Eckbehandlung)
-17. 2D-Skinned-Mesh (Bone-Weights im Vertexformat, CPU- oder Shader-Skinning entscheiden)
+16. `GeometryBuilder`: Quad (mit/ohne Textur) zuerst, da einfachster Fall
+17. Kreis-SDF-Shader/-Material (`thickness`/`feather` als Uniform-Parameter, nutzt dieselbe Quad-Geometrie, kein eigener Builder nötig)
+18. `LineStrokeBuilder`: erst Linien ohne Joins/Caps, dann Miter/Round/Bevel-Joins, dann Butt/Round/Square-Caps
+19. Rechteck-Outline (Wiederverwendung von `LineStrokeBuilder`, 4 Segmente + Eckbehandlung)
+20. 2D-Skinned-Mesh (Bone-Weights im Vertexformat, CPU- oder Shader-Skinning entscheiden)
 
 **Phase 6 – Queue-System, Batching, konkrete Passes**
-18. `RenderQueueDescriptor` pro Pass + `RenderSort`-Utility (Sortier-Algorithmen als eigenständiger, testbarer Baustein)
-19. `RenderQueueSystem`: eigenständiges Subsystem, läuft vor `RenderGraph.compile()`, filtert + sortiert Item-Pool pro Pass – kein Teil des Graphs
-20. `RenderSubmissionSystem` (ECS): nur Collection – Components lesen, `RenderItem`s bauen, roh via `Renderer::submitItem(...)` abliefern
-21. `BatchBuilder`: eigenständige Utility, baut instanced Draw-Batches aus sortierten Item-Listen, aufgerufen aus `Pass::execute()`
-22. `Pass2D` (SortMode `BackToFront`) nutzt `BatchBuilder` intern
-23. `PassUI` als separater Pass mit eigenem Deskriptor
+21. `RenderQueueDescriptor` pro Pass + `RenderSort`-Utility (Sortier-Algorithmen als eigenständiger, testbarer Baustein)
+22. `RenderQueueSystem`: eigenständiges Subsystem, läuft vor `RenderGraph.compile()`, filtert + sortiert Item-Pool pro Pass – kein Teil des Graphs
+23. `RenderSubmissionSystem` (ECS): nur Collection – Components lesen, `RenderItem`s bauen, roh via `Renderer::submitItem(...)` abliefern
+24. `BatchBuilder`: eigenständige Utility, baut instanced Draw-Batches aus sortierten Item-Listen, aufgerufen aus `Pass::execute()`
+25. `Pass2D` (SortMode `BackToFront`) nutzt `BatchBuilder` intern
+26. `PassUI` als separater Pass mit eigenem Deskriptor
 
 **Phase 7 – Views, Render-to-Texture & FXAA**
-24. `View`/`RenderTarget`-Struktur + `Renderer::registerView/updateView/removeView`
-25. `Renderer::renderFrame()`: iteriert Views nach `priority`, führt Graph pro View aus
-26. `RenderQueueSystem` um View-Filterung erweitern (`acceptedLayers` UND `visibleLayers`)
-27. Render-to-Texture end-to-end testen: eine View auf Swapchain, eine zweite auf Offscreen-Textur (z.B. simulierter Editor-Viewport)
-28. `FXAAPass`: liest `SceneColor`, schreibt in `view.target` – Test mit Pass2D-Output
+27. `View`/`RenderTarget`-Struktur + `Renderer::registerView/updateView/removeView`
+28. `Renderer::renderFrame()`: iteriert Views nach `priority`, führt Graph pro View aus
+29. `RenderQueueSystem` um View-Filterung erweitern (`acceptedLayers` UND `visibleLayers`)
+30. Render-to-Texture end-to-end testen: eine View auf Swapchain, eine zweite auf Offscreen-Textur (z.B. simulierter Editor-Viewport)
+31. `FXAAPass`: liest `SceneColor`, schreibt in `view.target` – Test mit Pass2D-Output
 
 **Phase 8 – Post-FX (Layer-Masking)**
-29. `PostEffectPass`-Infrastruktur mit `RenderLayerMask`-Filter
-30. Beispiel-Effekt: Layer-Isolation (z.B. alles außer Characters schwärzen)
+32. `PostEffectPass`-Infrastruktur mit `RenderLayerMask`-Filter
+33. Beispiel-Effekt: Layer-Isolation (z.B. alles außer Characters schwärzen)
 
 **Phase 9 – Erste komplette 2D-Szene**
-31. End-to-End-Test: mehrere Layer, gemischte Materialien, Post-FX, FXAA, Batching, Editor-View + Game-View gleichzeitig – alles über WebGPU
+34. End-to-End-Test: mehrere Layer, gemischte Materialien, Post-FX, FXAA, Batching, Editor-View + Game-View gleichzeitig – alles über WebGPU
 
 **Phase 10 – Danach**
-32. Vulkan-Backend hinter demselben `IRHIBackend`-Interface
-33. Echtes Bindless via Descriptor Indexing (Vulkan)
-34. 3D-Passes (Opaque/Transparent) inkl. Front-to-Back-Sortierung für Early-Z
-35. Compute-Shader-getriebene Effekte (Fluid, Deformation – Anknüpfung an bestehende Engine-Systeme)
+35. Vulkan-Backend hinter demselben `IRHIBackend`-Interface
+36. Echtes Bindless via Descriptor Indexing (Vulkan)
+37. 3D-Passes (Opaque/Transparent) inkl. Front-to-Back-Sortierung für Early-Z
+38. Compute-Shader-getriebene Effekte (Fluid, Deformation – Anknüpfung an bestehende Engine-Systeme)
 
 ---
 
