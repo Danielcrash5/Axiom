@@ -69,4 +69,10 @@ namespace axiom::renderer::rhi {
         std::string_view debugName;
     };
 
+    struct TextureUploadDesc {
+        uint32_t width = 0;
+        uint32_t height = 0;
+        uint32_t bytesPerRow = 0; // 0 = automatisch aus width * Format-Größe berechnen
+    };
+
 } // namespace axiom::renderer::rhi

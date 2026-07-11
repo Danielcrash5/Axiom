@@ -8,7 +8,7 @@ Referenzdokument für den Renderer der Axiom Game Engine. Wird laufend erweitert
 
 - **Eine Renderer-Klasse.** Kein `Renderer2D` / `Renderer3D`-Split. 2D und 3D laufen über denselben Submission-Pfad, dieselbe Pipeline-Infrastruktur, dasselbe Material-System. Unterschiede (Vertexlayout, PipelineState, Shader) sind Daten, keine Klassenhierarchie.
 - **Modular / nicht hartcodiert.** Die Standard-Pipeline ist ein austauschbares Setup aus Passes, kein fest verdrahteter Ablauf. Nutzer können Passes hinzufügen, entfernen, ersetzen.
-- **CommandList-basiert.** Alle GPU-Arbeit läuft über ein CommandList-Interface, das Backends (WebGPU, später Vulkan) implementieren.
+- **CommandList-basiert.** Alle GPU-Arbeit läuft über ein CommandList-Interface, das Backends (Vulkan zuerst, WebGPU später nur für Web-Export-Target) implementieren.
 - **3D wird nie blockiert.** Jede Design-Entscheidung für 2D darf 3D-Anwendungsfälle nicht ausschließen.
 - **Custom Vertexformate.** Nutzer können eigene Vertex-Layouts (inkl. 4D+ Attribute) definieren und an die GPU senden, ohne Core-Code anzufassen.
 
@@ -44,7 +44,7 @@ RenderGraph.execute()
       │  Innerhalb des Passes: BatchBuilder::build(sortedItems)
       │  fasst gleiche Material/Bindless-Index zu instanced Draws zusammen.
       ▼
-IRHIBackend (WebGPU / später Vulkan) ──► GPU
+IRHIBackend (Vulkan / später WebGPU für Web) ──► GPU
 ```
 
 ---
@@ -92,7 +92,7 @@ Jeder dieser Passes ist eine ganz normale `RenderPass`-Implementierung – der R
 
 ## 4. RHI-Abstraktion (Backend-Layer)
 
-Erstes Backend: **WebGPU**. Vulkan folgt später hinter demselben Interface.
+Erstes Backend: **Vulkan** (Desktop). **WebGPU** (Dawn) wird zusätzlich unterstützt, aber ausschließlich als Backend für ein **Web-Export-Target** (Browser via WASM) – kein primärer Desktop-Pfad mehr.
 
 ```cpp
 class CommandList {
@@ -172,7 +172,7 @@ Ein Sprite mit eigenem Shader = eigene `Material`-Instanz mit anderer `ShaderID`
 
 ## 6.1 Bindless Textures
 
-Ziel: Texturen nicht pro Draw über ein BindGroup/Descriptor-Set binden, sondern per Index in einer globalen Textur-Tabelle ansprechen (analog Vulkan `VK_EXT_descriptor_indexing` / `binding_array` in WGSL).
+Ziel: Texturen nicht pro Draw über ein BindGroup/Descriptor-Set binden, sondern per Index in einer globalen Textur-Tabelle ansprechen (Vulkan `VK_EXT_descriptor_indexing`).
 
 ```cpp
 class BindlessTextureHeap {
@@ -189,7 +189,9 @@ private:
 
 Material-Parameter referenzieren dann nur einen `uint32_t textureIndex` (z.B. per Push-Constant/Instance-Daten an den Shader übergeben), statt ein Textur-Binding pro Draw zu wechseln. Das reduziert State-Changes drastisch und ist Voraussetzung für effizientes Batching großer Sprite-Mengen mit unterschiedlichen Texturen.
 
-**WebGPU-Einschränkung:** Echtes dynamisches Indexing in Binding-Arrays ist nicht überall verfügbar (abhängig von Dawn/Browser-Support). Erste Implementierung nutzt daher einen **festen Textur-Array-Slot-Pool** (z.B. 256–1024 Slots) als Annäherung; volles Bindless-Verhalten (unbegrenzt, dynamisch) folgt mit dem Vulkan-Backend über Descriptor Indexing.
+**Vulkan (primäres Backend):** Echtes, unbegrenztes dynamisches Indexing via `VK_EXT_descriptor_indexing` (`VkDescriptorBindingFlagBits::VARIABLE_DESCRIPTOR_COUNT` + `PARTIALLY_BOUND_BIT`) – funktioniert von Anfang an ohne Einschränkung.
+
+**WebGPU-Export-Target (Web, später):** Dort ist echtes dynamisches Indexing in Binding-Arrays nicht überall verfügbar (abhängig von Dawn/Browser-Support). Für den Web-Build fällt `BindlessTextureHeap` daher auf einen **festen Textur-Array-Slot-Pool** (z.B. 256–1024 Slots) zurück – eine reine Web-Export-Einschränkung, die den Desktop-Pfad (Vulkan) nicht betrifft.
 
 ---
 
@@ -494,10 +496,10 @@ Ein `PostEffectPass` bekommt eine `RenderLayerMask targetLayers`. Items, deren L
 
 ## 13. Roadmap
 
-**Phase 1 – RHI-Fundament (WebGPU)**
+**Phase 1 – RHI-Fundament (Vulkan)**
 1. `IRHIBackend`-Interface definieren (zunächst nur Buffers, Textures – Pipelines/BindGroups folgen in Phase 3, sobald `VertexLayout`/`ShaderDesc` existieren)
-2. WebGPU-Implementierung: Device/Queue-Setup, `CommandList` → `GPUCommandEncoder` (zunächst nur Copy-Commands, `bindPipeline`/`draw`/etc. folgen in Phase 3)
-3. Buffer-/Texture-Upload-Pfad (Staging, Copy-Commands)
+2. Vulkan-Implementierung: Instance/Device/Queue-Setup, `CommandList` → `VkCommandBuffer` (zunächst nur Copy-Commands, `bindPipeline`/`draw`/etc. folgen in Phase 3)
+3. Buffer-/Texture-Upload-Pfad (explizite Staging-Buffer + Copy-Commands, da Vulkan – anders als Dawns `Queue::WriteBuffer` – kein automatisches Staging übernimmt)
 
 **Phase 2 – RenderGraph-Grundgerüst**
 4. `RenderPass`-Interface + `RenderGraph` (addPass, compile, execute)
@@ -505,12 +507,12 @@ Ein `PostEffectPass` bekommt eine `RenderLayerMask targetLayers`. Items, deren L
 6. Ein minimaler Test-Pass (Clear-Screen) end-to-end durchs Backend
 
 **Phase 3 – Material, Pipelines & Bindless**
-7. `VertexLayout` + `ShaderDesc` (Abschnitt 5/6) definieren
+7. `VertexLayout` + `ShaderDesc` (Abschnitt 5/6) definieren – Shader werden offline zu SPIR-V kompiliert (`glslc` aus dem Vulkan SDK), keine Runtime-Kompilierung; `ShaderDesc` referenziert kompilierte `.spv`-Dateien
 8. `IRHIBackend::createPipeline(const PipelineDesc&)` + `PipelineDesc` (baut auf `VertexLayout`/`ShaderDesc` auf)
 9. `IRHIBackend`: BindGroup-Erzeugung (`createBindGroup`) ergänzen
 10. `CommandList` vervollständigen: `bindPipeline`, `bindVertexBuffer`, `bindIndexBuffer`, `bindGroup`, `draw`, `drawIndexed`, `dispatch`
 11. `Material`-Klasse + `ShaderID`-Verwaltung
-12. `BindlessTextureHeap` (Slot-Pool-Variante für WebGPU, siehe Abschnitt 6.1)
+12. `BindlessTextureHeap` (Vulkan Descriptor Indexing als Primärpfad, siehe Abschnitt 6.1)
 13. `ResourceBinding`: direktes Binding vs. Bindless-Index
 
 **Phase 4 – RenderLayer & ECS-Anbindung**
@@ -544,13 +546,12 @@ Ein `PostEffectPass` bekommt eine `RenderLayerMask targetLayers`. Items, deren L
 33. Beispiel-Effekt: Layer-Isolation (z.B. alles außer Characters schwärzen)
 
 **Phase 9 – Erste komplette 2D-Szene**
-34. End-to-End-Test: mehrere Layer, gemischte Materialien, Post-FX, FXAA, Batching, Editor-View + Game-View gleichzeitig – alles über WebGPU
+34. End-to-End-Test: mehrere Layer, gemischte Materialien, Post-FX, FXAA, Batching, Editor-View + Game-View gleichzeitig – alles über Vulkan
 
 **Phase 10 – Danach**
-35. Vulkan-Backend hinter demselben `IRHIBackend`-Interface
-36. Echtes Bindless via Descriptor Indexing (Vulkan)
-37. 3D-Passes (Opaque/Transparent) inkl. Front-to-Back-Sortierung für Early-Z
-38. Compute-Shader-getriebene Effekte (Fluid, Deformation – Anknüpfung an bestehende Engine-Systeme)
+35. 3D-Passes (Opaque/Transparent) inkl. Front-to-Back-Sortierung für Early-Z
+36. Compute-Shader-getriebene Effekte (Fluid, Deformation – Anknüpfung an bestehende Engine-Systeme)
+37. **WebGPU-Backend (Dawn) für Web-Export-Target**: hinter demselben `IRHIBackend`-Interface, ausschließlich für Browser/WASM-Builds – inkl. Bindless-Fallback auf festen Slot-Pool (Abschnitt 6.1)
 
 ---
 
