@@ -16,15 +16,12 @@ namespace axiom::renderer::rhi {
         Sampler
     };
 
-    struct BindGroupLayoutDesc {
-        std::vector<BindGroupLayoutEntry> entries;
-    };
-
+    
     struct BindGroupLayoutEntry {
         uint32_t binding = 0;
         BindingType type = BindingType::UniformBuffer;
         ShaderStage visibility = ShaderStage::None;
-
+        
         // Für Bindless (Abschnitt 6.1): variable-length Array-Binding statt
         // einem einzelnen Descriptor. Vulkan: VARIABLE_DESCRIPTOR_COUNT +
         // PARTIALLY_BOUND_BIT. WebGPU-Fallback (Phase 11): fester Slot-Pool
@@ -32,7 +29,11 @@ namespace axiom::renderer::rhi {
         bool bindless = false;
         uint32_t bindlessMaxCount = 0; // nur relevant wenn bindless == true
     };
-
+    
+    struct BindGroupLayoutDesc {
+        std::vector<BindGroupLayoutEntry> entries;
+    };
+    
     struct BindGroupEntry {
         uint32_t binding = 0;
         std::optional<BufferHandle> buffer;
