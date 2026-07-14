@@ -2,7 +2,7 @@
 #include <cstdlib>
 
 namespace axiom {
-Application *CreateApplication();
+    Application *CreateApplication();
 }
 
 // WEG A: Konsole ist aktiviert ODER wir sind NICHT auf Windows -> Standard main

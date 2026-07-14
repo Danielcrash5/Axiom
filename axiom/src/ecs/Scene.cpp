@@ -4,68 +4,68 @@
 // #include "axiom/renderer/Renderer2D.h"
 
 namespace axiom {
-Entity Scene::CreateEntity(const std::string &name) {
-    Entity entity(m_Registry.create(), this);
-    entity.AddComponent<IDComponent>();
-    entity.AddComponent<TagComponent>(name.empty() ? "Entity" : name);
-    entity.AddComponent<TransformComponent>();
-    return entity;
-}
-
-void Scene::DestroyEntity(Entity entity) {
-    m_Registry.destroy(entity.m_Entity);
-}
-
-std::vector<std::shared_ptr<Entity>> Scene::GetAllEntities() {
-    std::vector<std::shared_ptr<Entity>> entities;
-    auto view = m_Registry.view<TransformComponent>();
-    for (auto entity : view) {
-        auto temp_entity = std::make_shared<Entity>(entity, this);
-        entities.push_back(temp_entity);
-    }
-    return entities;
-}
-
-void Scene::Render2D() {
-    /*DrawCommandBuffer2D commandBuffer;
-
-    auto spriteView = m_Registry.view<TransformComponent,
-    SpriteRendererComponent>(); for (auto entity : spriteView) { auto& transform
-    = spriteView.get<TransformComponent>(entity); auto& spriteRenderer =
-    spriteView.get<SpriteRendererComponent>(entity);
-
-            if (spriteRenderer.HasTexture()) {
-                    commandBuffer.SubmitSprite(transform.GetTransform(),
-    spriteRenderer.SpriteData, spriteRenderer.Color); continue;
-            }
-
-            commandBuffer.SubmitQuad(transform.GetTransform(),
-    spriteRenderer.Color);
+    Entity Scene::CreateEntity(const std::string &name) {
+        Entity entity(m_Registry.create(), this);
+        entity.AddComponent<IDComponent>();
+        entity.AddComponent<TagComponent>(name.empty() ? "Entity" : name);
+        entity.AddComponent<TransformComponent>();
+        return entity;
     }
 
-    auto circleView = m_Registry.view<TransformComponent,
-    CircleRendererComponent>(); for (auto entity : circleView) { auto& transform
-    = circleView.get<TransformComponent>(entity); auto& circleRenderer =
-    circleView.get<CircleRendererComponent>(entity);
-            commandBuffer.SubmitCircle(transform.GetTransform(),
-    circleRenderer.Thickness, circleRenderer.Color);
+    void Scene::DestroyEntity(Entity entity) {
+        m_Registry.destroy(entity.m_Entity);
     }
 
-    commandBuffer.Sort();
-    commandBuffer.Execute();*/
-}
+    std::vector<std::shared_ptr<Entity>> Scene::GetAllEntities() {
+        std::vector<std::shared_ptr<Entity>> entities;
+        auto view = m_Registry.view<TransformComponent>();
+        for (auto entity : view) {
+            auto temp_entity = std::make_shared<Entity>(entity, this);
+            entities.push_back(temp_entity);
+        }
+        return entities;
+    }
 
-Entity Scene::GetPrimaryCameraEntity() {
-    auto view = m_Registry.view<TransformComponent, CameraComponent>();
-    for (auto entity : view) {
-        const auto &camera = view.get<CameraComponent>(entity);
-        if (camera.Primary)
+    void Scene::Render2D() {
+        /*DrawCommandBuffer2D commandBuffer;
+
+        auto spriteView = m_Registry.view<TransformComponent,
+        SpriteRendererComponent>(); for (auto entity : spriteView) { auto&
+        transform = spriteView.get<TransformComponent>(entity); auto&
+        spriteRenderer = spriteView.get<SpriteRendererComponent>(entity);
+
+                if (spriteRenderer.HasTexture()) {
+                        commandBuffer.SubmitSprite(transform.GetTransform(),
+        spriteRenderer.SpriteData, spriteRenderer.Color); continue;
+                }
+
+                commandBuffer.SubmitQuad(transform.GetTransform(),
+        spriteRenderer.Color);
+        }
+
+        auto circleView = m_Registry.view<TransformComponent,
+        CircleRendererComponent>(); for (auto entity : circleView) { auto&
+        transform = circleView.get<TransformComponent>(entity); auto&
+        circleRenderer = circleView.get<CircleRendererComponent>(entity);
+                commandBuffer.SubmitCircle(transform.GetTransform(),
+        circleRenderer.Thickness, circleRenderer.Color);
+        }
+
+        commandBuffer.Sort();
+        commandBuffer.Execute();*/
+    }
+
+    Entity Scene::GetPrimaryCameraEntity() {
+        auto view = m_Registry.view<TransformComponent, CameraComponent>();
+        for (auto entity : view) {
+            const auto &camera = view.get<CameraComponent>(entity);
+            if (camera.Primary)
+                return Entity(entity, this);
+        }
+
+        for (auto entity : view)
             return Entity(entity, this);
+
+        return {};
     }
-
-    for (auto entity : view)
-        return Entity(entity, this);
-
-    return {};
-}
 } // namespace axiom

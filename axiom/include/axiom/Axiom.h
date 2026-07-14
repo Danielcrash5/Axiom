@@ -37,6 +37,6 @@
 
 namespace axiom {
 
-Application *CreateApplication();
+    Application *CreateApplication();
 
 }

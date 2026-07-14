@@ -5,33 +5,33 @@
 
 namespace axiom::renderer {
 
-rhi::RHIResult<void> BindlessTextureHeap::init(rhi::IRHIBackend &backend) {
-    m_backend = &backend;
+    rhi::RHIResult<void> BindlessTextureHeap::init(rhi::IRHIBackend &backend) {
+        m_backend = &backend;
 
-    rhi::BindGroupLayoutDesc layoutDesc;
-    layoutDesc.entries.push_back(rhi::BindGroupLayoutEntry{
-        .binding = 0,
-        .type = rhi::BindingType::SampledTexture,
-        .visibility = rhi::ShaderStage::Pixel,
-        .bindless = true,
-        .bindlessMaxCount = kMaxTextures,
-    });
+        rhi::BindGroupLayoutDesc layoutDesc;
+        layoutDesc.entries.push_back(rhi::BindGroupLayoutEntry{
+            .binding = 0,
+            .type = rhi::BindingType::SampledTexture,
+            .visibility = rhi::ShaderStage::Pixel,
+            .bindless = true,
+            .bindlessMaxCount = kMaxTextures,
+        });
 
-    auto layoutResult = backend.createBindGroupLayout(layoutDesc);
-    if (!layoutResult)
-        return std::unexpected(layoutResult.error());
-    m_layout = *layoutResult;
+        auto layoutResult = backend.createBindGroupLayout(layoutDesc);
+        if (!layoutResult)
+            return std::unexpected(layoutResult.error());
+        m_layout = *layoutResult;
 
-    rhi::BindGroupDesc groupDesc;
-    groupDesc.layout = m_layout;
-    groupDesc.bindlessCount = kMaxTextures;
-    // entries bleibt leer – Slots werden individuell über update() befüllt
+        rhi::BindGroupDesc groupDesc;
+        groupDesc.layout = m_layout;
+        groupDesc.bindlessCount = kMaxTextures;
+        // entries bleibt leer – Slots werden individuell über update() befüllt
 
-    auto groupResult = backend.createBindGroup(groupDesc);
-    if (!groupResult)
-        return std::unexpected(groupResult.error());
-    m_bindGroup = *groupResult;
+        auto groupResult = backend.createBindGroup(groupDesc);
+        if (!groupResult)
+            return std::unexpected(groupResult.error());
+        m_bindGroup = *groupResult;
 
-    return {};
-}
+        return {};
+    }
 } // namespace axiom::renderer

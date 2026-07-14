@@ -8,46 +8,46 @@
 
 namespace axiom {
 
-class Window {
-  public:
-    struct Props {
-        uint32_t width = 1280;
-        uint32_t height = 720;
-        std::string title = "Engine";
-        bool vsync = true;
+    class Window {
+      public:
+        struct Props {
+            uint32_t width = 1280;
+            uint32_t height = 720;
+            std::string title = "Engine";
+            bool vsync = true;
+        };
+
+      public:
+        explicit Window(const Props &props, EventBus &eventBus);
+        ~Window();
+
+        void PollEvents();
+        void SwapBuffers();
+
+        bool ShouldClose() const;
+
+        uint32_t GetWidth() const;
+        uint32_t GetHeight() const;
+
+        SDL_Window *GetNativeHandle() const;
+
+        bool VsyncEnabled() { return m_Vsync; }
+        void ToggleVsync();
+
+      private:
+        void Init(const Props &props);
+        void Shutdown();
+
+      private:
+        SDL_Window *m_Window = nullptr;
+        SDL_GLContext m_GLContext = nullptr;
+
+        EventBus &m_EventBus;
+
+        bool m_Vsync = true;
+
+        uint32_t m_Width = 0;
+        uint32_t m_Height = 0;
     };
-
-  public:
-    explicit Window(const Props &props, EventBus &eventBus);
-    ~Window();
-
-    void PollEvents();
-    void SwapBuffers();
-
-    bool ShouldClose() const;
-
-    uint32_t GetWidth() const;
-    uint32_t GetHeight() const;
-
-    SDL_Window *GetNativeHandle() const;
-
-    bool VsyncEnabled() { return m_Vsync; }
-    void ToggleVsync();
-
-  private:
-    void Init(const Props &props);
-    void Shutdown();
-
-  private:
-    SDL_Window *m_Window = nullptr;
-    SDL_GLContext m_GLContext = nullptr;
-
-    EventBus &m_EventBus;
-
-    bool m_Vsync = true;
-
-    uint32_t m_Width = 0;
-    uint32_t m_Height = 0;
-};
 
 } // namespace axiom

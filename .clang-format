@@ -1,3 +1,5 @@
 BasedOnStyle: LLVM
 BreakBeforeBraces: Attach
+NamespaceIndentation: All
+CompactNamespaces: false
 IndentWidth: 4

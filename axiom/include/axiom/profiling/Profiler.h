@@ -8,42 +8,42 @@
 
 namespace axiom::profiling {
 
-struct CPUEvent {
-    const char *Name;
-    uint64_t Start;
-    uint64_t End;
-    uint32_t ThreadID;
-    uint32_t Depth;
+    struct CPUEvent {
+        const char *Name;
+        uint64_t Start;
+        uint64_t End;
+        uint32_t ThreadID;
+        uint32_t Depth;
 
-    double DurationMs() const;
-};
+        double DurationMs() const;
+    };
 
-struct FrameData {
-    std::vector<CPUEvent> CPUEvents;
-    double FrameTimeMs = 0.0;
-};
+    struct FrameData {
+        std::vector<CPUEvent> CPUEvents;
+        double FrameTimeMs = 0.0;
+    };
 
-class Profiler {
-  public:
-    static void BeginFrame();
-    static void EndFrame();
+    class Profiler {
+      public:
+        static void BeginFrame();
+        static void EndFrame();
 
-    static void PushEvent(std::string_view name);
-    static void PopEvent();
+        static void PushEvent(std::string_view name);
+        static void PopEvent();
 
-    static void PrintLastFrame();
+        static void PrintLastFrame();
 
-    static const FrameData &GetFrame(uint32_t index);
+        static const FrameData &GetFrame(uint32_t index);
 
-  private:
-    static void Initialize();
-};
+      private:
+        static void Initialize();
+    };
 
-class CPUScope {
-  public:
-    CPUScope(std::string_view name);
-    ~CPUScope();
-};
+    class CPUScope {
+      public:
+        CPUScope(std::string_view name);
+        ~CPUScope();
+    };
 
 } // namespace axiom::profiling
 

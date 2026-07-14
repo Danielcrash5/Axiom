@@ -5,17 +5,17 @@
 
 namespace axiom::renderer::rendergraph {
 
-enum class ResourceType { Texture, Buffer };
+    enum class ResourceType { Texture, Buffer };
 
-struct TextureResourceDesc {
-    uint32_t width = 0;
-    uint32_t height = 0;
-    rhi::TextureFormat format = rhi::TextureFormat::RGBA8Unorm;
-    rhi::TextureUsage usage = rhi::TextureUsage::None;
-    std::string_view debugName;
-};
+    struct TextureResourceDesc {
+        uint32_t width = 0;
+        uint32_t height = 0;
+        rhi::TextureFormat format = rhi::TextureFormat::RGBA8Unorm;
+        rhi::TextureUsage usage = rhi::TextureUsage::None;
+        std::string_view debugName;
+    };
 
-// Für Dependency-Auflösung: was macht der Pass mit der Resource.
-enum class AccessType { Read, Write };
+    // Für Dependency-Auflösung: was macht der Pass mit der Resource.
+    enum class AccessType { Read, Write };
 
 } // namespace axiom::renderer::rendergraph

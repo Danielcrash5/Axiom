@@ -6,12 +6,12 @@
 #include "AssetType.h"
 
 namespace axiom {
-struct AssetMetadata {
-    AssetID ID{};
+    struct AssetMetadata {
+        AssetID ID{};
 
-    AssetType Type = AssetType::Unknown;
+        AssetType Type = AssetType::Unknown;
 
-    std::string Path;
-    bool Loaded = false
-};
+        std::string Path;
+        bool Loaded = false
+    };
 } // namespace axiom
