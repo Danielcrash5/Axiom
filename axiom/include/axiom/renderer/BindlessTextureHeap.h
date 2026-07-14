@@ -1,6 +1,6 @@
 #pragma once
-#include <vector>
 #include <axiom/renderer/rhi/IRHIBackend.h>
+#include <vector>
 
 namespace axiom::renderer {
 
@@ -8,10 +8,10 @@ namespace axiom::renderer {
 // (descriptorIndexing, runtimeDescriptorArray, partiallyBound) wurden schon
 // in Phase 1 aktiviert.
 class BindlessTextureHeap {
-public:
+  public:
     static constexpr uint32_t kMaxTextures = 4096;
 
-    [[nodiscard]] rhi::RHIResult<void> init(rhi::IRHIBackend& backend);
+    [[nodiscard]] rhi::RHIResult<void> init(rhi::IRHIBackend &backend);
 
     [[nodiscard]] uint32_t allocate(rhi::TextureHandle texture);
     void free(uint32_t index);
@@ -20,8 +20,8 @@ public:
     [[nodiscard]] rhi::BindGroupLayoutHandle layout() const { return m_layout; }
     [[nodiscard]] rhi::BindGroupHandle bindGroup() const { return m_bindGroup; }
 
-private:
-    rhi::IRHIBackend* m_backend = nullptr;
+  private:
+    rhi::IRHIBackend *m_backend = nullptr;
     rhi::BindGroupLayoutHandle m_layout;
     rhi::BindGroupHandle m_bindGroup;
     std::vector<uint32_t> m_freeSlots;

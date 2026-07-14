@@ -1,15 +1,15 @@
 #pragma once
-#include <memory>
-#include <vector>
-#include <unordered_map>
-#include <axiom/renderer/rhi/IRHIBackend.h>
 #include "RenderPass.h"
+#include <axiom/renderer/rhi/IRHIBackend.h>
+#include <memory>
+#include <unordered_map>
+#include <vector>
 
 namespace axiom::renderer::rendergraph {
 
 class RenderGraph {
-public:
-    explicit RenderGraph(rhi::IRHIBackend& backend) : m_backend(backend) {}
+  public:
+    explicit RenderGraph(rhi::IRHIBackend &backend) : m_backend(backend) {}
 
     void addPass(std::unique_ptr<RenderPass> pass);
 
@@ -21,7 +21,7 @@ public:
     // Führt alle Passes in der von compile() bestimmten Reihenfolge aus.
     [[nodiscard]] rhi::RHIResult<void> execute();
 
-private:
+  private:
     friend class RenderGraphBuilder;
     friend class RenderContext;
 
@@ -45,19 +45,22 @@ private:
     };
 
     // Von RenderGraphBuilder genutzt:
-    ResourceHandle registerTransientTexture(const TextureResourceDesc& desc);
-    ResourceHandle registerImportedTexture(rhi::TextureHandle handle, const TextureResourceDesc& desc);
-    void recordAccess(uint32_t passIndex, ResourceHandle handle, AccessType access);
+    ResourceHandle registerTransientTexture(const TextureResourceDesc &desc);
+    ResourceHandle registerImportedTexture(rhi::TextureHandle handle,
+                                           const TextureResourceDesc &desc);
+    void recordAccess(uint32_t passIndex, ResourceHandle handle,
+                      AccessType access);
 
     // Von RenderContext genutzt:
-    [[nodiscard]] rhi::TextureHandle resolveTexture(ResourceHandle handle) const;
+    [[nodiscard]] rhi::TextureHandle
+    resolveTexture(ResourceHandle handle) const;
 
     // Bestimmt für ein AccessType das benötigte Layout. Fürs Clear-Test-Pass
     // reicht TransferDst; ColorAttachment/ShaderReadOnly kommen mit
     // Pipelines/Sampling in Phase 3.
     [[nodiscard]] rhi::TextureLayout requiredLayoutFor(AccessType access) const;
 
-    rhi::IRHIBackend& m_backend;
+    rhi::IRHIBackend &m_backend;
     std::vector<PassEntry> m_passes;
     std::vector<ResourceEntry> m_resources;
 };

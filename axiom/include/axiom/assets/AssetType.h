@@ -1,18 +1,18 @@
 #pragma once
 
 namespace axiom {
-    enum class AssetType {
-        Unknown = 0,
+enum class AssetType {
+    Unknown = 0,
 
-        Texture,
-        Shader,
-        Material,
+    Texture,
+    Shader,
+    Material,
 
-        Mesh,
-        Scene,
+    Mesh,
+    Scene,
 
-        Audio,
+    Audio,
 
-        Script
-    };
+    Script
+};
 }

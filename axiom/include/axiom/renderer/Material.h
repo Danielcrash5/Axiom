@@ -1,9 +1,9 @@
 #pragma once
+#include <axiom/renderer/rhi/BindGroup.h>
+#include <axiom/renderer/rhi/PipelineDesc.h>
+#include <memory>
 #include <string>
 #include <unordered_map>
-#include <memory>
-#include <axiom/renderer/rhi/PipelineDesc.h>
-#include <axiom/renderer/rhi/BindGroup.h>
 
 namespace axiom::renderer {
 
@@ -18,15 +18,19 @@ struct ResourceBinding {
 };
 
 class Material {
-public:
+  public:
     ShaderID shaderId = ShaderID::Invalid;
     std::unordered_map<std::string, ResourceBinding> params;
     rhi::PipelineState state;
 
-    [[nodiscard]] rhi::PipelineHandle pipelineHandle() const { return m_pipeline; }
-    [[nodiscard]] rhi::BindGroupHandle bindGroupHandle() const { return m_bindGroup; }
+    [[nodiscard]] rhi::PipelineHandle pipelineHandle() const {
+        return m_pipeline;
+    }
+    [[nodiscard]] rhi::BindGroupHandle bindGroupHandle() const {
+        return m_bindGroup;
+    }
 
-private:
+  private:
     rhi::PipelineHandle m_pipeline;
     rhi::BindGroupHandle m_bindGroup;
     friend class MaterialSystem; // baut Pipeline/BindGroup aus shaderId+params

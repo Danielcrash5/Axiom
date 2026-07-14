@@ -2,61 +2,69 @@
 
 #include "LogSink.h"
 
-#include <vector>
+#include <format>
 #include <memory>
 #include <mutex>
-#include <format>
+#include <vector>
 
 namespace axiom {
 
 #ifdef AXIOM_ENABLE_CONSOLE_LOG
-	class ConsoleSink : public LogSink {
-	public:
-		void Write(LogLevel level, const std::string& message) override;
-	};
+class ConsoleSink : public LogSink {
+  public:
+    void Write(LogLevel level, const std::string &message) override;
+};
 #endif
 
-	class Logger {
-	public:
-		static Logger& Get();
+class Logger {
+  public:
+    static Logger &Get();
 
-		void SetLevel(LogLevel level);
-		void AddSink(std::shared_ptr<LogSink> sink);
+    void SetLevel(LogLevel level);
+    void AddSink(std::shared_ptr<LogSink> sink);
 
-		template<typename... Args>
-		void Log(LogLevel level,
-				 std::format_string<Args...> fmt,
-				 Args&&... args) {
-			if (level < m_Level)
-				return;
+    template <typename... Args>
+    void Log(LogLevel level, std::format_string<Args...> fmt, Args &&...args) {
+        if (level < m_Level)
+            return;
 
-			std::string message =
-				std::format(fmt, std::forward<Args>(args)...);
+        std::string message = std::format(fmt, std::forward<Args>(args)...);
 
-			std::lock_guard lock(m_Mutex);
+        std::lock_guard lock(m_Mutex);
 
-			for (auto& sink : m_Sinks)
-				sink->Write(level, message);
-		}
+        for (auto &sink : m_Sinks)
+            sink->Write(level, message);
+    }
 
-	private:
-		Logger() = default;
-		~Logger() = default;
+  private:
+    Logger() = default;
+    ~Logger() = default;
 
-	private:
-		LogLevel m_Level = LogLevel::Trace;
-		std::vector<std::shared_ptr<LogSink>> m_Sinks;
-		std::mutex m_Mutex;
-	};
+  private:
+    LogLevel m_Level = LogLevel::Trace;
+    std::vector<std::shared_ptr<LogSink>> m_Sinks;
+    std::mutex m_Mutex;
+};
 
-}
+} // namespace axiom
 
-#define AXIOM_TRACE(...) axiom::Logger::Get().Log(axiom::LogLevel::Trace, __VA_ARGS__)
-#define AXIOM_DEBUG(...) axiom::Logger::Get().Log(axiom::LogLevel::Debug, __VA_ARGS__)
-#define AXIOM_INFO(...)  axiom::Logger::Get().Log(axiom::LogLevel::Info,  __VA_ARGS__)
-#define AXIOM_WARN(...)  axiom::Logger::Get().Log(axiom::LogLevel::Warn,  __VA_ARGS__)
-#define AXIOM_ERROR(...) axiom::Logger::Get().Log(axiom::LogLevel::Error, __VA_ARGS__)
-#define AXIOM_FATAL(...) axiom::Logger::Get().Log(axiom::LogLevel::Fatal, __VA_ARGS__)
+#define AXIOM_TRACE(...)                                                       \
+    axiom::Logger::Get().Log(axiom::LogLevel::Trace, __VA_ARGS__)
+#define AXIOM_DEBUG(...)                                                       \
+    axiom::Logger::Get().Log(axiom::LogLevel::Debug, __VA_ARGS__)
+#define AXIOM_INFO(...)                                                        \
+    axiom::Logger::Get().Log(axiom::LogLevel::Info, __VA_ARGS__)
+#define AXIOM_WARN(...)                                                        \
+    axiom::Logger::Get().Log(axiom::LogLevel::Warn, __VA_ARGS__)
+#define AXIOM_ERROR(...)                                                       \
+    axiom::Logger::Get().Log(axiom::LogLevel::Error, __VA_ARGS__)
+#define AXIOM_FATAL(...)                                                       \
+    axiom::Logger::Get().Log(axiom::LogLevel::Fatal, __VA_ARGS__)
 
-
-#define AXIOM_ASSERT(x, ...) do { if (!(x)) { AXIOM_ERROR("Assertion Failed: " __VA_ARGS__); std::abort(); } } while (0)
+#define AXIOM_ASSERT(x, ...)                                                   \
+    do {                                                                       \
+        if (!(x)) {                                                            \
+            AXIOM_ERROR("Assertion Failed: " __VA_ARGS__);                     \
+            std::abort();                                                      \
+        }                                                                      \
+    } while (0)

@@ -4,19 +4,12 @@
 
 namespace axiom {
 
-    enum class LogLevel {
-        Trace,
-        Debug,
-        Info,
-        Warn,
-        Error,
-        Fatal
-    };
+enum class LogLevel { Trace, Debug, Info, Warn, Error, Fatal };
 
-    class LogSink {
-    public:
-        virtual ~LogSink() = default;
-        virtual void Write(LogLevel level, const std::string& message) = 0;
-    };
+class LogSink {
+  public:
+    virtual ~LogSink() = default;
+    virtual void Write(LogLevel level, const std::string &message) = 0;
+};
 
-}
+} // namespace axiom

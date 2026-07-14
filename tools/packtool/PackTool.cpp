@@ -1,9 +1,9 @@
-#include <iostream>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
-#include <algorithm>
-#include <vector>
+#include <iostream>
 #include <string>
+#include <vector>
 
 extern "C" {
 #include <compat/zip.h> // minizip-ng Kompatibilitäts-API
@@ -11,7 +11,8 @@ extern "C" {
 
 namespace fs = std::filesystem;
 
-static bool addFileToZip(zipFile zf, const fs::path& root, const fs::path& filePath) {
+static bool addFileToZip(zipFile zf, const fs::path &root,
+                         const fs::path &filePath) {
     fs::path relPath = fs::relative(filePath, root);
     std::string zipPath = relPath.generic_string(); // immer '/'
 
@@ -21,21 +22,22 @@ static bool addFileToZip(zipFile zf, const fs::path& root, const fs::path& fileP
         return false;
     }
 
-    // Nur "stored" (keine Kompression), damit wir keine ZLIB-Abhängigkeit brauchen
-    int err = zipOpenNewFileInZip64(
-        zf,
-        zipPath.c_str(),
-        nullptr,      // zip_fileinfo
-        nullptr, 0,   // extrafield local
-        nullptr, 0,   // extrafield global
-        nullptr,      // comment
-        0,            // method (0 = store)
-        0,            // level (0 = default / irrelevant bei store)
-        0             // zip64
-    );
+    // Nur "stored" (keine Kompression), damit wir keine ZLIB-Abhängigkeit
+    // brauchen
+    int err =
+        zipOpenNewFileInZip64(zf, zipPath.c_str(),
+                              nullptr,    // zip_fileinfo
+                              nullptr, 0, // extrafield local
+                              nullptr, 0, // extrafield global
+                              nullptr,    // comment
+                              0,          // method (0 = store)
+                              0, // level (0 = default / irrelevant bei store)
+                              0  // zip64
+        );
 
     if (err != ZIP_OK) {
-        std::cerr << "zipOpenNewFileInZip64 failed for " << zipPath << " (err=" << err << ")\n";
+        std::cerr << "zipOpenNewFileInZip64 failed for " << zipPath
+                  << " (err=" << err << ")\n";
         return false;
     }
 
@@ -46,7 +48,8 @@ static bool addFileToZip(zipFile zf, const fs::path& root, const fs::path& fileP
         if (got <= 0)
             break;
 
-        if (zipWriteInFileInZip(zf, buffer.data(), static_cast<unsigned int>(got)) != ZIP_OK) {
+        if (zipWriteInFileInZip(zf, buffer.data(),
+                                static_cast<unsigned int>(got)) != ZIP_OK) {
             std::cerr << "zipWriteInFileInZip failed for " << zipPath << "\n";
             zipCloseFileInZip(zf);
             return false;
@@ -57,10 +60,10 @@ static bool addFileToZip(zipFile zf, const fs::path& root, const fs::path& fileP
     return true;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     if (argc < 3) {
         std::cout << "Usage:\n"
-            << "  AxiomPackTool <output_pack.AxPack> <input_directory>\n";
+                  << "  AxiomPackTool <output_pack.AxPack> <input_directory>\n";
         return 1;
     }
 
@@ -76,7 +79,8 @@ int main(int argc, char** argv) {
     if (outputPack.has_parent_path()) {
         fs::create_directories(outputPack.parent_path(), ec);
         if (ec) {
-            std::cerr << "Failed to create output directory: " << outputPack.parent_path() << "\n";
+            std::cerr << "Failed to create output directory: "
+                      << outputPack.parent_path() << "\n";
             return 1;
         }
     }
@@ -89,7 +93,7 @@ int main(int argc, char** argv) {
     }
 
     std::vector<fs::path> files;
-    for (auto const& entry : fs::recursive_directory_iterator(inputDir)) {
+    for (auto const &entry : fs::recursive_directory_iterator(inputDir)) {
         if (!entry.is_regular_file())
             continue;
         files.push_back(entry.path());
@@ -97,7 +101,7 @@ int main(int argc, char** argv) {
 
     std::sort(files.begin(), files.end());
 
-    for (const auto& file : files) {
+    for (const auto &file : files) {
         if (!addFileToZip(zf, inputDir, file)) {
             std::cerr << "Failed to add file: " << file << "\n";
             zipClose(zf, nullptr);

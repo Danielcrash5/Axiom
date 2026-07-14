@@ -5,7 +5,14 @@
 
 namespace axiom::renderer::rhi {
 
-enum class VertexFormat { Float32, Float32x2, Float32x3, Float32x4, Uint32, Uint8x4Norm };
+enum class VertexFormat {
+    Float32,
+    Float32x2,
+    Float32x3,
+    Float32x4,
+    Uint32,
+    Uint8x4Norm
+};
 
 struct VertexAttribute {
     std::string semantic; // z.B. "POSITION", "TEXCOORD0", "CUSTOM_W" für 4D+

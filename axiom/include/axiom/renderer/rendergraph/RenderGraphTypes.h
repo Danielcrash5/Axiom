@@ -1,7 +1,7 @@
 #pragma once
+#include <axiom/renderer/rhi/RHITypes.h>
 #include <cstdint>
 #include <string_view>
-#include <axiom/renderer/rhi/RHITypes.h>
 
 namespace axiom::renderer::rendergraph {
 

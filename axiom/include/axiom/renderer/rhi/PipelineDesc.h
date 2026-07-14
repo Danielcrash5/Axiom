@@ -1,10 +1,10 @@
 #pragma once
-#include <vector>
-#include <optional>
-#include "VertexLayout.h"
-#include "ShaderDesc.h"
 #include "BindGroup.h"
 #include "RHITypes.h"
+#include "ShaderDesc.h"
+#include "VertexLayout.h"
+#include <optional>
+#include <vector>
 
 namespace axiom::renderer::rhi {
 
@@ -25,7 +25,8 @@ struct PipelineDesc {
     PipelineState state;
     std::vector<BindGroupLayoutHandle> bindGroupLayouts;
     TextureFormat colorTargetFormat = TextureFormat::RGBA8Unorm;
-    std::optional<TextureFormat> depthTargetFormat; // gesetzt wenn state.depthTest
+    std::optional<TextureFormat>
+        depthTargetFormat; // gesetzt wenn state.depthTest
 };
 
 } // namespace axiom::renderer::rhi
