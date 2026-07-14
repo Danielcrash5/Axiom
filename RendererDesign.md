@@ -11,6 +11,8 @@ Referenzdokument für den Renderer der Axiom Game Engine. Wird laufend erweitert
 - **CommandList-basiert.** Alle GPU-Arbeit läuft über ein CommandList-Interface, das Backends (Vulkan zuerst, WebGPU später nur für Web-Export-Target) implementieren.
 - **3D wird nie blockiert.** Jede Design-Entscheidung für 2D darf 3D-Anwendungsfälle nicht ausschließen.
 - **Custom Vertexformate.** Nutzer können eigene Vertex-Layouts (inkl. 4D+ Attribute) definieren und an die GPU senden, ohne Core-Code anzufassen.
+- **Koordinatensystem: rechtshändig, Y-up.** Gilt für 2D und 3D einheitlich. GLM wird entsprechend konfiguriert (`GLM_FORCE_RIGHT_HANDED`, `GLM_FORCE_DEPTH_ZERO_TO_ONE` für Vulkans `[0,1]`-Tiefenbereich). Vulkans Clip-Space hat Y invertiert gegenüber dieser Konvention – das wird über einen negativen Viewport-Height ausgeglichen (Vulkan 1.1 Core, kein Extension nötig), nicht durch Vorzeichen-Hacks in den Projektionsmatrizen selbst.
+- **Passes müssen unabhängig aufzeichenbar sein.** Der Renderer läuft auf einem eigenen Thread; Command-Recording nutzt Fibers/Coroutines über `FiberTaskingLib` (Phase 10). Damit `Pass::execute()` parallel über mehrere Worker-Fibers aufgerufen werden kann, dürfen Passes **keinen geteilten mutable State** zwischen Aufrufen haben – jeder Pass schreibt in seine eigene `CommandList`, geteilte Ressourcen (Resource-Pool, `RenderQueueSystem`-Ergebnisse) sind read-only während der Execute-Phase. Dieses Prinzip gilt schon ab Phase 2 (RenderGraph-Design), auch wenn die tatsächliche Parallelisierung erst in Phase 10 kommt – nachträglich Passes threadsicher zu machen ist deutlich teurer als es von Anfang an einzuhalten.
 
 ---
 
@@ -192,6 +194,75 @@ Material-Parameter referenzieren dann nur einen `uint32_t textureIndex` (z.B. pe
 **Vulkan (primäres Backend):** Echtes, unbegrenztes dynamisches Indexing via `VK_EXT_descriptor_indexing` (`VkDescriptorBindingFlagBits::VARIABLE_DESCRIPTOR_COUNT` + `PARTIALLY_BOUND_BIT`) – funktioniert von Anfang an ohne Einschränkung.
 
 **WebGPU-Export-Target (Web, später):** Dort ist echtes dynamisches Indexing in Binding-Arrays nicht überall verfügbar (abhängig von Dawn/Browser-Support). Für den Web-Build fällt `BindlessTextureHeap` daher auf einen **festen Textur-Array-Slot-Pool** (z.B. 256–1024 Slots) zurück – eine reine Web-Export-Einschränkung, die den Desktop-Pfad (Vulkan) nicht betrifft.
+
+---
+
+## 6.2 Texture (CPU-seitige Bildbearbeitung)
+
+**`Texture` ist ein Asset-Level-Objekt, kein RHI-Konzept.** Es besitzt CPU-seitige Pixel-Daten *und* ein `TextureHandle` (Abschnitt 4) für die GPU-Repräsentation – Änderungen werden über `BeginWrite()`/`EndWrite()` geklammert und beim `EndWrite()` via `IRHIBackend::uploadTextureData` hochgeladen. Hängt nur von Phase 1 (RHI-Textures) ab, nicht von Material/RenderGraph.
+
+```cpp
+enum class TextureType { Texture2D, Texture3D, TextureCube, TextureArray2D };
+
+class Texture {
+public:
+    // --- Metadaten ---
+    [[nodiscard]] TextureType type() const;
+    [[nodiscard]] TextureFormat format() const;
+    [[nodiscard]] uint32_t width() const;
+    [[nodiscard]] uint32_t height() const;
+    [[nodiscard]] uint32_t depth() const;        // 1 bei Texture2D, Layer-Anzahl bei 3D/Array
+    [[nodiscard]] uint32_t mipCount() const;
+    [[nodiscard]] uint32_t arrayLayers() const;
+
+    // --- Pixelzugriff (operiert auf dem CPU-seitigen Backing-Buffer) ---
+    [[nodiscard]] Color getPixel(uint32_t x, uint32_t y, uint32_t layer = 0) const;
+    void setPixel(uint32_t x, uint32_t y, Color color, uint32_t layer = 0);
+    void getPixels(std::span<Color> out, uint32_t x, uint32_t y,
+                    uint32_t w, uint32_t h, uint32_t layer = 0) const;
+    void setPixels(std::span<const Color> pixels, uint32_t x, uint32_t y,
+                    uint32_t w, uint32_t h, uint32_t layer = 0);
+
+    // --- CPU-Rasterisierung (reine Software-Zeichenoperationen auf den Pixeldaten,
+    //     unabhängig vom GPU-SDF-Kreis aus Abschnitt 9 – hier geht's um
+    //     Textur-Erzeugung/-Bearbeitung, nicht um Szenen-Rendering) ---
+    void drawLine(glm::ivec2 from, glm::ivec2 to, Color color, uint32_t thickness = 1);
+    void drawRect(glm::ivec2 min, glm::ivec2 max, Color color, uint32_t thickness = 1);
+    void fillRect(glm::ivec2 min, glm::ivec2 max, Color color);
+    void drawCircle(glm::ivec2 center, uint32_t radius, Color color, uint32_t thickness = 1);
+    void fillCircle(glm::ivec2 center, uint32_t radius, Color color);
+
+    // --- Kombinieren mehrerer Texturen ---
+    void stamp(const Texture& source, glm::ivec2 position);              // ohne Blending, direktes Überschreiben
+    void blit(const Texture& source, glm::ivec2 position, BlendMode mode); // mit Alpha-Blending
+    void copyTo(Texture& target, glm::ivec2 position) const;
+
+    // --- Bulk-Operationen ---
+    void fill(Color color);
+    void clear(); // fill(Color::transparent) bzw. formatabhängiger Default
+
+    // --- Schreib-Klammerung: markiert Region als "dirty", EndWrite() triggert Upload ---
+    void beginWrite();
+    void endWrite();
+
+    // --- Verwaltung ---
+    [[nodiscard]] RHIResult<void> generateMipmaps(); // Phase 1: CPU-Box-Filter; GPU-Blit-Kette folgt später als Optimierung
+    [[nodiscard]] RHIResult<void> resize(uint32_t newWidth, uint32_t newHeight);
+    [[nodiscard]] Texture clone() const;
+
+    [[nodiscard]] RHIResult<void> save(std::string_view path) const; // z.B. PNG-Export
+
+    [[nodiscard]] TextureHandle gpuHandle() const; // für Material-Bindung (Abschnitt 6)
+
+private:
+    std::vector<std::byte> m_pixels; // CPU-Backing-Buffer
+    TextureHandle m_gpuHandle;
+    IRHIBackend* m_backend = nullptr;
+    bool m_dirty = false;
+};
+```
+
+`generateMipmaps()` startet als reiner CPU-Box-Filter (kein Pipeline-/Shader-Bedarf, funktioniert schon ohne Phase 3) – eine GPU-Blit-Ketten-Variante (schneller bei großen Texturen) ist eine spätere Optimierung, kein Blocker.
 
 ---
 
@@ -399,6 +470,9 @@ uint64_t sortKey = (uint64_t(layer) << 48) | (uint64_t(shaderId) << 32)
 
 ```cpp
 struct Viewport { uint32_t x, y, width, height; };
+// Beim tatsächlichen VkViewport-Aufbau (Phase 3, CommandList-Implementierung)
+// wird height negiert und y entsprechend verschoben, um Vulkans invertierten
+// Clip-Space an die rechtshändige Y-up-Konvention anzugleichen (siehe Abschnitt 1).
 
 enum class RenderTargetKind { Swapchain, Texture };
 
@@ -500,6 +574,7 @@ Ein `PostEffectPass` bekommt eine `RenderLayerMask targetLayers`. Items, deren L
 1. `IRHIBackend`-Interface definieren (zunächst nur Buffers, Textures – Pipelines/BindGroups folgen in Phase 3, sobald `VertexLayout`/`ShaderDesc` existieren)
 2. Vulkan-Implementierung: Instance/Device/Queue-Setup, `CommandList` → `VkCommandBuffer` (zunächst nur Copy-Commands, `bindPipeline`/`draw`/etc. folgen in Phase 3)
 3. Buffer-/Texture-Upload-Pfad (explizite Staging-Buffer + Copy-Commands, da Vulkan – anders als Dawns `Queue::WriteBuffer` – kein automatisches Staging übernimmt)
+4. *(Vorgezogen, ursprünglich Teil von Phase 7)* Fenster-Handoff: `IRHIBackend::nativeInstanceHandle()`/`attachSurface()`, windowing-neutrale `Renderer::init(WindowSurfaceDesc)` als minimales Grundgerüst + optionaler SDL3-Adapter. Nur Instance-Extensions + Surface-Erzeugung – die eigentliche Swapchain/View-Anbindung (`registerView`, `renderFrame`) bleibt Teil von Phase 7
 
 **Phase 2 – RenderGraph-Grundgerüst**
 4. `RenderPass`-Interface + `RenderGraph` (addPass, compile, execute)
@@ -535,7 +610,7 @@ Ein `PostEffectPass` bekommt eine `RenderLayerMask targetLayers`. Items, deren L
 26. `PassUI` als separater Pass mit eigenem Deskriptor
 
 **Phase 7 – Views, Render-to-Texture & FXAA**
-27. `View`/`RenderTarget`-Struktur + `Renderer::registerView/updateView/removeView`
+27. `View`/`RenderTarget`-Struktur + `Renderer::registerView/updateView/removeView` (erweitert die in Phase 1 vorgezogene `Renderer`-Klasse, keine Neuerstellung – Swapchain wird jetzt erstmals aus der in Phase 1 angehängten Surface gebaut)
 28. `Renderer::renderFrame()`: iteriert Views nach `priority`, führt Graph pro View aus
 29. `RenderQueueSystem` um View-Filterung erweitern (`acceptedLayers` UND `visibleLayers`)
 30. Render-to-Texture end-to-end testen: eine View auf Swapchain, eine zweite auf Offscreen-Textur (z.B. simulierter Editor-Viewport)

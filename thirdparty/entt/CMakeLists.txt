@@ -22,7 +22,7 @@ project(
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
-    
+
 message(VERBOSE "*")
 message(VERBOSE "* ${PROJECT_NAME} v${PROJECT_VERSION} (${CMAKE_BUILD_TYPE})")
 message(VERBOSE "* Copyright (c) 2017-2026 Michele Caini <michele.caini@gmail.com>")
@@ -50,7 +50,7 @@ if(ENTT_USE_LIBCPP)
         check_cxx_source_compiles("
             #include<type_traits>
             int main() { return std::is_same_v<int, char>; }
-        " ENTT_HAS_LIBCPP)
+        "            ENTT_HAS_LIBCPP)
 
         cmake_pop_check_state()
     endif()
@@ -89,8 +89,8 @@ add_library(EnTT::EnTT ALIAS EnTT)
 target_include_directories(
     EnTT
     INTERFACE
-        $<BUILD_INTERFACE:${EnTT_SOURCE_DIR}/src>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    $<BUILD_INTERFACE:${EnTT_SOURCE_DIR}/src>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 target_compile_features(EnTT INTERFACE cxx_std_20)
@@ -112,7 +112,7 @@ if(ENTT_CLANG_TIDY_EXECUTABLE)
     endif()
 
     set(CMAKE_CXX_CLANG_TIDY "${ENTT_CLANG_TIDY_EXECUTABLE}${ENTT_CLANG_TIDY_OPTIONS}")
- endif()
+endif()
 
 # Add EnTT goodies
 
@@ -310,8 +310,8 @@ if(ENTT_INSTALL)
 
     install(
         FILES
-            ${PROJECT_BINARY_DIR}/EnTTConfig.cmake
-            ${PROJECT_BINARY_DIR}/EnTTConfigVersion.cmake
+        ${PROJECT_BINARY_DIR}/EnTTConfig.cmake
+        ${PROJECT_BINARY_DIR}/EnTTConfigVersion.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/EnTT/cmake
     )
 
@@ -339,12 +339,12 @@ if(ENTT_BUILD_TESTING OR ENTT_BUILD_TESTBED)
     # Tests and tesetbed do not work together because SDL gets confused with EnTT tests
     if(ENTT_BUILD_TESTING)
         option(ENTT_FIND_GTEST_PACKAGE "Enable finding gtest package." OFF)
-    
+
         option(ENTT_BUILD_BENCHMARK "Build benchmark." OFF)
         option(ENTT_BUILD_EXAMPLE "Build examples." OFF)
         option(ENTT_BUILD_LIB "Build lib tests." OFF)
         option(ENTT_BUILD_SNAPSHOT "Build snapshot test with Cereal." OFF)
-    
+
         include(CTest)
         enable_testing()
         add_subdirectory(test)

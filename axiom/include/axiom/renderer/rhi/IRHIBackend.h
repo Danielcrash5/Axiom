@@ -4,6 +4,8 @@
 #include <cstddef>
 #include "RHITypes.h"
 #include "CommandList.h"
+#include "PipelineDesc.h"
+#include "BindGroup.h"
 
 namespace axiom::renderer::rhi {
 
@@ -26,6 +28,14 @@ namespace axiom::renderer::rhi {
 
         [[nodiscard]] virtual std::unique_ptr<CommandList> createCommandList() = 0;
         virtual void submit(CommandList&) = 0;
+
+        [[nodiscard]] virtual RHIResult<PipelineHandle> createPipeline(const PipelineDesc&) = 0;
+        virtual void destroyPipeline(PipelineHandle) = 0;
+
+        [[nodiscard]] virtual RHIResult<BindGroupLayoutHandle> createBindGroupLayout(const BindGroupLayoutDesc&) = 0;
+        [[nodiscard]] virtual RHIResult<BindGroupHandle> createBindGroup(const BindGroupDesc&) = 0;
+        virtual void destroyBindGroupLayout(BindGroupLayoutHandle) = 0;
+        virtual void destroyBindGroup(BindGroupHandle) = 0;
     };
 
 } // namespace axiom::renderer::rhi

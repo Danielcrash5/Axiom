@@ -12,7 +12,7 @@ add_library(imgui STATIC
 find_package(OpenGL REQUIRED)
 
 # 2. Include-Pfade direkt an das Target heften (PUBLIC bedeutet: Weitervererben)
-target_include_directories(imgui PUBLIC 
+target_include_directories(imgui PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/backends
 )
@@ -20,7 +20,7 @@ target_include_directories(imgui PUBLIC
 target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
 
 # 3. Abhängigkeiten an ImGui linken
-target_link_libraries(imgui PUBLIC 
-    SDL3::SDL3 
+target_link_libraries(imgui PUBLIC
+    SDL3::SDL3
     OpenGL::GL
 )

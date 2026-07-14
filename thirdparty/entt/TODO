@@ -29,7 +29,7 @@ TODO:
 * paged vector as a standalone class
 * resource: shared_from_this?
 * finish the imgui viewer/editor!
-* archetype-like a-là EnTT support (see my own notes)
+* archetype-like a-lï¿½ EnTT support (see my own notes)
 * organizer: view/storage only based model, no registry
 * introduce a way to inject stl from outside too
 * redesign snapshot as a whole

@@ -7,7 +7,7 @@ add_executable(testbed)
 
 target_include_directories(testbed
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_sources(testbed PRIVATE ${TESTBED_SOURCES})
