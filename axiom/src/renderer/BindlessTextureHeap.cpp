@@ -8,8 +8,8 @@ namespace axiom::renderer {
     rhi::RHIResult<void> BindlessTextureHeap::init(rhi::IRHIBackend &backend) {
         m_backend = &backend;
 
-        rhi::BindGroupLayoutDesc layoutDesc;
-        layoutDesc.entries.push_back(rhi::BindGroupLayoutEntry{
+        rhi::BindGroupLayoutDesc layout;
+        layout.entries.push_back(rhi::BindGroupLayoutEntry{
             .binding = 0,
             .type = rhi::BindingType::SampledTexture,
             .visibility = rhi::ShaderStage::Pixel,
@@ -17,7 +17,7 @@ namespace axiom::renderer {
             .bindlessMaxCount = kMaxTextures,
         });
 
-        auto layoutResult = backend.createBindGroupLayout(layoutDesc);
+        auto layoutResult = backend.createBindGroupLayout(layout);
         if (!layoutResult)
             return std::unexpected(layoutResult.error());
         m_layout = *layoutResult;
