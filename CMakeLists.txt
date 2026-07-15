@@ -8,7 +8,7 @@ option(AXIOM_ENABLE_CONSOLE_LOG "Enable console logging" ON)
 
 set(AXIOM_ENGINE_ASSET_DIR "${CMAKE_SOURCE_DIR}/axiom/assets" CACHE PATH "Engine asset directory")
 set(AXIOM_ENGINE_PACK_NAME "engine.AxPack" CACHE STRING "Engine asset pack file name")
-set(AXIOM_ENGINE_ASSET_PATH "./${AXIOM_ENGINE_PACK_NAME}" CACHE STRING "Engine asset path used by runtime" FORCE)
+set(AXIOM_ENGINE_ASSET_PATH "${AXIOM_ENGINE_ASSET_DIR}" CACHE STRING "Engine asset path used by runtime" FORCE)
 
 
 # Thirdparty Libraries
