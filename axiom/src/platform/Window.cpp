@@ -26,7 +26,7 @@ namespace axiom {
         if (!s_SDLInitialized) {
             if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD |
                           SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC |
-                          SDL_INIT_SENSOR))
+                          SDL_INIT_SENSOR | SDL_INIT_AUDIO))
                 throw std::runtime_error(
                     std::string("Failed to initialize SDL3: ") +
                     SDL_GetError());
@@ -54,11 +54,6 @@ namespace axiom {
     void Window::Shutdown() {
         Input::Shutdown();
 
-        if (m_GLContext) {
-            SDL_GL_DestroyContext(m_GLContext);
-            m_GLContext = nullptr;
-        }
-
         if (m_Window) {
             SDL_DestroyWindow(m_Window);
             m_Window = nullptr;
@@ -76,6 +71,7 @@ namespace axiom {
             // ImGui_ImplSDL3_ProcessEvent(&event);
             switch (event.type) {
             case SDL_EVENT_QUIT: {
+                m_ShouldClose = true;
                 WindowCloseEvent closeEvent;
                 m_EventBus.Publish(closeEvent);
                 break;
@@ -84,6 +80,7 @@ namespace axiom {
                 if (event.window.windowID != SDL_GetWindowID(m_Window))
                     break;
 
+                m_ShouldClose = true;
                 WindowCloseEvent closeEvent;
                 m_EventBus.Publish(closeEvent);
                 break;
@@ -162,7 +159,7 @@ namespace axiom {
         }
     }
 
-    bool Window::ShouldClose() const { return false; }
+    bool Window::ShouldClose() const { return m_ShouldClose; }
 
     uint32_t Window::GetWidth() const { return m_Width; }
 

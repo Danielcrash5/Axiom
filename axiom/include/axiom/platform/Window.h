@@ -40,11 +40,11 @@ namespace axiom {
 
       private:
         SDL_Window *m_Window = nullptr;
-        SDL_GLContext m_GLContext = nullptr;
 
         EventBus &m_EventBus;
 
         bool m_Vsync = true;
+        bool m_ShouldClose = false;
 
         uint32_t m_Width = 0;
         uint32_t m_Height = 0;
