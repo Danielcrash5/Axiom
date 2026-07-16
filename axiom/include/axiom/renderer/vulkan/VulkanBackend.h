@@ -41,7 +41,8 @@ public:
 
     // --- IRHIBackend: Fenster-Integration ---
     [[nodiscard]] void* nativeInstanceHandle() const override;
-    [[nodiscard]] RHIResult<void> attachSurface(void* nativeSurfaceHandle) override;
+    [[nodiscard]] RHIResult<SurfaceHandle> createSurface(void* nativeSurfaceHandle) override;
+    void destroySurface(SurfaceHandle) override;
 
     // --- IRHIBackend: Pipelines/BindGroups (Phase 3) ---
     RHIResult<PipelineHandle> createPipeline(const PipelineDesc&) override;
@@ -66,6 +67,7 @@ public:
     [[nodiscard]] VkDescriptorSetLayout nativeDescriptorSetLayout(BindGroupLayoutHandle handle) const;
     [[nodiscard]] VkDescriptorSet nativeDescriptorSet(BindGroupHandle handle) const;
     [[nodiscard]] VkSampler nativeSampler(SamplerHandle handle) const;
+    [[nodiscard]] VkSurfaceKHR nativeSurface(SurfaceHandle handle) const;
 
 private:
     VulkanBackend() = default;
@@ -80,7 +82,6 @@ private:
     VkQueue m_graphicsQueue = VK_NULL_HANDLE;
     uint32_t m_graphicsQueueFamily = 0;
     VmaAllocator m_allocator = VK_NULL_HANDLE;
-    VkSurfaceKHR m_surface = VK_NULL_HANDLE;
 
     // Upload-Infrastruktur (Phase 1, synchrone Immediate-Uploads)
     VkCommandPool   m_uploadCommandPool = VK_NULL_HANDLE;
@@ -130,6 +131,11 @@ private:
         uint32_t generation = 0;
         bool alive = false;
     };
+    struct SurfaceSlot {
+        VkSurfaceKHR surface = VK_NULL_HANDLE;
+        uint32_t generation = 0;
+        bool alive = false;
+    };
 
     std::vector<BufferSlot>  m_buffers;
     std::vector<uint32_t>    m_freeBufferSlots;
@@ -143,6 +149,8 @@ private:
     std::vector<uint32_t>      m_freeBindGroupSlots;
     std::vector<SamplerSlot> m_samplers;
     std::vector<uint32_t>    m_freeSamplerSlots;
+    std::vector<SurfaceSlot> m_surfaces;
+    std::vector<uint32_t>    m_freeSurfaceSlots;
 
     // Staging-Buffer fuer Uploads, waechst bei Bedarf
     VkBuffer      m_stagingBuffer = VK_NULL_HANDLE;

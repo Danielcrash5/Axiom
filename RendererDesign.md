@@ -468,6 +468,8 @@ uint64_t sortKey = (uint64_t(layer) << 48) | (uint64_t(shaderId) << 32)
 
 **Eine `View` ist Kamera + Ziel-Textur + sichtbare Layer.** Der Renderer kennt beliebig viele registrierte Views und führt den `RenderGraph` **pro View einmal komplett aus** – z.B. eine Game-View auf den Swapchain und gleichzeitig eine Editor-View auf eine Offscreen-Textur, die der Editor dann z.B. in ein UI-Fenster zeichnet.
 
+**Mehrere Surfaces/Swapchains gleichzeitig (Multi-Window).** `IRHIBackend` verwaltet Surfaces als Slot-Pool (`SurfaceHandle`), nicht als Einzel-Objekt – Grund: ImGui-Viewports (`ImGuiConfigFlags_ViewportsEnable`) erzeugen für rausgedockte Panels eigene Betriebssystem-Fenster, jedes mit eigener Surface + eigenem Swapchain. `RenderTarget::Swapchain` referenziert daher immer eine konkrete `SurfaceHandle`, nie "die" implizite einzige Surface.
+
 ```cpp
 struct Viewport { uint32_t x, y, width, height; };
 // Beim tatsächlichen VkViewport-Aufbau (Phase 3, CommandList-Implementierung)
@@ -478,7 +480,8 @@ enum class RenderTargetKind { Swapchain, Texture };
 
 struct RenderTarget {
     RenderTargetKind kind;
-    TextureHandle texture; // nur gültig wenn kind == Texture
+    TextureHandle texture;   // nur gültig wenn kind == Texture
+    SurfaceHandle surface;   // nur gültig wenn kind == Swapchain (siehe oben)
 };
 
 struct View {
@@ -577,56 +580,65 @@ Ein `PostEffectPass` bekommt eine `RenderLayerMask targetLayers`. Items, deren L
 4. *(Vorgezogen, ursprünglich Teil von Phase 7)* Fenster-Handoff: `IRHIBackend::nativeInstanceHandle()`/`attachSurface()`, windowing-neutrale `Renderer::init(WindowSurfaceDesc)` als minimales Grundgerüst + optionaler SDL3-Adapter. Nur Instance-Extensions + Surface-Erzeugung – die eigentliche Swapchain/View-Anbindung (`registerView`, `renderFrame`) bleibt Teil von Phase 7
 
 **Phase 2 – RenderGraph-Grundgerüst**
-4. `RenderPass`-Interface + `RenderGraph` (addPass, compile, execute)
-5. Virtuelle Resource-Handles + einfaches Transient-Aliasing
-6. Ein minimaler Test-Pass (Clear-Screen) end-to-end durchs Backend
+5. `RenderPass`-Interface + `RenderGraph` (addPass, compile, execute) – von Anfang an ohne geteilten mutable State zwischen Passes (Grundprinzip Fiber-Tauglichkeit, Abschnitt 1)
+6. Virtuelle Resource-Handles + einfaches Transient-Aliasing
+7. Ein minimaler Test-Pass (Clear-Screen) end-to-end durchs Backend
 
 **Phase 3 – Material, Pipelines & Bindless**
-7. `VertexLayout` + `ShaderDesc` (Abschnitt 5/6) definieren – Shader werden offline zu SPIR-V kompiliert (`glslc` aus dem Vulkan SDK), keine Runtime-Kompilierung; `ShaderDesc` referenziert kompilierte `.spv`-Dateien
-8. `IRHIBackend::createPipeline(const PipelineDesc&)` + `PipelineDesc` (baut auf `VertexLayout`/`ShaderDesc` auf)
-9. `IRHIBackend`: BindGroup-Erzeugung (`createBindGroup`) ergänzen
-10. `CommandList` vervollständigen: `bindPipeline`, `bindVertexBuffer`, `bindIndexBuffer`, `bindGroup`, `draw`, `drawIndexed`, `dispatch`
-11. `Material`-Klasse + `ShaderID`-Verwaltung
-12. `BindlessTextureHeap` (Vulkan Descriptor Indexing als Primärpfad, siehe Abschnitt 6.1)
-13. `ResourceBinding`: direktes Binding vs. Bindless-Index
+8. `VertexLayout` + `ShaderDesc` (Abschnitt 5/6) definieren – Shader werden offline zu SPIR-V kompiliert (`glslc` aus dem Vulkan SDK), keine Runtime-Kompilierung; `ShaderDesc` referenziert kompilierte `.spv`-Dateien
+9. `IRHIBackend::createPipeline(const PipelineDesc&)` + `PipelineDesc` (baut auf `VertexLayout`/`ShaderDesc` auf)
+10. `IRHIBackend`: BindGroup-Erzeugung (`createBindGroup`) ergänzen
+11. `CommandList` vervollständigen: `bindPipeline`, `bindVertexBuffer`, `bindIndexBuffer`, `bindGroup`, `draw`, `drawIndexed`, `dispatch`
+12. `Material`-Klasse + `ShaderID`-Verwaltung
+13. `BindlessTextureHeap` (Vulkan Descriptor Indexing als Primärpfad, siehe Abschnitt 6.1)
+14. `ResourceBinding`: direktes Binding vs. Bindless-Index
 
 **Phase 4 – RenderLayer & ECS-Anbindung**
-14. `RenderLayerRegistry` (Bit-Vergabe, Serialisierung; Editor-UI folgt separat)
-15. `MaterialComponent` / `RenderLayerComponent` + `RenderSubmissionSystem` (Auto-Association-Logik)
+15. `RenderLayerRegistry` (Bit-Vergabe, Serialisierung; Editor-UI folgt separat)
+16. `MaterialComponent` / `RenderLayerComponent` + `RenderSubmissionSystem` (Auto-Association-Logik)
 
-**Phase 5 – 2D-Geometrie**
-16. `GeometryBuilder`: Quad (mit/ohne Textur) zuerst, da einfachster Fall
-17. Kreis-SDF-Shader/-Material (`thickness`/`feather` als Uniform-Parameter, nutzt dieselbe Quad-Geometrie, kein eigener Builder nötig)
-18. `LineStrokeBuilder`: erst Linien ohne Joins/Caps, dann Miter/Round/Bevel-Joins, dann Butt/Round/Square-Caps
-19. Rechteck-Outline (Wiederverwendung von `LineStrokeBuilder`, 4 Segmente + Eckbehandlung)
-20. 2D-Skinned-Mesh (Bone-Weights im Vertexformat, CPU- oder Shader-Skinning entscheiden)
+**Phase 5 – Texture (CPU-seitige Bildbearbeitung)**
+17. `Texture`-Klasse: Metadaten (`type`/`format`/`width`/`height`/`depth`/`mipCount`/`arrayLayers`) + Pixelzugriff (`getPixel`/`setPixel`/`getPixels`/`setPixels`) – siehe Abschnitt 6.2
+18. CPU-Rasterisierung: `drawLine`, `drawRect`, `fillRect`, `drawCircle`, `fillCircle`
+19. Kombinieren: `stamp`, `blit` (mit `BlendMode`), `copyTo`
+20. Bulk-Operationen: `fill`, `clear`; Schreib-Klammerung `beginWrite`/`endWrite` (triggert Upload via `IRHIBackend::uploadTextureData`)
+21. Verwaltung: `generateMipmaps` (zunächst CPU-Box-Filter), `resize`, `clone`, `save`
 
-**Phase 6 – Queue-System, Batching, konkrete Passes**
-21. `RenderQueueDescriptor` pro Pass + `RenderSort`-Utility (Sortier-Algorithmen als eigenständiger, testbarer Baustein)
-22. `RenderQueueSystem`: eigenständiges Subsystem, läuft vor `RenderGraph.compile()`, filtert + sortiert Item-Pool pro Pass – kein Teil des Graphs
-23. `RenderSubmissionSystem` (ECS): nur Collection – Components lesen, `RenderItem`s bauen, roh via `Renderer::submitItem(...)` abliefern
-24. `BatchBuilder`: eigenständige Utility, baut instanced Draw-Batches aus sortierten Item-Listen, aufgerufen aus `Pass::execute()`
-25. `Pass2D` (SortMode `BackToFront`) nutzt `BatchBuilder` intern
-26. `PassUI` als separater Pass mit eigenem Deskriptor
+**Phase 6 – 2D-Geometrie**
+22. `GeometryBuilder`: Quad (mit/ohne Textur) zuerst, da einfachster Fall
+23. Kreis-SDF-Shader/-Material (`thickness`/`feather` als Uniform-Parameter, nutzt dieselbe Quad-Geometrie, kein eigener Builder nötig)
+24. `LineStrokeBuilder`: erst Linien ohne Joins/Caps, dann Miter/Round/Bevel-Joins, dann Butt/Round/Square-Caps
+25. Rechteck-Outline (Wiederverwendung von `LineStrokeBuilder`, 4 Segmente + Eckbehandlung)
+26. 2D-Skinned-Mesh (Bone-Weights im Vertexformat, CPU- oder Shader-Skinning entscheiden)
 
-**Phase 7 – Views, Render-to-Texture & FXAA**
-27. `View`/`RenderTarget`-Struktur + `Renderer::registerView/updateView/removeView` (erweitert die in Phase 1 vorgezogene `Renderer`-Klasse, keine Neuerstellung – Swapchain wird jetzt erstmals aus der in Phase 1 angehängten Surface gebaut)
-28. `Renderer::renderFrame()`: iteriert Views nach `priority`, führt Graph pro View aus
-29. `RenderQueueSystem` um View-Filterung erweitern (`acceptedLayers` UND `visibleLayers`)
-30. Render-to-Texture end-to-end testen: eine View auf Swapchain, eine zweite auf Offscreen-Textur (z.B. simulierter Editor-Viewport)
-31. `FXAAPass`: liest `SceneColor`, schreibt in `view.target` – Test mit Pass2D-Output
+**Phase 7 – Queue-System, Batching, konkrete Passes**
+27. `RenderQueueDescriptor` pro Pass + `RenderSort`-Utility (Sortier-Algorithmen als eigenständiger, testbarer Baustein)
+28. `RenderQueueSystem`: eigenständiges Subsystem, läuft vor `RenderGraph.compile()`, filtert + sortiert Item-Pool pro Pass – kein Teil des Graphs
+29. `RenderSubmissionSystem` (ECS): nur Collection – Components lesen, `RenderItem`s bauen, roh via `Renderer::submitItem(...)` abliefern
+30. `BatchBuilder`: eigenständige Utility, baut instanced Draw-Batches aus sortierten Item-Listen, aufgerufen aus `Pass::execute()`
+31. `Pass2D` (SortMode `BackToFront`) nutzt `BatchBuilder` intern
+32. `PassUI` als separater Pass mit eigenem Deskriptor
 
-**Phase 8 – Post-FX (Layer-Masking)**
-32. `PostEffectPass`-Infrastruktur mit `RenderLayerMask`-Filter
-33. Beispiel-Effekt: Layer-Isolation (z.B. alles außer Characters schwärzen)
+**Phase 8 – Views, Render-to-Texture & FXAA**
+33. `View`/`RenderTarget`-Struktur + `Renderer::registerView/updateView/removeView` (erweitert die in Phase 1 vorgezogene `Renderer`-Klasse, keine Neuerstellung – Swapchain wird jetzt erstmals aus der in Phase 1 angehängten Surface gebaut)
+34. `Renderer::renderFrame()`: iteriert Views nach `priority`, führt Graph pro View aus
+35. `RenderQueueSystem` um View-Filterung erweitern (`acceptedLayers` UND `visibleLayers`)
+36. Render-to-Texture end-to-end testen: eine View auf Swapchain, eine zweite auf Offscreen-Textur (z.B. simulierter Editor-Viewport)
+37. `FXAAPass`: liest `SceneColor`, schreibt in `view.target` – Test mit Pass2D-Output
+38. **ImGui-Integration** (`IImGuiLayer`-Vulkan-Backend): eigener `RenderPass` im Graph, schreibt auf dieselbe `SceneColor`-Resource wie `Pass2D`/`PassUI` vor dem finalen Composite auf `view.target`. `DockspaceType::Passthrough` (Engine rendert normal im Hintergrund, ImGui-Overlay darüber) ist der Hauptgrund, warum das erst hier sinnvoll ist – braucht ein fertiges `View`/`RenderTarget`, nicht vorher
 
-**Phase 9 – Erste komplette 2D-Szene**
-34. End-to-End-Test: mehrere Layer, gemischte Materialien, Post-FX, FXAA, Batching, Editor-View + Game-View gleichzeitig – alles über Vulkan
+**Phase 9 – Post-FX (Layer-Masking)**
+38. `PostEffectPass`-Infrastruktur mit `RenderLayerMask`-Filter
+39. Beispiel-Effekt: Layer-Isolation (z.B. alles außer Characters schwärzen)
 
-**Phase 10 – Danach**
-35. 3D-Passes (Opaque/Transparent) inkl. Front-to-Back-Sortierung für Early-Z
-36. Compute-Shader-getriebene Effekte (Fluid, Deformation – Anknüpfung an bestehende Engine-Systeme)
-37. **WebGPU-Backend (Dawn) für Web-Export-Target**: hinter demselben `IRHIBackend`-Interface, ausschließlich für Browser/WASM-Builds – inkl. Bindless-Fallback auf festen Slot-Pool (Abschnitt 6.1)
+**Phase 10 – Erste komplette 2D-Szene**
+40. End-to-End-Test: mehrere Layer, gemischte Materialien, Post-FX, FXAA, Batching, Editor-View + Game-View gleichzeitig – alles über Vulkan
+
+**Phase 11 – Danach**
+41. 3D-Passes (Opaque/Transparent) inkl. Front-to-Back-Sortierung für Early-Z
+42. Compute-Shader-getriebene Effekte (Fluid, Deformation – Anknüpfung an bestehende Engine-Systeme)
+43. **WebGPU-Backend (Dawn) für Web-Export-Target**: hinter demselben `IRHIBackend`-Interface, ausschließlich für Browser/WASM-Builds – inkl. Bindless-Fallback auf festen Slot-Pool (Abschnitt 6.1)
+44. **Fiber-basiertes Multithreading**: Renderer läuft auf eigenem Thread, Command-Recording über `FiberTaskingLib` (RichieSams) – parallele `Pass::execute()`-Aufrufe über Worker-Fibers, aufbauend auf der in Phase 2 festgelegten Unabhängigkeit der Passes
 
 ---
 

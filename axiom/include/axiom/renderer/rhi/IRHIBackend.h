@@ -33,8 +33,12 @@ public:
     // --- Fenster-Integration ---
     // Opake Handles nach aussen (void*), damit hier kein <vulkan/vulkan.h>
     // in der Public-API auftaucht. Intern: VkInstance / VkSurfaceKHR.
+    // Mehrere Surfaces gleichzeitig moeglich (Slot-Pool wie Buffers/Textures) -
+    // noetig fuer ImGui-Viewports: jedes rausgedockte Panel-Fenster bekommt
+    // eine eigene Surface + eigenen Swapchain (Phase 8).
     [[nodiscard]] virtual void* nativeInstanceHandle() const = 0;
-    [[nodiscard]] virtual RHIResult<void> attachSurface(void* nativeSurfaceHandle) = 0;
+    [[nodiscard]] virtual RHIResult<SurfaceHandle> createSurface(void* nativeSurfaceHandle) = 0;
+    virtual void destroySurface(SurfaceHandle) = 0;
 
     // --- Phase 3: Pipelines/BindGroups/Sampler ---
     [[nodiscard]] virtual RHIResult<PipelineHandle> createPipeline(const PipelineDesc&) = 0;

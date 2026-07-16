@@ -21,11 +21,13 @@ struct TextureTag {};
 struct PipelineTag {};
 struct BindGroupTag {};
 struct SamplerTag {};
+struct SurfaceTag {};
 
 using BufferHandle    = Handle<BufferTag>;
 using TextureHandle   = Handle<TextureTag>;
 using PipelineHandle  = Handle<PipelineTag>;
 using BindGroupHandle = Handle<BindGroupTag>;
 using SamplerHandle   = Handle<SamplerTag>;
+using SurfaceHandle   = Handle<SurfaceTag>;
 
 } // namespace axiom::renderer::rhi
