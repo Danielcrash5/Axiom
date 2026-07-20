@@ -15,11 +15,17 @@ namespace axiom {
         static void Init();
         static void Shutdown();
 
-        static void Mount(const std::string &root, const std::string &path,
+        static bool Mount(const std::string &root, const std::string &path,
                           MountType type, bool readOnly = true);
-        static void MountPath(const std::string &root, const std::string &path,
+        static bool MountPath(const std::string &root, const std::string &path,
                               bool readOnly = true);
         static bool Unmount(const std::string &root);
+
+        static std::string ResolvePhysicalMountPath(
+            const std::string &configuredPath,
+            const std::vector<std::string> &fallbackCandidates,
+            const std::vector<std::string> &commandLineArgs,
+            bool &usedFallback);
 
         static bool ReadFile(const std::string &virtualPath,
                              std::vector<uint8_t> &outData);
@@ -34,6 +40,8 @@ namespace axiom {
                                   const std::string &text);
 
         static bool Exists(const std::string &virtualPath);
+        static bool IsFile(const std::string &virtualPath);
+        static bool IsDirectory(const std::string &virtualPath);
         static bool CreateDirectory(const std::string &virtualPath);
 
         static uint64_t GetFileSize(const std::string &virtualPath);

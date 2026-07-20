@@ -1,26 +1,25 @@
 #include <axiom/renderer/ShaderRegistry.h>
-#include <fstream>
+#include <axiom/assets/VFS.h>
+
+#include <cstring>
 
 namespace axiom::renderer {
 
 rhi::RHIResult<std::vector<uint32_t>> ShaderRegistry::readSpirvFile(const std::string& path) {
-    std::ifstream file(path, std::ios::binary | std::ios::ate);
-    if (!file) {
+    std::vector<uint8_t> bytes;
+    if (!VFS::ReadFile(path, bytes)) {
         return std::unexpected(rhi::RHIError::InvalidDescriptor);
     }
 
-    auto sizeBytes = static_cast<size_t>(file.tellg());
+    const size_t sizeBytes = bytes.size();
     if (sizeBytes == 0 || sizeBytes % sizeof(uint32_t) != 0) {
         // SPIR-V ist 32-bit-wortweise aligned - falsche Groesse heisst
         // fast immer "falsche/kaputte Datei", nicht "valides, aber krummes SPIR-V".
         return std::unexpected(rhi::RHIError::InvalidDescriptor);
     }
-    file.seekg(0);
 
     std::vector<uint32_t> buffer(sizeBytes / sizeof(uint32_t));
-    if (!file.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(sizeBytes))) {
-        return std::unexpected(rhi::RHIError::Unknown);
-    }
+    std::memcpy(buffer.data(), bytes.data(), sizeBytes);
     return buffer;
 }
 

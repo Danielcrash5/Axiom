@@ -1,24 +1,51 @@
+#include <axiom/assets/VFS.h>
+
 #include <algorithm>
-#include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 extern "C" {
 #include <compat/zip.h> // minizip-ng Kompatibilitäts-API
 }
 
-namespace fs = std::filesystem;
+namespace {
 
-static bool addFileToZip(zipFile zf, const fs::path &root,
-                         const fs::path &filePath) {
-    fs::path relPath = fs::relative(filePath, root);
-    std::string zipPath = relPath.generic_string(); // immer '/'
+constexpr std::string_view InputRoot = "input://";
+constexpr std::string_view OutputRoot = "output://";
 
-    std::ifstream in(filePath, std::ios::binary);
-    if (!in) {
-        std::cerr << "Failed to open file: " << filePath << "\n";
+std::string NormalizePath(std::string path) {
+    std::replace(path.begin(), path.end(), '\\', '/');
+    return path;
+}
+
+std::string ParentPath(const std::string &path) {
+    const std::string normalized = NormalizePath(path);
+    const size_t separator = normalized.find_last_of('/');
+    if (separator == std::string::npos)
+        return ".";
+    if (separator == 0)
+        return "/";
+    return normalized.substr(0, separator);
+}
+
+std::string ToZipPath(const std::string &virtualPath) {
+    std::string zipPath = virtualPath;
+    if (zipPath.starts_with(InputRoot))
+        zipPath.erase(0, InputRoot.size());
+    if (!zipPath.empty() && zipPath.front() == '/')
+        zipPath.erase(zipPath.begin());
+    return zipPath;
+}
+
+static bool addFileToZip(zipFile zf, const std::string &virtualPath) {
+    const std::string zipPath = ToZipPath(virtualPath);
+
+    std::vector<uint8_t> data;
+    if (!axiom::VFS::ReadFile(virtualPath, data)) {
+        std::cerr << "Failed to read file through VFS: " << virtualPath
+                  << "\n";
         return false;
     }
 
@@ -41,75 +68,80 @@ static bool addFileToZip(zipFile zf, const fs::path &root,
         return false;
     }
 
-    std::vector<char> buffer(64 * 1024);
-    while (in) {
-        in.read(buffer.data(), buffer.size());
-        std::streamsize got = in.gcount();
-        if (got <= 0)
-            break;
+    size_t offset = 0;
+    while (offset < data.size()) {
+        const size_t remaining = data.size() - offset;
+        const auto chunkSize =
+            static_cast<unsigned int>(std::min<size_t>(remaining, 64 * 1024));
 
-        if (zipWriteInFileInZip(zf, buffer.data(),
-                                static_cast<unsigned int>(got)) != ZIP_OK) {
+        if (zipWriteInFileInZip(zf, data.data() + offset, chunkSize) !=
+            ZIP_OK) {
             std::cerr << "zipWriteInFileInZip failed for " << zipPath << "\n";
             zipCloseFileInZip(zf);
             return false;
         }
+
+        offset += chunkSize;
     }
 
     zipCloseFileInZip(zf);
     return true;
 }
 
+} // namespace
+
 int main(int argc, char **argv) {
+    axiom::VFS::Init();
+
     if (argc < 3) {
         std::cout << "Usage:\n"
                   << "  AxiomPackTool <output_pack.AxPack> <input_directory>\n";
+        axiom::VFS::Shutdown();
         return 1;
     }
 
-    fs::path outputPack = fs::path(argv[1]);
-    fs::path inputDir = fs::path(argv[2]);
+    const std::string outputPack = NormalizePath(argv[1]);
+    const std::string inputDir = argv[2];
 
-    if (!fs::exists(inputDir) || !fs::is_directory(inputDir)) {
+    if (!axiom::VFS::MountPath(std::string(InputRoot), inputDir) ||
+        !axiom::VFS::IsDirectory(std::string(InputRoot))) {
         std::cerr << "Input directory does not exist: " << inputDir << "\n";
+        axiom::VFS::Shutdown();
         return 1;
     }
 
-    std::error_code ec;
-    if (outputPack.has_parent_path()) {
-        fs::create_directories(outputPack.parent_path(), ec);
-        if (ec) {
-            std::cerr << "Failed to create output directory: "
-                      << outputPack.parent_path() << "\n";
-            return 1;
-        }
+    const std::string outputDir = ParentPath(outputPack);
+    if (!axiom::VFS::MountPath(std::string(OutputRoot), outputDir, false) ||
+        !axiom::VFS::CreateDirectory(std::string(OutputRoot))) {
+        std::cerr << "Failed to create output directory: " << outputDir
+                  << "\n";
+        axiom::VFS::Shutdown();
+        return 1;
     }
 
-    const std::string outputZip = outputPack.string();
+    const std::string outputZip = outputPack;
     zipFile zf = zipOpen64(outputZip.c_str(), 0);
     if (!zf) {
         std::cerr << "Failed to open output pack: " << outputPack << "\n";
+        axiom::VFS::Shutdown();
         return 1;
     }
 
-    std::vector<fs::path> files;
-    for (auto const &entry : fs::recursive_directory_iterator(inputDir)) {
-        if (!entry.is_regular_file())
-            continue;
-        files.push_back(entry.path());
-    }
-
+    std::vector<std::string> files =
+        axiom::VFS::ListFiles(std::string(InputRoot), true);
     std::sort(files.begin(), files.end());
 
     for (const auto &file : files) {
-        if (!addFileToZip(zf, inputDir, file)) {
+        if (!addFileToZip(zf, file)) {
             std::cerr << "Failed to add file: " << file << "\n";
             zipClose(zf, nullptr);
+            axiom::VFS::Shutdown();
             return 1;
         }
     }
 
     zipClose(zf, nullptr);
+    axiom::VFS::Shutdown();
     std::cout << "Pack created: " << outputZip << "\n";
     return 0;
 }
