@@ -1,25 +1,26 @@
 #include <axiom/renderer/ShaderRegistry.h>
 #include <axiom/assets/VFS.h>
-
 #include <cstring>
 
 namespace axiom::renderer {
 
 rhi::RHIResult<std::vector<uint32_t>> ShaderRegistry::readSpirvFile(const std::string& path) {
-    std::vector<uint8_t> bytes;
-    if (!VFS::ReadFile(path, bytes)) {
+    std::vector<uint8_t> rawBytes;
+    if (!axiom::VFS::ReadFile(path, rawBytes)) {
         return std::unexpected(rhi::RHIError::InvalidDescriptor);
     }
 
-    const size_t sizeBytes = bytes.size();
-    if (sizeBytes == 0 || sizeBytes % sizeof(uint32_t) != 0) {
+    if (rawBytes.empty() || rawBytes.size() % sizeof(uint32_t) != 0) {
         // SPIR-V ist 32-bit-wortweise aligned - falsche Groesse heisst
         // fast immer "falsche/kaputte Datei", nicht "valides, aber krummes SPIR-V".
         return std::unexpected(rhi::RHIError::InvalidDescriptor);
     }
 
-    std::vector<uint32_t> buffer(sizeBytes / sizeof(uint32_t));
-    std::memcpy(buffer.data(), bytes.data(), sizeBytes);
+    // memcpy statt reinterpret_cast<uint32_t*>(rawBytes.data()): vector<uint8_t>
+    // garantiert keine 4-Byte-Alignment fuer seinen Buffer - direktes Reinterpretieren
+    // waere UB. memcpy ist der sichere, portable Weg, die Bytes umzukopieren.
+    std::vector<uint32_t> buffer(rawBytes.size() / sizeof(uint32_t));
+    std::memcpy(buffer.data(), rawBytes.data(), rawBytes.size());
     return buffer;
 }
 

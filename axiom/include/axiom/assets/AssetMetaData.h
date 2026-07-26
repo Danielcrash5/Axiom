@@ -12,6 +12,6 @@ namespace axiom {
         AssetType Type = AssetType::Unknown;
 
         std::string Path;
-        bool Loaded = false
+        bool Loaded = false;
     };
 } // namespace axiom
