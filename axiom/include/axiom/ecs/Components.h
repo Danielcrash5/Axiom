@@ -1,6 +1,6 @@
 #pragma once
 
-#include "axiom/core/UUID.h"
+#include "axiom/core/TypedUUID.h"
 // #include "axiom/renderer/Sprite.h"
 
 #include <glm/glm.hpp>
@@ -12,7 +12,7 @@
 namespace axiom {
 
     struct IDComponent {
-        UUID ID{};
+        EntityID ID{};
 
         IDComponent() = default;
         explicit IDComponent(UUID id) : ID(id) {}
