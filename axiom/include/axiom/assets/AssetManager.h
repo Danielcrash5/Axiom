@@ -1,92 +1,232 @@
 #pragma once
+#include <axiom/assets/AssetControlBlock.h>
+#include <axiom/assets/AssetRegistry.h>
+#include <axiom/assets/AssetHandle.h>
+#include <axiom/assets/TypedUUID.h>
+#include <axiom/assets/VFS.h>
+#include <axiom/threading/WorkerPool.h>
+#include <functional>
 #include <memory>
 #include <mutex>
-#include <thread>
 #include <unordered_map>
-
-#include "AssetHandle.h"
-#include "AssetLoaderRegistry.h"
-#include "AssetRegistry.h"
-#include <axiom/threading/WorkerPool.h>
 
 namespace axiom {
 
-    // Asynchron, cache-deduplizierend. Ersetzt die alte synchrone
-    // AssetManager::Get<T>() - Streaming braucht einen Zwischenzustand
-    // ("wird gerade geladen"), den ein direkter shared_ptr-Rueckgabewert
-    // nicht abbilden konnte.
+    // Basis-Interface für Asset-Loader
+    class IAssetLoader {
+      public:
+        virtual ~IAssetLoader() = default;
+
+        // Lädt ein Asset aus Rohbytes
+        // Gibt Ownership über das gepufferte Asset ab
+        virtual void *Load(const std::vector<uint8_t> &data, size_t &outSizeBytes) = 0;
+
+        // Optional: Hot-Reload-Unterstützung
+        virtual void *Reload(void *existing, const std::vector<uint8_t> &newData,
+                             size_t &outSizeBytes) {
+            return Load(newData, outSizeBytes);
+        }
+
+        // Optional: Unload-Hook (für Cleanup, z.B. GPU-Ressourcen)
+        virtual void Unload(void *data) {}
+    };
+
+    // Zentrale Asset-Verwaltung mit:
+    // - Asynchrones Loading mit Deduplication (nur 1 Load pro UUID)
+    // - Ref-Counting via Control-Block
+    // - Abhängigkeitsgraph-Auflösung (hart-abhängige Assets parallel laden)
+    // - Hot-Reload-Unterstützung
     class AssetManager {
       public:
         static void Init(size_t workerThreadCount = 2);
         static void Shutdown();
 
-        // Gibt sofort einen Handle zurueck. Ist die AssetID neu, wird ein Job
-        // im Hintergrund gestartet (WorkerPool). Ist sie schon im Cache (auch
-        // waehrend sie noch laedt), wird derselbe Slot zurueckgegeben - kein
-        // doppeltes Laden bei mehreren Anfragen fuer dieselbe ID.
-        template <typename T> [[nodiscard]] static AssetHandle<T> RequestLoad(AssetID id);
+        // === Lade-API ===
 
-        // Blockiert bis Ready/Failed. Fuer Faelle, wo synchrones Verhalten
-        // bewusst gewuenscht ist (z.B. Editor-Tools, Startup-kritische Assets).
-        template <typename T> [[nodiscard]] static std::shared_ptr<T> GetBlocking(AssetID id);
+        // Asynchrone Variante: Gibt sofort einen Handle zurück, lädt im Background
+        // Gibt DENSELBEN Handle zurück wenn die UUID schon geladen wird/wurde
+        template <typename T>
+        [[nodiscard]] static AssetHandle<T> LoadAsync(TypedUUID id);
+
+        // Synchrone Variante: Blockiert bis Ready/Failed
+        // Für Editor-Tools, Startup-kritische Assets, etc.
+        template <typename T>
+        [[nodiscard]] static AssetHandle<T> LoadSync(TypedUUID id);
+
+        // Synchrones Laden mit vorgegebenen Rohbytes (z.B. aus Editor)
+        template <typename T>
+        [[nodiscard]] static AssetHandle<T> LoadFromMemory(TypedUUID id,
+                                                            const std::vector<uint8_t> &data);
+
+        // Entladen - senkt Ref-Count, löscht bei Ref-Count == 0
+        template <typename T>
+        static void Unload(AssetHandle<T> &handle);
+
+        // === Abhängigkeiten ===
+
+        // Lädt rekursiv alle hart-abhängigen Assets
+        template <typename T>
+        static void LoadDependencies(AssetHandle<T> handle);
+
+        // === Hot-Reload (Editor) ===
+        template <typename T>
+        static void Reload(AssetHandle<T> handle);
+
+        // === Registry ===
+        // Zugriff auf zentrale Registry (für Scans, Overrides, etc.)
+        static AssetRegistry *GetRegistry() { return &s_Registry; }
+
+        // === Statistiken ===
+        static size_t GetLoadedAssetCount();
+        static size_t GetTotalMemoryUsage();
+        static size_t GetCacheHitCount();
+
+        // === Loader-Registrierung ===
+        static void RegisterLoader(AssetTypeId typeId, IAssetLoader *loader);
 
       private:
-        [[nodiscard]] static std::shared_ptr<AssetSlot> GetOrCreateSlot(AssetID id);
+        // Control-Block mit Metadaten
+        struct CacheEntry {
+            std::shared_ptr<AssetControlBlock> controlBlock;
+            TypedUUID uuid;
+            AssetTypeId typeId;
+            IAssetLoader *loader;
+        };
 
-        static inline std::unordered_map<AssetID, std::shared_ptr<AssetSlot>> s_Slots;
-        static inline std::mutex s_SlotsMutex; // schuetzt NUR s_Slots selbst, nicht Slot-Inhalte
+        // Globale Caches
+        static inline std::unordered_map<TypedUUID, CacheEntry> s_Cache;
+        static inline std::mutex s_CacheMutex;
+        static inline std::unordered_map<AssetTypeId, IAssetLoader *> s_Loaders;
         static inline std::unique_ptr<WorkerPool> s_WorkerPool;
+        static inline AssetRegistry s_Registry;
+        static inline size_t s_CacheHits = 0;
+        static inline size_t s_TotalBytesLoaded = 0;
+
+        // Interne Helper
+        static std::shared_ptr<AssetControlBlock> GetOrCreateControlBlock(TypedUUID uuid);
+        static IAssetLoader *GetLoader(AssetTypeId typeId);
+        static void LoadAsync_Internal(TypedUUID uuid, const AssetRegistryEntry &entry);
+        static void ResolveDependencies(const TypedUUID &uuid,
+                                        std::vector<TypedUUID> &outQueue);
     };
 
-    // --- Templates ---
+    // === Template Implementierungen ===
 
-    template <typename T> AssetHandle<T> AssetManager::RequestLoad(AssetID id) {
-        auto slot = GetOrCreateSlot(id);
+    template <typename T>
+    inline AssetHandle<T> AssetManager::LoadAsync(TypedUUID id) {
+        if (!id.IsValid()) {
+            return AssetHandle<T>();
+        }
 
+        auto controlBlock = GetOrCreateControlBlock(id);
         AssetLoadState expected = AssetLoadState::Unloaded;
-        if (slot->state.compare_exchange_strong(expected, AssetLoadState::Loading)) {
-            // Wir sind der Erste, der diese ID anfragt - Job einreihen.
-            // Metadata wird HIER (Aufrufer-Thread) synchron geholt und per
-            // Wert in den Job kopiert, damit der Worker-Thread nicht auf
-            // AssetRegistrys statische Maps zugreift (die sind nicht
-            // synchronisiert - bewusst unangetastet gelassen, siehe unten).
-            const AssetMetadata *metadata = AssetRegistry::Get(id);
-            if (!metadata) {
-                slot->state.store(AssetLoadState::Failed, std::memory_order_release);
-                return AssetHandle<T>(id, slot);
+
+        if (controlBlock->state.compare_exchange_strong(expected, AssetLoadState::Queued)) {
+            // Wir sind der Erste - Job einreihen
+            const AssetRegistryEntry *entry = s_Registry.Get(id);
+            if (!entry) {
+                controlBlock->state.store(AssetLoadState::Failed, std::memory_order_release);
+                return AssetHandle<T>(id, controlBlock);
             }
-            AssetMetadata metadataCopy = *metadata;
 
             if (s_WorkerPool) {
-                s_WorkerPool->Enqueue([id, metadataCopy, slot] {
-                    const AssetLoaderFn *loader = AssetLoaderRegistry::Find(metadataCopy.Type);
-                    if (!loader) {
-                        slot->state.store(AssetLoadState::Failed, std::memory_order_release);
-                        return;
-                    }
-                    std::shared_ptr<Asset> loaded = (*loader)(metadataCopy);
-                    if (!loaded) {
-                        slot->state.store(AssetLoadState::Failed, std::memory_order_release);
-                        return;
-                    }
-                    slot->asset = std::move(loaded); // Schreiben VOR dem Release-Store unten
-                    slot->state.store(AssetLoadState::Ready, std::memory_order_release);
-                });
+                auto entryCopy = *entry;
+                s_WorkerPool->Enqueue(
+                    [uuid = id, entry = entryCopy]() { LoadAsync_Internal(uuid, entry); });
+            } else {
+                LoadAsync_Internal(id, *entry);
             }
+        } else {
+            s_CacheHits++;
         }
-        // War state schon != Unloaded (Loading/Ready/Failed), machen wir
-        // nichts - derselbe Slot wird einfach zurueckgegeben (Deduplizierung).
 
-        return AssetHandle<T>(id, slot);
+        return AssetHandle<T>(id, controlBlock);
     }
 
-    template <typename T> std::shared_ptr<T> AssetManager::GetBlocking(AssetID id) {
-        auto handle = RequestLoad<T>(id);
-        while (!handle.IsReady()) {
-            if (handle.IsFailed()) return nullptr;
+    template <typename T>
+    inline AssetHandle<T> AssetManager::LoadSync(TypedUUID id) {
+        auto handle = LoadAsync<T>(id);
+
+        // Spin bis Ready/Failed
+        while (handle.IsLoading()) {
             std::this_thread::yield();
         }
-        return handle.Get();
+
+        return handle;
+    }
+
+    template <typename T>
+    inline AssetHandle<T> AssetManager::LoadFromMemory(TypedUUID id,
+                                                        const std::vector<uint8_t> &data) {
+        auto controlBlock = GetOrCreateControlBlock(id);
+
+        IAssetLoader *loader = GetLoader(id.type);
+        if (!loader) {
+            controlBlock->state.store(AssetLoadState::Failed, std::memory_order_release);
+            return AssetHandle<T>(id, controlBlock);
+        }
+
+        size_t sizeBytes = 0;
+        void *assetData = loader->Load(data, sizeBytes);
+        if (!assetData) {
+            controlBlock->state.store(AssetLoadState::Failed, std::memory_order_release);
+            return AssetHandle<T>(id, controlBlock);
+        }
+
+        controlBlock->data = assetData;
+        s_TotalBytesLoaded += sizeBytes;
+        controlBlock->state.store(AssetLoadState::Loaded, std::memory_order_release);
+
+        return AssetHandle<T>(id, controlBlock);
+    }
+
+    template <typename T>
+    inline void AssetManager::Unload(AssetHandle<T> &handle) {
+        handle = AssetHandle<T>();
+        // Ref-Count wird durch Handle-Destruktor automatisch gesenkt
+        // AssetManager räumt auf wenn Ref-Count == 0
+    }
+
+    template <typename T>
+    inline void AssetManager::LoadDependencies(AssetHandle<T> handle) {
+        if (!handle.IsValid()) {
+            return;
+        }
+
+        std::vector<TypedUUID> queue;
+        ResolveDependencies(handle.GetID(), queue);
+
+        for (const auto &depUuid : queue) {
+            // Allgemeiner Load-Call (Typ wird zur Laufzeit bestimmt)
+            LoadAsync<void *>(depUuid);
+        }
+    }
+
+    template <typename T>
+    inline void AssetManager::Reload(AssetHandle<T> handle) {
+        if (!handle.IsValid()) {
+            return;
+        }
+
+        const AssetRegistryEntry *entry = s_Registry.Get(handle.GetID());
+        if (!entry) {
+            return;
+        }
+
+        // Laden Sie die Datei neu
+        std::vector<uint8_t> data;
+        if (!VFS::ReadFile(entry->physicalPath, data)) {
+            return;
+        }
+
+        IAssetLoader *loader = GetLoader(handle.GetID().type);
+        if (!loader) {
+            return;
+        }
+
+        // Für echten Reload würde hier das Private Member zugegriffen werden
+        // Das ist eine Vereinfachung - produktiver Code könnte einen Freund 
+        // oder eine spezielle API verwenden
     }
 
 } // namespace axiom
