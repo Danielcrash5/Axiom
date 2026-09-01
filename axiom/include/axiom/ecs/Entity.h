@@ -1,5 +1,6 @@
 #pragma once
 #include <any>
+#include <cstdint>
 #include <utility>
 
 #include "Scene.h"
@@ -87,14 +88,15 @@ namespace axiom {
             auto *storage = m_Scene->m_Registry.storage(id);
             if (storage && storage->contains(m_Entity)) {
                 // Wir geben den rohen Pointer verpackt in std::any zurück
-                return std::any(storage->value(m_Entity));
+                // Note: std::any requires a copyable type, so we store the pointer
+                return std::any(reinterpret_cast<uintptr_t>(storage->value(m_Entity)));
             }
             return std::any(); // Gibt ein leeres std::any zurück
         }
 
         std::any GetComponentByComponentInfo(const ComponentInfo &info) const {
             if (info.storage && info.storage->contains(m_Entity)) {
-                return std::any(info.storage->value(m_Entity));
+                return std::any(reinterpret_cast<uintptr_t>(info.storage->value(m_Entity)));
             }
             return std::any();
         }

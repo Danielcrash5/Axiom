@@ -1,12 +1,7 @@
 #pragma once
 
-namespace axiom {
+#include "AssetControlBlock.h"
 
-    enum class AssetLoadState {
-        Unloaded,
-        Loading,
-        Ready,
-        Failed,
-    };
-
-} // namespace axiom
+// Legacy compatibility header. The canonical definition lives in AssetControlBlock.h.
+// This file intentionally does not redefine the enum, to avoid duplicate load-state
+// definitions across the asset system.

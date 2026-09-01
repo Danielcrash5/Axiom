@@ -1,11 +1,11 @@
 #pragma once
-#include <axiom/assets/TypedUUID.h>
-#include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-using json = nlohmann::json;
+#include <axiom/assets/TypedUUID.h>
+#include <axiom/assets/AssetRegistry.h>
+#include <axiom/assets/AssetHandle.h>
+#include <axiom/assets/AssetTypes.h>
 
 namespace axiom {
 
@@ -13,7 +13,7 @@ namespace axiom {
 
     struct PrefabInstanceOverride {
         std::string componentName;
-        json propertyOverrides; // Property-Name → Wert
+        std::string propertyOverrides; // Serialized JSON string
     };
 
     struct PrefabInstanceData {
@@ -27,13 +27,13 @@ namespace axiom {
         uint32_t id = 0;
         std::string name;
         bool active = true;
-        json components; // Component-Name → Komponenten-Daten
+        std::string components; // Serialized JSON string
 
         // Falls diese Entity eine Prefab-Instanz ist:
         PrefabInstanceData *prefabInstance = nullptr;
 
-        json ToJson() const;
-        static SceneEntity FromJson(const json &j);
+        std::string ToJson() const;
+        static SceneEntity FromJson(const std::string &jsonStr);
     };
 
     struct SceneData {
@@ -41,8 +41,8 @@ namespace axiom {
         uint32_t nextEntityId = 1;
         std::vector<SceneEntity> entities;
 
-        json ToJson() const;
-        static SceneData FromJson(const json &j);
+        std::string ToJson() const;
+        static SceneData FromJson(const std::string &jsonStr);
         static SceneData LoadFromJson(const std::string &jsonText);
         std::string SaveToJson(bool pretty = true) const;
     };
@@ -55,8 +55,8 @@ namespace axiom {
         SceneEntity templateEntity;
         std::vector<AssetDependency> componentDependencies;
 
-        json ToJson() const;
-        static PrefabData FromJson(const json &j);
+        std::string ToJson() const;
+        static PrefabData FromJson(const std::string &jsonStr);
         static PrefabData LoadFromJson(const std::string &jsonText);
         std::string SaveToJson(bool pretty = true) const;
     };

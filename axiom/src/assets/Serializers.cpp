@@ -4,9 +4,8 @@
 #include <cereal/archives/binary.hpp>
 #include <sstream>
 
-using json = nlohmann::json;
-
 namespace axiom {
+    using json = nlohmann::json;
 
     // === JsonSerializer ===
 

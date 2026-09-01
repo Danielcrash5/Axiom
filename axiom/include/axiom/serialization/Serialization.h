@@ -6,7 +6,6 @@
 #include <cereal/archives/portable_binary.hpp>
 #include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
-#include <nlohmann/json.hpp>
 
 #include <cstdint>
 #include <span>
@@ -17,7 +16,8 @@
 
 namespace axiom::serialization {
 
-    using Json = nlohmann::json;
+    // Forward declaration - JSON is only used in implementation files
+    // to avoid GCC/nlohmann/json compatibility issues with wide header inclusion
 
     using BinaryInputArchive = cereal::BinaryInputArchive;
     using BinaryOutputArchive = cereal::BinaryOutputArchive;
@@ -76,15 +76,9 @@ namespace axiom::serialization {
         return FromPortableBinary<T>(std::span<const std::uint8_t>(bytes));
     }
 
-    template <typename T>
-    std::string ToJsonString(const T &value, int indent = 4) {
-        Json json = value;
-        return json.dump(indent);
-    }
-
-    template <typename T> T FromJsonString(std::string_view text) {
-        return Json::parse(text).template get<T>();
-    }
+    // JSON serialization moved to implementation files to avoid header compilation issues
+    // with GCC/nlohmann/json compatibility. Use alternative JSON libraries or direct
+    // string serialization if needed.
 
     template <typename T>
     bool TryFromBinary(std::span<const std::uint8_t> bytes, T &outValue) {

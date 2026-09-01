@@ -1,6 +1,6 @@
 #pragma once
 
-#include "AssetID.h"
+#include "TypedUUID.h"
 #include "AssetType.h"
 
 namespace axiom {
@@ -8,12 +8,12 @@ namespace axiom {
       public:
         virtual ~Asset() = default;
 
-        AssetID GetID() const { return m_ID; }
+        TypedUUID GetID() const { return m_ID; }
 
         AssetType GetType() const { return m_Type; }
 
       protected:
-        AssetID m_ID{};
+        TypedUUID m_ID{};
         AssetType m_Type = AssetType::Unknown;
     };
 } // namespace axiom

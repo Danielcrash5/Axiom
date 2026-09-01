@@ -25,6 +25,10 @@ namespace axiom {
         static bool Mount(const std::string &mountName, const std::string &physicalPath,
                           MountType type = MountType::Directory, bool readOnly = true,
                           int priority = 0);
+        static bool MountPath(const std::string &mountName,
+                              const std::string &physicalPath,
+                              bool readOnly = true, int priority = 0,
+                              MountType type = MountType::Directory);
         static bool Unmount(const std::string &mountName);
         static bool IsMounted(const std::string &mountName);
 
@@ -66,6 +70,10 @@ namespace axiom {
 
         // === Hilfer ===
         static std::string ResolvePhysicalPath(const std::string &virtualPath);
+        static std::string ResolvePhysicalMountPath(
+            const std::string &mountRootHint,
+            const std::vector<std::string> &candidatePaths,
+            const std::vector<std::string> &commandLineArgs, bool &usedFallback);
         static bool IsPathValid(const std::string &virtualPath);
 
       private:

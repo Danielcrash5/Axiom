@@ -82,6 +82,26 @@ namespace axiom {
         return true;
     }
 
+    bool VFS::MountPath(const std::string &mountName, const std::string &physicalPath,
+                        bool readOnly, int priority, MountType type) {
+        std::string normalizedRoot = mountName;
+        const size_t schemePos = normalizedRoot.find("://");
+        if (schemePos != std::string::npos) {
+            normalizedRoot = normalizedRoot.substr(0, schemePos);
+        }
+
+        if (normalizedRoot.empty()) {
+            return false;
+        }
+
+        std::string normalizedPhysical = NormalizePath(physicalPath);
+        if (type == MountType::Directory && !fs::exists(normalizedPhysical)) {
+            fs::create_directories(normalizedPhysical);
+        }
+
+        return Mount(normalizedRoot, normalizedPhysical, type, readOnly, priority);
+    }
+
     bool VFS::Unmount(const std::string &mountName) {
         return s_mounts.erase(mountName) > 0;
     }
@@ -283,13 +303,20 @@ namespace axiom {
 
         std::vector<std::string> files;
         try {
-            auto options = recursive ? fs::directory_options::recursive
-                                     : fs::directory_options::none;
-            for (const auto &entry : fs::directory_iterator(resolved.physicalPath, options)) {
-                if (entry.is_regular_file()) {
-                    files.push_back(entry.path().string());
+            std::function<void(const fs::path &)> collect = [&](const fs::path &path) {
+                std::error_code ec;
+                if (fs::exists(path, ec) && fs::is_directory(path, ec)) {
+                    for (const auto &entry : fs::directory_iterator(path, ec)) {
+                        if (entry.is_regular_file(ec)) {
+                            files.push_back(entry.path().string());
+                        } else if (recursive && entry.is_directory(ec)) {
+                            collect(entry.path());
+                        }
+                    }
                 }
-            }
+            };
+
+            collect(fs::path(resolved.physicalPath));
         } catch (const std::exception &) {
         }
 
@@ -305,13 +332,21 @@ namespace axiom {
 
         std::vector<std::string> dirs;
         try {
-            auto options = recursive ? fs::directory_options::recursive
-                                     : fs::directory_options::none;
-            for (const auto &entry : fs::directory_iterator(resolved.physicalPath, options)) {
-                if (entry.is_directory()) {
-                    dirs.push_back(entry.path().string());
+            std::function<void(const fs::path &)> collect = [&](const fs::path &path) {
+                std::error_code ec;
+                if (fs::exists(path, ec) && fs::is_directory(path, ec)) {
+                    for (const auto &entry : fs::directory_iterator(path, ec)) {
+                        if (entry.is_directory(ec)) {
+                            dirs.push_back(entry.path().string());
+                            if (recursive) {
+                                collect(entry.path());
+                            }
+                        }
+                    }
                 }
-            }
+            };
+
+            collect(fs::path(resolved.physicalPath));
         } catch (const std::exception &) {
         }
 
@@ -353,6 +388,45 @@ namespace axiom {
             return "";
         }
         return resolved.physicalPath;
+    }
+
+    std::string VFS::ResolvePhysicalMountPath(
+        const std::string &mountRootHint,
+        const std::vector<std::string> &candidatePaths,
+        const std::vector<std::string> &commandLineArgs, bool &usedFallback) {
+        usedFallback = false;
+
+        for (const auto &arg : commandLineArgs) {
+            const std::string prefix = "--asset-root=";
+            if (arg.rfind(prefix, 0) == 0) {
+                const std::string candidate = arg.substr(prefix.size());
+                if (!candidate.empty() && fs::exists(candidate)) {
+                    return NormalizePath(candidate);
+                }
+            }
+        }
+
+        std::string rootHint = mountRootHint;
+        const size_t schemePos = rootHint.find("://");
+        if (schemePos != std::string::npos) {
+            rootHint = rootHint.substr(schemePos + 3);
+        }
+        if (!rootHint.empty() && fs::exists(rootHint)) {
+            return NormalizePath(rootHint);
+        }
+
+        for (const auto &candidate : candidatePaths) {
+            if (!candidate.empty() && fs::exists(candidate)) {
+                return NormalizePath(candidate);
+            }
+        }
+
+        if (!candidatePaths.empty()) {
+            usedFallback = true;
+            return NormalizePath(candidatePaths.front());
+        }
+
+        return {};
     }
 
     bool VFS::IsPathValid(const std::string &virtualPath) {

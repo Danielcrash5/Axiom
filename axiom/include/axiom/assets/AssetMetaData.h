@@ -2,12 +2,12 @@
 
 #include <string>
 
-#include "AssetID.h"
+#include "TypedUUID.h"
 #include "AssetType.h"
 
 namespace axiom {
     struct AssetMetadata {
-        AssetID ID{};
+        TypedUUID ID{};
 
         AssetType Type = AssetType::Unknown;
 

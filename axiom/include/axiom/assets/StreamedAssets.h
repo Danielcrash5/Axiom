@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <memory>
 #include <vector>
+#include "AssetManager.h"
 
 namespace axiom {
 

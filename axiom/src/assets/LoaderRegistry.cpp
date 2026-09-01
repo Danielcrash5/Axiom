@@ -4,9 +4,8 @@
 #include <iostream>
 #include <unordered_map>
 
-using json = nlohmann::json;
-
 namespace axiom {
+    using json = nlohmann::json;
 
     // === ModManifest ===
 
