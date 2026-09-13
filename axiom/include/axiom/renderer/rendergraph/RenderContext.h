@@ -1,22 +1,51 @@
 #pragma once
 #include "ResourceHandle.h"
+#include <axiom/renderer/RenderItem.h>
+#include <axiom/renderer/View.h>
 #include <axiom/renderer/rhi/RHITypes.h>
+#include <span>
+#include <vector>
 
 namespace axiom::renderer::rendergraph {
 
     class RenderGraph;
 
-    // Wird an RenderPass::execute() gereicht – Passes lösen ihre in setup()
-    // deklarierten ResourceHandles hier auf echte rhi::TextureHandle auf.
+    struct RenderExecutionDesc {
+        const View *view = nullptr;
+        std::span<const std::vector<RenderItem>> queuedItemsByPass;
+    };
+
+    // Wird an RenderPass::execute() gereicht - Passes loesen ihre in setup()
+    // deklarierten ResourceHandles hier auf echte rhi::TextureHandle auf und
+    // koennen optional die aktuelle View sowie ihre vorbereitete RenderQueue
+    // lesen. Der Graph bleibt Scheduling-Infrastruktur; Queue-Aufbau passiert
+    // davor im Renderer.
     class RenderContext {
       public:
-        explicit RenderContext(RenderGraph &graph) : m_graph(graph) {}
+        explicit RenderContext(RenderGraph &graph,
+                               const RenderExecutionDesc &execution = {})
+            : m_graph(graph), m_execution(execution) {}
 
         [[nodiscard]] rhi::TextureHandle
         resolveTexture(ResourceHandle handle) const;
 
+        [[nodiscard]] const View *currentView() const {
+            return m_execution.view;
+        }
+
+        [[nodiscard]] std::span<const RenderItem> items() const;
+        [[nodiscard]] std::span<const RenderItem> itemsForPass(uint32_t passIndex) const;
+
       private:
+        friend class RenderGraph;
+
+        void setCurrentPassIndex(uint32_t passIndex) {
+            m_currentPassIndex = passIndex;
+        }
+
         RenderGraph &m_graph;
+        RenderExecutionDesc m_execution;
+        uint32_t m_currentPassIndex = 0;
     };
 
 } // namespace axiom::renderer::rendergraph

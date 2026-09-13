@@ -14,6 +14,7 @@ public:
     static constexpr uint32_t kMaxTextures = 4096;
 
     [[nodiscard]] rhi::RHIResult<void> init(rhi::IRHIBackend& backend);
+    void shutdown();
 
     [[nodiscard]] rhi::RHIResult<uint32_t> allocate(rhi::TextureHandle texture);
     void free(uint32_t index);
@@ -21,11 +22,15 @@ public:
 
     [[nodiscard]] rhi::BindGroupLayoutHandle layout() const { return m_layout; }
     [[nodiscard]] rhi::BindGroupHandle bindGroup() const { return m_bindGroup; }
+    [[nodiscard]] bool initialized() const { return m_backend != nullptr && m_bindGroup.valid(); }
+    [[nodiscard]] bool isAllocated(uint32_t index) const;
 
 private:
     rhi::IRHIBackend* m_backend = nullptr;
     rhi::BindGroupLayoutHandle m_layout;
     rhi::BindGroupHandle m_bindGroup;
+    std::vector<rhi::TextureHandle> m_slots;
+    std::vector<bool> m_slotUsed;
     std::vector<uint32_t> m_freeSlots;
     uint32_t m_nextSlot = 0;
 };

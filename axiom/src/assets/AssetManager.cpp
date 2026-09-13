@@ -4,16 +4,32 @@
 namespace axiom {
 
     void AssetManager::Init(size_t workerThreadCount) {
+        if (s_Initialized) {
+            return;
+        }
+
         s_Registry.Init();
-        s_WorkerPool = std::make_unique<WorkerPool>(workerThreadCount);
+        if (workerThreadCount > 0) {
+            s_WorkerPool = std::make_unique<WorkerPool>(workerThreadCount);
+        } else {
+            s_WorkerPool.reset();
+        }
+        s_Initialized = true;
     }
 
     void AssetManager::Shutdown() {
+        if (!s_Initialized) {
+            return;
+        }
+
         s_WorkerPool.reset(); // Destruktor joint alle Worker-Threads
         std::lock_guard lock(s_CacheMutex);
         s_Cache.clear();
         s_Loaders.clear();
         s_Registry.Shutdown();
+        s_CacheHits = 0;
+        s_TotalBytesLoaded = 0;
+        s_Initialized = false;
     }
 
     std::shared_ptr<AssetControlBlock> AssetManager::GetOrCreateControlBlock(TypedUUID uuid) {

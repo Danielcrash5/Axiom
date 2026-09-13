@@ -1,6 +1,7 @@
 #pragma once
 #include "RenderContext.h"
 #include "RenderGraphBuilder.h"
+#include <axiom/renderer/RenderQueue.h>
 #include <axiom/renderer/rhi/CommandList.h>
 
 namespace axiom::renderer::rendergraph {
@@ -13,6 +14,14 @@ namespace axiom::renderer::rendergraph {
 
         // Rein informativ (Debug/Profiling), keine Logik daran geknüpft.
         [[nodiscard]] virtual const char *name() const = 0;
+
+        // Item-basierte Passes koennen hier ihre Queue-Anforderungen melden.
+        // Post-FX/Clear/Compute-Passes lassen den Default stehen und bekommen
+        // keine RenderItems vorbereitet.
+        [[nodiscard]] virtual bool usesRenderQueue() const { return false; }
+        [[nodiscard]] virtual RenderQueueDescriptor queueDescriptor() const {
+            return {};
+        }
     };
 
 } // namespace axiom::renderer::rendergraph

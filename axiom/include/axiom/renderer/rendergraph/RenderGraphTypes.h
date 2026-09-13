@@ -15,7 +15,9 @@ namespace axiom::renderer::rendergraph {
         std::string_view debugName;
     };
 
-    // Für Dependency-Auflösung: was macht der Pass mit der Resource.
+    // Fuer Dependency-Aufloesung: was macht der Pass mit der Resource.
+    // Write waehlt das konkrete Layout anhand der TextureUsage:
+    // RenderTarget -> ColorAttachment, sonst TransferDst.
     enum class AccessType { Read, Write };
 
 } // namespace axiom::renderer::rendergraph

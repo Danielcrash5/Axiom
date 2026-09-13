@@ -10,8 +10,17 @@ namespace axiom::renderer::rendergraph {
     class RenderGraph {
       public:
         explicit RenderGraph(rhi::IRHIBackend &backend) : m_backend(backend) {}
+        ~RenderGraph();
 
         void addPass(std::unique_ptr<RenderPass> pass);
+        void clear();
+
+        [[nodiscard]] uint32_t passCount() const {
+            return static_cast<uint32_t>(m_passes.size());
+        }
+
+        [[nodiscard]] std::vector<RenderQueueDescriptor>
+        queueDescriptors() const;
 
         // Löst NUR Dependencies/Layouts auf (welche Barriers wo nötig sind),
         // erzeugt transiente Resourcen. Keine Szenen-/Sortier-/Batch-Logik
@@ -19,7 +28,8 @@ namespace axiom::renderer::rendergraph {
         [[nodiscard]] rhi::RHIResult<void> compile();
 
         // Führt alle Passes in der von compile() bestimmten Reihenfolge aus.
-        [[nodiscard]] rhi::RHIResult<void> execute();
+        [[nodiscard]] rhi::RHIResult<void>
+        execute(const RenderExecutionDesc &execution = {});
 
       private:
         friend class RenderGraphBuilder;
@@ -61,11 +71,14 @@ namespace axiom::renderer::rendergraph {
         // Clear-Test-Pass reicht TransferDst; ColorAttachment/ShaderReadOnly
         // kommen mit Pipelines/Sampling in Phase 3.
         [[nodiscard]] rhi::TextureLayout
-        requiredLayoutFor(AccessType access) const;
+        requiredLayoutFor(const ResourceEntry &resource, AccessType access) const;
+
+        void releaseTransientResources();
 
         rhi::IRHIBackend &m_backend;
         std::vector<PassEntry> m_passes;
         std::vector<ResourceEntry> m_resources;
+        bool m_compiled = false;
     };
 
 } // namespace axiom::renderer::rendergraph

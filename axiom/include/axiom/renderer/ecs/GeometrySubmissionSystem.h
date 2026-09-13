@@ -1,13 +1,10 @@
 #pragma once
 #include <memory>
 
-// Pfade angenommen als axiom/scene/... - bitte an eure tatsaechliche
-// Ordnerstruktur anpassen, falls abweichend (Scene.h/Entity.h/ISystem.h/
-// Components.h wurden nur als lose Dateien hochgeladen, ohne Pfadkontext).
-#include <axiom/scene/ISystem.h>
-#include <axiom/scene/Scene.h>
-#include <axiom/scene/Entity.h>
-#include <axiom/scene/Components.h>
+#include <axiom/ecs/ISystem.h>
+#include <axiom/ecs/Scene.h>
+#include <axiom/ecs/Entity.h>
+#include <axiom/ecs/Components.h>
 
 #include <axiom/renderer/Renderer.h>
 #include <axiom/renderer/RenderItem.h>

@@ -60,9 +60,13 @@ target_link_libraries(axiom_asset_serializer_tests PRIVATE axiom_engine_test GTe
 add_executable(axiom_asset_manager_tests tests/AssetManagerSmoke.cpp)
 target_link_libraries(axiom_asset_manager_tests PRIVATE axiom_engine_test GTest::gtest_main)
 
+add_executable(axiom_renderer_tests tests/RendererSmoke.cpp)
+target_link_libraries(axiom_renderer_tests PRIVATE axiom_engine_test GTest::gtest_main)
+
 include(GoogleTest)
 gtest_discover_tests(axiom_asset_serializer_tests)
 gtest_discover_tests(axiom_asset_manager_tests)
+gtest_discover_tests(axiom_renderer_tests)
 
 function(axiom_add_asset_pack pack_target output_dir pack_name input_dir)
     if(NOT IS_DIRECTORY "${input_dir}")

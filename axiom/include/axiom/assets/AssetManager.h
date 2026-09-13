@@ -48,6 +48,7 @@ namespace axiom {
       public:
         static void Init(size_t workerThreadCount = 2);
         static void Shutdown();
+        [[nodiscard]] static bool IsInitialized() { return s_Initialized; }
 
         // === Lade-API ===
 
@@ -111,6 +112,7 @@ namespace axiom {
         static inline AssetRegistry s_Registry;
         static inline size_t s_CacheHits = 0;
         static inline size_t s_TotalBytesLoaded = 0;
+        static inline bool s_Initialized = false;
 
         // Interne Helper
         static std::shared_ptr<AssetControlBlock>
@@ -227,9 +229,13 @@ namespace axiom {
                     expected, AssetLoadState::Queued)) {
                 if (const auto *entry = s_Registry.Get(dep.targetUUID)) {
                     auto entryCopy = *entry;
-                    s_WorkerPool->Enqueue([uuid = dep.targetUUID, entryCopy] {
-                        LoadAsync_Internal(uuid, entryCopy);
-                    });
+                    if (s_WorkerPool) {
+                        s_WorkerPool->Enqueue([uuid = dep.targetUUID, entryCopy] {
+                            LoadAsync_Internal(uuid, entryCopy);
+                        });
+                    } else {
+                        LoadAsync_Internal(dep.targetUUID, entryCopy);
+                    }
                 }
             }
             handle.m_ControlBlock->heldDependencies.push_back(depControlBlock);

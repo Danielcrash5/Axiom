@@ -2,11 +2,37 @@
 
 namespace axiom::renderer::rendergraph {
 
+    RenderGraph::~RenderGraph() { clear(); }
+
     void RenderGraph::addPass(std::unique_ptr<RenderPass> pass) {
         // Bewusst NUR speichern – setup() wird erst in compile() aufgerufen,
         // damit der Graph erst alle Passes vollständig kennt, bevor er
         // irgendetwas anlegt oder Entscheidungen trifft.
+        if (!pass) {
+            return;
+        }
         m_passes.push_back(PassEntry{std::move(pass), {}});
+        m_compiled = false;
+    }
+
+    void RenderGraph::clear() {
+        releaseTransientResources();
+        m_resources.clear();
+        m_passes.clear();
+        m_compiled = false;
+    }
+
+    std::vector<RenderQueueDescriptor> RenderGraph::queueDescriptors() const {
+        std::vector<RenderQueueDescriptor> descriptors;
+        descriptors.reserve(m_passes.size());
+
+        for (const PassEntry& passEntry : m_passes) {
+            descriptors.push_back(passEntry.pass->usesRenderQueue()
+                                      ? passEntry.pass->queueDescriptor()
+                                      : RenderQueueDescriptor{.acceptedLayers = 0});
+        }
+
+        return descriptors;
     }
 
     ResourceHandle
@@ -50,9 +76,13 @@ namespace axiom::renderer::rendergraph {
         return m_resources[handle.index].textureHandle;
     }
 
-    rhi::TextureLayout RenderGraph::requiredLayoutFor(AccessType access) const {
+    rhi::TextureLayout RenderGraph::requiredLayoutFor(
+        const ResourceEntry &resource, AccessType access) const {
         switch (access) {
         case AccessType::Write:
+            if (resource.desc.usage & rhi::TextureUsage::RenderTarget) {
+                return rhi::TextureLayout::ColorAttachment;
+            }
             return rhi::TextureLayout::TransferDst;
         case AccessType::Read:
             return rhi::TextureLayout::ShaderReadOnly;
@@ -61,6 +91,13 @@ namespace axiom::renderer::rendergraph {
     }
 
     rhi::RHIResult<void> RenderGraph::compile() {
+        releaseTransientResources();
+        m_resources.clear();
+        for (auto &passEntry : m_passes) {
+            passEntry.accesses.clear();
+        }
+        m_compiled = false;
+
         // Schritt 1: setup() für ALLE Passes aufrufen, bevor irgendetwas
         // tatsächlich angelegt wird – der Graph deklariert erst vollständig,
         // welche Resourcen/Zugriffe existieren, bevor er Entscheidungen trifft
@@ -97,26 +134,32 @@ namespace axiom::renderer::rendergraph {
             }
             resource.textureHandle = *textureResult;
         }
+        m_compiled = true;
         return {};
     }
 
-    rhi::RHIResult<void> RenderGraph::execute() {
+    rhi::RHIResult<void> RenderGraph::execute(const RenderExecutionDesc &execution) {
+        if (!m_compiled) {
+            return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        }
+
         auto cmdList = m_backend.createCommandList();
         if (!cmdList) {
             return std::unexpected(rhi::RHIError::Unknown);
         }
 
-        RenderContext ctx(*this);
+        RenderContext ctx(*this, execution);
 
         for (uint32_t passIndex = 0; passIndex < m_passes.size(); ++passIndex) {
             auto &passEntry = m_passes[passIndex];
+            ctx.setCurrentPassIndex(passIndex);
 
             for (auto &access : passEntry.accesses) {
                 auto &resource = m_resources[access.handle.index];
                 if (resource.type != ResourceType::Texture)
                     continue;
 
-                rhi::TextureLayout required = requiredLayoutFor(access.access);
+                rhi::TextureLayout required = requiredLayoutFor(resource, access.access);
                 if (resource.currentLayout != required) {
                     cmdList->transitionTexture(resource.textureHandle,
                                                resource.currentLayout,
@@ -130,6 +173,16 @@ namespace axiom::renderer::rendergraph {
 
         m_backend.submit(*cmdList);
         return {};
+    }
+
+    void RenderGraph::releaseTransientResources() {
+        for (auto &resource : m_resources) {
+            if (!resource.isImported && resource.textureHandle.valid()) {
+                m_backend.destroyTexture(resource.textureHandle);
+                resource.textureHandle = {};
+                resource.currentLayout = rhi::TextureLayout::Undefined;
+            }
+        }
     }
 
     // --- RenderGraphBuilder-Methoden ---
@@ -160,6 +213,18 @@ namespace axiom::renderer::rendergraph {
     rhi::TextureHandle
     RenderContext::resolveTexture(ResourceHandle handle) const {
         return m_graph.resolveTexture(handle);
+    }
+
+    std::span<const RenderItem> RenderContext::items() const {
+        return itemsForPass(m_currentPassIndex);
+    }
+
+    std::span<const RenderItem>
+    RenderContext::itemsForPass(uint32_t passIndex) const {
+        if (passIndex >= m_execution.queuedItemsByPass.size()) {
+            return {};
+        }
+        return m_execution.queuedItemsByPass[passIndex];
     }
 
 } // namespace axiom::renderer::rendergraph
