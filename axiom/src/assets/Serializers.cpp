@@ -28,7 +28,7 @@ namespace axiom {
         return pretty ? j->dump(2) : j->dump();
     }
 
-    ISerializer::Mode JsonSerializer::GetMode() const { return m_Mode; }
+    JsonSerializer::Mode JsonSerializer::GetMode() const { return m_Mode; }
 
     bool JsonSerializer::Value(const char *key, bool &value) {
         auto j = static_cast<json *>(m_Json);
@@ -257,7 +257,7 @@ namespace axiom {
 
     std::vector<uint8_t> BinarySerializer::SaveToBytes() const { return m_Buffer; }
 
-    ISerializer::Mode BinarySerializer::GetMode() const { return m_Mode; }
+    BinarySerializer::Mode BinarySerializer::GetMode() const { return m_Mode; }
 
     void BinarySerializer::WriteBytes(const uint8_t *data, size_t size) {
         if (IsWriting()) {

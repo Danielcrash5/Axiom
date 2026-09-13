@@ -13,7 +13,7 @@ namespace axiom {
         uint32_t channels = 4; // RGBA = 4
         std::vector<uint8_t> pixelData;
 
-        void Serialize(ISerializer &s) {
+        template <typename S> void Serialize(S &s) {
             s.Value("width", width);
             s.Value("height", height);
             s.Value("channels", channels);
@@ -44,7 +44,7 @@ namespace axiom {
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
 
-        void Serialize(ISerializer &s) {
+        template <typename S> void Serialize(S &s) {
             uint32_t vertexCount = vertices.size();
             s.Value("vertexCount", vertexCount);
             if (s.IsReading()) {
@@ -73,16 +73,18 @@ namespace axiom {
         glm::vec4 albedoColor{1.0f};
         float metallic = 0.0f;
         float roughness = 1.0f;
-        TypedUUID albedoTextureId;   // Soft-Referenz
-        TypedUUID normalTextureId;   // Soft-Referenz
-        TypedUUID metallicTextureId; // Soft-Referenz
+        TypedUUID albedoTextureId;   // Hart-Referenz
+        TypedUUID normalTextureId;   // Hart-Referenz
+        TypedUUID metallicTextureId; // Hart-Referenz
 
-        void Serialize(ISerializer &s) {
+        template <typename S> void Serialize(S &s) {
             s.Value("name", name);
+            s.Value("albedoColor", albedoColor);
             s.Value("metallic", metallic);
             s.Value("roughness", roughness);
-            // Farben-Serialisierung...
-            // Texture-UUIDs als Strings...
+            s.Value("albedoTextureId", albedoTextureId);
+            s.Value("normalTextureId", normalTextureId);
+            s.Value("metallicTextureId", metallicTextureId);
         }
     };
 
@@ -99,7 +101,7 @@ namespace axiom {
         std::string name;
         std::vector<uint8_t> registryDump; // Serialisierter EnTT-Registry
 
-        void Serialize(ISerializer &s) {
+        template <typename S> void Serialize(S &s) {
             s.Value("name", name);
             uint32_t dumpSize = registryDump.size();
             s.Value("registryDumpSize", dumpSize);
@@ -123,7 +125,7 @@ namespace axiom {
         std::vector<uint8_t> entityDump; // Serialisierte Entity + Komponenten
         std::vector<AssetDependency> componentDependencies;
 
-        void Serialize(ISerializer &s) {
+        template <typename S> void Serialize(S &s) {
             s.Value("name", name);
             uint32_t dumpSize = entityDump.size();
             s.Value("entityDumpSize", dumpSize);
@@ -147,7 +149,7 @@ namespace axiom {
         uint32_t channels = 2;
         std::vector<int16_t> samples; // PCM-Daten
 
-        void Serialize(ISerializer &s) {
+        template <typename S> void Serialize(S &s) {
             s.Value("sampleRate", sampleRate);
             s.Value("channels", channels);
             uint32_t sampleCount = samples.size();

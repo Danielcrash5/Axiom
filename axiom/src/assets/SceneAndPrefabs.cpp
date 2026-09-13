@@ -1,4 +1,5 @@
 #include <axiom/assets/SceneAndPrefabs.h>
+#include <axiom/core/Logger.h>
 #include <iostream>
 #include <nlohmann/json.hpp>
 
@@ -181,20 +182,29 @@ namespace axiom {
     // === SceneManager ===
 
     AssetHandle<SceneAsset> SceneManager::LoadScene(TypedUUID sceneId) {
-        // TODO: Lade Scene via AssetManager
+        AXIOM_WARN("SceneManager::LoadScene is not implemented for scene {}", sceneId.ToString());
         return AssetHandle<SceneAsset>();
     }
 
     uint32_t SceneManager::InstantiatePrefab(AssetHandle<PrefabAsset> prefab,
                                               uint32_t parentRegistryVersion) {
-        // TODO: Deserialisiere Prefab in Laufzeit-Registry
+        AXIOM_ASSERT(prefab.IsValid(),
+                     "SceneManager::InstantiatePrefab received an invalid prefab handle");
+        AXIOM_ERROR(
+            "SceneManager::InstantiatePrefab reached an unavailable prefab implementation "
+            "for {} (parent registry version {})",
+            prefab.GetID().ToString(), parentRegistryVersion);
+        AXIOM_ASSERT(false, "SceneManager::InstantiatePrefab is not implemented");
         return 0;
     }
 
     void SceneManager::ReloadPrefab(TypedUUID prefabId) {
-        // TODO: Finde alle laufenden Instanzen dieser Prefab
-        // TODO: Lade Prefab neu
-        // TODO: Appliziere Änderungen auf Instanzen (respektiere Overrides)
+        AXIOM_ASSERT(prefabId.IsValid(),
+                     "SceneManager::ReloadPrefab received an invalid prefab UUID");
+        AXIOM_ERROR(
+            "SceneManager::ReloadPrefab reached an unavailable prefab implementation for {}",
+            prefabId.ToString());
+        AXIOM_ASSERT(false, "SceneManager::ReloadPrefab is not implemented");
     }
 
 } // namespace axiom

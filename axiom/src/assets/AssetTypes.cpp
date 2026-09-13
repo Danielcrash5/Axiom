@@ -31,8 +31,9 @@ namespace axiom {
 
     void *TextureLoader::Reload(void *existing, const std::vector<uint8_t> &newData,
                                  size_t &outSizeBytes) {
-        delete static_cast<TextureAsset *>(existing);
-        return Load(newData, outSizeBytes);
+        void *replacement = Load(newData, outSizeBytes);
+        if (replacement && existing) Unload(existing);
+        return replacement;
     }
 
     void TextureLoader::Unload(void *data) { delete static_cast<TextureAsset *>(data); }
@@ -61,8 +62,9 @@ namespace axiom {
 
     void *MeshLoader::Reload(void *existing, const std::vector<uint8_t> &newData,
                               size_t &outSizeBytes) {
-        delete static_cast<MeshAsset *>(existing);
-        return Load(newData, outSizeBytes);
+        void *replacement = Load(newData, outSizeBytes);
+        if (replacement && existing) Unload(existing);
+        return replacement;
     }
 
     void MeshLoader::Unload(void *data) { delete static_cast<MeshAsset *>(data); }
@@ -85,8 +87,9 @@ namespace axiom {
 
     void *MaterialLoader::Reload(void *existing, const std::vector<uint8_t> &newData,
                                   size_t &outSizeBytes) {
-        delete static_cast<MaterialAsset *>(existing);
-        return Load(newData, outSizeBytes);
+        void *replacement = Load(newData, outSizeBytes);
+        if (replacement && existing) Unload(existing);
+        return replacement;
     }
 
     void MaterialLoader::Unload(void *data) { delete static_cast<MaterialAsset *>(data); }
@@ -111,8 +114,9 @@ namespace axiom {
 
     void *SceneLoader::Reload(void *existing, const std::vector<uint8_t> &newData,
                                size_t &outSizeBytes) {
-        delete static_cast<SceneAsset *>(existing);
-        return Load(newData, outSizeBytes);
+        void *replacement = Load(newData, outSizeBytes);
+        if (replacement && existing) Unload(existing);
+        return replacement;
     }
 
     void SceneLoader::Unload(void *data) { delete static_cast<SceneAsset *>(data); }
@@ -137,8 +141,9 @@ namespace axiom {
 
     void *PrefabLoader::Reload(void *existing, const std::vector<uint8_t> &newData,
                                 size_t &outSizeBytes) {
-        delete static_cast<PrefabAsset *>(existing);
-        return Load(newData, outSizeBytes);
+        void *replacement = Load(newData, outSizeBytes);
+        if (replacement && existing) Unload(existing);
+        return replacement;
     }
 
     void PrefabLoader::Unload(void *data) { delete static_cast<PrefabAsset *>(data); }
@@ -164,8 +169,9 @@ namespace axiom {
 
     void *SoundEffectLoader::Reload(void *existing, const std::vector<uint8_t> &newData,
                                      size_t &outSizeBytes) {
-        delete static_cast<SoundEffectAsset *>(existing);
-        return Load(newData, outSizeBytes);
+        void *replacement = Load(newData, outSizeBytes);
+        if (replacement && existing) Unload(existing);
+        return replacement;
     }
 
     void SoundEffectLoader::Unload(void *data) { delete static_cast<SoundEffectAsset *>(data); }

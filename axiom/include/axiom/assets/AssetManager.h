@@ -8,6 +8,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <unordered_set>
 #include <unordered_map>
 
 namespace axiom {
@@ -21,10 +22,15 @@ namespace axiom {
         // Gibt Ownership über das gepufferte Asset ab
         virtual void *Load(const std::vector<uint8_t> &data, size_t &outSizeBytes) = 0;
 
-        // Optional: Hot-Reload-Unterstützung
+        // Optional: Hot-Reload-Unterstützung. Bei Erfolg gibt Reload eine neue
+        // Instanz zurück und ruft Unload auf der alten Instanz selbst auf.
         virtual void *Reload(void *existing, const std::vector<uint8_t> &newData,
                              size_t &outSizeBytes) {
-            return Load(newData, outSizeBytes);
+            void *replacement = Load(newData, outSizeBytes);
+            if (replacement && existing) {
+                Unload(existing);
+            }
+            return replacement;
         }
 
         // Optional: Unload-Hook (für Cleanup, z.B. GPU-Ressourcen)
@@ -87,7 +93,7 @@ namespace axiom {
       private:
         // Control-Block mit Metadaten
         struct CacheEntry {
-            std::shared_ptr<AssetControlBlock> controlBlock;
+            std::weak_ptr<AssetControlBlock> controlBlock;
             TypedUUID uuid;
             AssetTypeId typeId;
             IAssetLoader *loader;
@@ -108,6 +114,9 @@ namespace axiom {
         static void LoadAsync_Internal(TypedUUID uuid, const AssetRegistryEntry &entry);
         static void ResolveDependencies(const TypedUUID &uuid,
                                         std::vector<TypedUUID> &outQueue);
+        static void LoadDependenciesInternal(
+            const TypedUUID &uuid, std::vector<std::shared_ptr<AssetControlBlock>> &held,
+            std::unordered_set<TypedUUID> &visited);
     };
 
     // === Template Implementierungen ===
@@ -189,17 +198,15 @@ namespace axiom {
 
     template <typename T>
     inline void AssetManager::LoadDependencies(AssetHandle<T> handle) {
-        if (!handle.IsValid()) {
+        if (!handle.IsValid() || !handle.m_ControlBlock) {
             return;
         }
 
-        std::vector<TypedUUID> queue;
-        ResolveDependencies(handle.GetID(), queue);
-
-        for (const auto &depUuid : queue) {
-            // Allgemeiner Load-Call (Typ wird zur Laufzeit bestimmt)
-            LoadAsync<void *>(depUuid);
-        }
+        handle.m_ControlBlock->heldDependencies.clear();
+        std::unordered_set<TypedUUID> visited;
+        visited.insert(handle.GetID());
+        LoadDependenciesInternal(handle.GetID(), handle.m_ControlBlock->heldDependencies,
+                                  visited);
     }
 
     template <typename T>
@@ -224,9 +231,24 @@ namespace axiom {
             return;
         }
 
-        // Für echten Reload würde hier das Private Member zugegriffen werden
-        // Das ist eine Vereinfachung - produktiver Code könnte einen Freund 
-        // oder eine spezielle API verwenden
+        auto controlBlock = handle.m_ControlBlock;
+        if (!controlBlock || controlBlock->state.load(std::memory_order_acquire) !=
+                                 AssetLoadState::Loaded) {
+            return;
+        }
+
+        size_t newSizeBytes = 0;
+        void *newAssetData = loader->Reload(controlBlock->data, data, newSizeBytes);
+        if (!newAssetData) {
+            return;
+        }
+
+        if (s_TotalBytesLoaded >= controlBlock->sizeBytes) {
+            s_TotalBytesLoaded -= controlBlock->sizeBytes;
+        }
+        controlBlock->data = newAssetData;
+        controlBlock->sizeBytes = newSizeBytes;
+        s_TotalBytesLoaded += newSizeBytes;
     }
 
 } // namespace axiom

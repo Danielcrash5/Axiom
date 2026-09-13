@@ -14,67 +14,20 @@ namespace axiom {
     // dedupliziert über Caching).
     //
     // Thread-Safety: Handle selbst ist kopiersicher, Ref-Counting erfolgt
-    // atomar über den Control-Block.
+    // durch shared_ptr.
     template <typename T>
     class AssetHandle {
       public:
         AssetHandle() = default;
 
         AssetHandle(TypedUUID id, std::shared_ptr<AssetControlBlock> controlBlock)
-            : m_ID(id), m_ControlBlock(std::move(controlBlock)) {
-            if (m_ControlBlock) {
-                m_ControlBlock->AddStrongRef();
-            }
-        }
+            : m_ID(id), m_ControlBlock(std::move(controlBlock)) {}
 
-        // Copy-Konstruktor erhöht Ref-Count
-        AssetHandle(const AssetHandle &other)
-            : m_ID(other.m_ID), m_ControlBlock(other.m_ControlBlock) {
-            if (m_ControlBlock) {
-                m_ControlBlock->AddStrongRef();
-            }
-        }
-
-        // Copy-Assignment
-        AssetHandle &operator=(const AssetHandle &other) {
-            if (this != &other) {
-                if (m_ControlBlock && m_ControlBlock->RemoveStrongRef()) {
-                    // Cleanup ist Sache des AssetManager
-                }
-                m_ID = other.m_ID;
-                m_ControlBlock = other.m_ControlBlock;
-                if (m_ControlBlock) {
-                    m_ControlBlock->AddStrongRef();
-                }
-            }
-            return *this;
-        }
-
-        // Move-Konstruktor
-        AssetHandle(AssetHandle &&other) noexcept
-            : m_ID(other.m_ID), m_ControlBlock(std::move(other.m_ControlBlock)) {
-            other.m_ID = TypedUUID();
-        }
-
-        // Move-Assignment
-        AssetHandle &operator=(AssetHandle &&other) noexcept {
-            if (this != &other) {
-                if (m_ControlBlock && m_ControlBlock->RemoveStrongRef()) {
-                    // Cleanup
-                }
-                m_ID = other.m_ID;
-                m_ControlBlock = std::move(other.m_ControlBlock);
-                other.m_ID = TypedUUID();
-            }
-            return *this;
-        }
-
-        // Destruktor senkt Ref-Count
-        ~AssetHandle() {
-            if (m_ControlBlock && m_ControlBlock->RemoveStrongRef()) {
-                // Wird vom AssetManager aufgeräumt
-            }
-        }
+        AssetHandle(const AssetHandle &) = default;
+        AssetHandle &operator=(const AssetHandle &) = default;
+        AssetHandle(AssetHandle &&) noexcept = default;
+        AssetHandle &operator=(AssetHandle &&) noexcept = default;
+        ~AssetHandle() = default;
 
         [[nodiscard]] TypedUUID GetID() const { return m_ID; }
 
@@ -118,13 +71,14 @@ namespace axiom {
         [[nodiscard]] uint32_t GetRefCount() const {
             if (!m_ControlBlock)
                 return 0;
-            return m_ControlBlock->GetStrongCount();
+            return static_cast<uint32_t>(m_ControlBlock.use_count());
         }
 
       private:
         TypedUUID m_ID;
         std::shared_ptr<AssetControlBlock> m_ControlBlock;
 
+                friend class AssetManager;
         template <typename>
         friend class WeakAssetHandle;
     };

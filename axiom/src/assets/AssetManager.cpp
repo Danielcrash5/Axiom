@@ -20,10 +20,34 @@ namespace axiom {
         std::lock_guard lock(s_CacheMutex);
         auto it = s_Cache.find(uuid);
         if (it != s_Cache.end()) {
-            return it->second.controlBlock;
+            if (auto controlBlock = it->second.controlBlock.lock()) {
+                return controlBlock;
+            }
+            s_Cache.erase(it);
         }
 
-        auto controlBlock = std::make_shared<AssetControlBlock>();
+        IAssetLoader *loader = GetLoader(uuid.type);
+        auto deleter = [uuid, loader](AssetControlBlock *controlBlock) {
+            if (controlBlock->data && loader) {
+                loader->Unload(controlBlock->data);
+                controlBlock->data = nullptr;
+            }
+
+            {
+                std::lock_guard cacheLock(s_CacheMutex);
+                if (s_TotalBytesLoaded >= controlBlock->sizeBytes) {
+                    s_TotalBytesLoaded -= controlBlock->sizeBytes;
+                }
+                auto cacheIt = s_Cache.find(uuid);
+                if (cacheIt != s_Cache.end()) {
+                    s_Cache.erase(cacheIt);
+                }
+            }
+
+            delete controlBlock;
+        };
+
+        std::shared_ptr<AssetControlBlock> controlBlock(new AssetControlBlock, deleter);
         CacheEntry entry{controlBlock, uuid, uuid.type, nullptr};
         s_Cache[uuid] = entry;
         return controlBlock;
@@ -48,14 +72,18 @@ namespace axiom {
     }
 
     void AssetManager::LoadAsync_Internal(TypedUUID uuid, const AssetRegistryEntry &entry) {
-        auto it = s_Cache.find(uuid);
-        if (it == s_Cache.end()) {
-            // Cache-Eintrag sollte existieren (wurde GetOrCreateControlBlock aufgerufen)
+        std::shared_ptr<AssetControlBlock> controlBlock;
+        {
+            std::lock_guard lock(s_CacheMutex);
+            auto it = s_Cache.find(uuid);
+            if (it == s_Cache.end()) {
+                return;
+            }
+            controlBlock = it->second.controlBlock.lock();
+        }
+        if (!controlBlock) {
             return;
         }
-
-        auto &cacheEntry = it->second;
-        auto controlBlock = cacheEntry.controlBlock;
 
         // Lade die Datei
         std::vector<uint8_t> data;
@@ -86,6 +114,8 @@ namespace axiom {
 
         // Speichere die Daten und mark als ready
         controlBlock->data = assetData;
+        controlBlock->sizeBytes = sizeBytes;
+        controlBlock->sizeBytes = sizeBytes;
         s_TotalBytesLoaded += sizeBytes;
         controlBlock->state.store(AssetLoadState::Loaded, std::memory_order_release);
     }
@@ -100,11 +130,49 @@ namespace axiom {
         }
     }
 
+    void AssetManager::LoadDependenciesInternal(
+        const TypedUUID &uuid, std::vector<std::shared_ptr<AssetControlBlock>> &held,
+        std::unordered_set<TypedUUID> &visited) {
+        for (const auto &dependency : s_Registry.GetDependencies(uuid)) {
+            if (dependency.depType != AssetDependencyType::Hard ||
+                !visited.insert(dependency.targetUUID).second) {
+                continue;
+            }
+
+            const AssetRegistryEntry *entry = s_Registry.Get(dependency.targetUUID);
+            if (!entry) {
+                continue;
+            }
+
+            auto controlBlock = GetOrCreateControlBlock(dependency.targetUUID);
+            AssetLoadState expected = AssetLoadState::Unloaded;
+            if (controlBlock->state.compare_exchange_strong(expected,
+                                                             AssetLoadState::Queued)) {
+                LoadAsync_Internal(dependency.targetUUID, *entry);
+            } else {
+                while (controlBlock->state.load(std::memory_order_acquire) ==
+                       AssetLoadState::Queued ||
+                       controlBlock->state.load(std::memory_order_acquire) ==
+                           AssetLoadState::Loading) {
+                    std::this_thread::yield();
+                }
+            }
+
+            if (controlBlock->state.load(std::memory_order_acquire) ==
+                AssetLoadState::Loaded) {
+                held.push_back(controlBlock);
+                LoadDependenciesInternal(dependency.targetUUID, held, visited);
+            }
+        }
+    }
+
     size_t AssetManager::GetLoadedAssetCount() {
         std::lock_guard lock(s_CacheMutex);
         size_t count = 0;
         for (const auto &[uuid, entry] : s_Cache) {
-            if (entry.controlBlock->state.load(std::memory_order_acquire) ==
+            auto controlBlock = entry.controlBlock.lock();
+            if (controlBlock &&
+                controlBlock->state.load(std::memory_order_acquire) ==
                 AssetLoadState::Loaded) {
                 count++;
             }

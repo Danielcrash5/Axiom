@@ -46,10 +46,23 @@ add_subdirectory(thirdparty/cereal)
 add_subdirectory(thirdparty/entt)
 
 add_subdirectory(thirdparty/imgui)
+add_subdirectory(thirdparty/googletest EXCLUDE_FROM_ALL)
 
 
 # Engine Projects
 add_subdirectory(axiom)
+
+enable_testing()
+
+add_executable(axiom_asset_serializer_tests tests/AssetSerializerSmoke.cpp)
+target_link_libraries(axiom_asset_serializer_tests PRIVATE axiom_engine_test GTest::gtest_main)
+
+add_executable(axiom_asset_manager_tests tests/AssetManagerSmoke.cpp)
+target_link_libraries(axiom_asset_manager_tests PRIVATE axiom_engine_test GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(axiom_asset_serializer_tests)
+gtest_discover_tests(axiom_asset_manager_tests)
 
 function(axiom_add_asset_pack pack_target output_dir pack_name input_dir)
     if(NOT IS_DIRECTORY "${input_dir}")
