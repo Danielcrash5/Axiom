@@ -30,7 +30,7 @@ namespace axiom {
         std::string components; // Serialized JSON string
 
         // Falls diese Entity eine Prefab-Instanz ist:
-        PrefabInstanceData *prefabInstance = nullptr;
+        std::optional<PrefabInstanceData> prefabInstance;
 
         std::string ToJson() const;
         static SceneEntity FromJson(const std::string &jsonStr);

@@ -57,10 +57,12 @@ namespace axiom {
         s_fileWatchers.clear();
     }
 
-    bool VFS::Mount(const std::string &mountName, const std::string &physicalPath,
-                     MountType type, bool readOnly, int priority) {
+    bool VFS::Mount(const std::string &mountName,
+                    const std::string &physicalPath, MountType type,
+                    bool readOnly, int priority) {
         if (IsMounted(mountName)) {
-            std::cerr << "VFS: Mount '" << mountName << "' bereits vorhanden!\n";
+            std::cerr << "VFS: Mount '" << mountName
+                      << "' bereits vorhanden!\n";
             return false;
         }
 
@@ -68,22 +70,26 @@ namespace axiom {
 
         if (type == MountType::Directory) {
             if (!fs::exists(normalized)) {
-                std::cerr << "VFS: Verzeichnis nicht gefunden: " << normalized << "\n";
+                std::cerr << "VFS: Verzeichnis nicht gefunden: " << normalized
+                          << "\n";
                 return false;
             }
             if (!fs::is_directory(normalized)) {
-                std::cerr << "VFS: Ist kein Verzeichnis: " << normalized << "\n";
+                std::cerr << "VFS: Ist kein Verzeichnis: " << normalized
+                          << "\n";
                 return false;
             }
         }
         // TODO: ZIP-Support in AssetPack-Phase
 
-        s_mounts[mountName] = {type, normalized, readOnly, priority, nullptr, 0};
+        s_mounts[mountName] = {type,     normalized, readOnly,
+                               priority, nullptr,    0};
         return true;
     }
 
-    bool VFS::MountPath(const std::string &mountName, const std::string &physicalPath,
-                        bool readOnly, int priority, MountType type) {
+    bool VFS::MountPath(const std::string &mountName,
+                        const std::string &physicalPath, bool readOnly,
+                        int priority, MountType type) {
         std::string normalizedRoot = mountName;
         const size_t schemePos = normalizedRoot.find("://");
         if (schemePos != std::string::npos) {
@@ -99,7 +105,8 @@ namespace axiom {
             fs::create_directories(normalizedPhysical);
         }
 
-        return Mount(normalizedRoot, normalizedPhysical, type, readOnly, priority);
+        return Mount(normalizedRoot, normalizedPhysical, type, readOnly,
+                     priority);
     }
 
     bool VFS::Unmount(const std::string &mountName) {
@@ -110,10 +117,12 @@ namespace axiom {
         return s_mounts.find(mountName) != s_mounts.end();
     }
 
-    std::pair<std::string, std::string> VFS::SplitVirtualPath(const std::string &virtualPath) {
+    std::pair<std::string, std::string>
+    VFS::SplitVirtualPath(const std::string &virtualPath) {
         size_t colonPos = virtualPath.find("://");
         if (colonPos != std::string::npos) {
-            return {virtualPath.substr(0, colonPos), virtualPath.substr(colonPos + 3)};
+            return {virtualPath.substr(0, colonPos),
+                    virtualPath.substr(colonPos + 3)};
         }
         return {"", ""};
     }
@@ -121,8 +130,10 @@ namespace axiom {
     bool VFS::ResolvePath(const std::string &virtualPath, ResolvedPath &out) {
         auto [mountName, relativePath] = SplitVirtualPath(virtualPath);
 
-        if (mountName.empty() || relativePath.empty()) {
-            std::cerr << "VFS: Ungültiger virtueller Pfad: " << virtualPath << "\n";
+        if (mountName.empty()) { // relativePath.empty() NICHT mehr als Fehler
+                                 // behandeln
+            std::cerr << "VFS: Ungültiger virtueller Pfad: " << virtualPath
+                      << "\n";
             return false;
         }
 
@@ -133,13 +144,15 @@ namespace axiom {
         }
 
         out.mount = &it->second;
-        out.relativePath = NormalizePath(relativePath);
-        out.physicalPath = NormalizePath(it->second.physicalPath + "/" + out.relativePath);
-
+        out.relativePath = relativePath; // kann jetzt "" sein
+        out.physicalPath = relativePath.empty()
+                               ? it->second.physicalPath
+                               : it->second.physicalPath + "/" + relativePath;
         return true;
     }
 
-    bool VFS::ReadFile(const std::string &virtualPath, std::vector<uint8_t> &outData) {
+    bool VFS::ReadFile(const std::string &virtualPath,
+                       std::vector<uint8_t> &outData) {
         ResolvedPath resolved;
         if (!ResolvePath(virtualPath, resolved)) {
             return false;
@@ -173,7 +186,8 @@ namespace axiom {
         return data;
     }
 
-    bool VFS::ReadTextFile(const std::string &virtualPath, std::string &outText) {
+    bool VFS::ReadTextFile(const std::string &virtualPath,
+                           std::string &outText) {
         std::vector<uint8_t> data;
         if (!ReadFile(virtualPath, data)) {
             return false;
@@ -183,21 +197,23 @@ namespace axiom {
         return true;
     }
 
-    bool VFS::WriteFile(const std::string &virtualPath, const std::vector<uint8_t> &data) {
+    bool VFS::WriteFile(const std::string &virtualPath,
+                        const std::vector<uint8_t> &data) {
         ResolvedPath resolved;
         if (!ResolvePath(virtualPath, resolved)) {
             return false;
         }
 
         if (resolved.mount->readOnly) {
-            std::cerr << "VFS: Versuch, in Read-Only Mount zu schreiben: " << virtualPath
-                      << "\n";
+            std::cerr << "VFS: Versuch, in Read-Only Mount zu schreiben: "
+                      << virtualPath << "\n";
             return false;
         }
 
         try {
             // Stelle sicher, dass das Verzeichnis existiert
-            fs::create_directories(fs::path(resolved.physicalPath).parent_path());
+            fs::create_directories(
+                fs::path(resolved.physicalPath).parent_path());
 
             std::ofstream file(resolved.physicalPath, std::ios::binary);
             if (!file) {
@@ -205,7 +221,8 @@ namespace axiom {
             }
 
             if (!data.empty()) {
-                file.write(reinterpret_cast<const char *>(data.data()), data.size());
+                file.write(reinterpret_cast<const char *>(data.data()),
+                           data.size());
             }
 
             return file.good();
@@ -215,13 +232,16 @@ namespace axiom {
         }
     }
 
-    bool VFS::WriteTextFile(const std::string &virtualPath, const std::string &text) {
+    bool VFS::WriteTextFile(const std::string &virtualPath,
+                            const std::string &text) {
         std::vector<uint8_t> data(text.begin(), text.end());
         return WriteFile(virtualPath, data);
     }
 
-    std::future<std::vector<uint8_t>> VFS::ReadFileAsync(const std::string &virtualPath) {
-        return std::async(std::launch::async, [virtualPath]() { return ReadFile(virtualPath); });
+    std::future<std::vector<uint8_t>>
+    VFS::ReadFileAsync(const std::string &virtualPath) {
+        return std::async(std::launch::async,
+                          [virtualPath]() { return ReadFile(virtualPath); });
     }
 
     bool VFS::Exists(const std::string &virtualPath) {
@@ -255,16 +275,17 @@ namespace axiom {
         }
 
         if (resolved.mount->readOnly) {
-            std::cerr << "VFS: Versuch, in Read-Only Mount zu schreiben: " << virtualPath
-                      << "\n";
+            std::cerr << "VFS: Versuch, in Read-Only Mount zu schreiben: "
+                      << virtualPath << "\n";
             return false;
         }
 
         try {
-            return fs::create_directories(resolved.physicalPath);
+            fs::create_directories(resolved.physicalPath);
+            return fs::is_directory(resolved.physicalPath);
         } catch (const std::exception &e) {
-            std::cerr << "VFS: Fehler beim Erstellen des Verzeichnisses: " << e.what()
-                      << "\n";
+            std::cerr << "VFS: Fehler beim Erstellen des Verzeichnisses: "
+                      << e.what() << "\n";
             return false;
         }
     }
@@ -282,7 +303,8 @@ namespace axiom {
         }
     }
 
-    std::filesystem::file_time_type VFS::GetLastWriteTime(const std::string &virtualPath) {
+    std::filesystem::file_time_type
+    VFS::GetLastWriteTime(const std::string &virtualPath) {
         ResolvedPath resolved;
         if (!ResolvePath(virtualPath, resolved)) {
             return {};
@@ -295,7 +317,8 @@ namespace axiom {
         }
     }
 
-    std::vector<std::string> VFS::ListFiles(const std::string &virtualPath, bool recursive) {
+    std::vector<std::string> VFS::ListFiles(const std::string &virtualPath,
+                                            bool recursive) {
         ResolvedPath resolved;
         if (!ResolvePath(virtualPath, resolved)) {
             return {};
@@ -303,18 +326,20 @@ namespace axiom {
 
         std::vector<std::string> files;
         try {
-            std::function<void(const fs::path &)> collect = [&](const fs::path &path) {
-                std::error_code ec;
-                if (fs::exists(path, ec) && fs::is_directory(path, ec)) {
-                    for (const auto &entry : fs::directory_iterator(path, ec)) {
-                        if (entry.is_regular_file(ec)) {
-                            files.push_back(entry.path().string());
-                        } else if (recursive && entry.is_directory(ec)) {
-                            collect(entry.path());
+            std::function<void(const fs::path &)> collect =
+                [&](const fs::path &path) {
+                    std::error_code ec;
+                    if (fs::exists(path, ec) && fs::is_directory(path, ec)) {
+                        for (const auto &entry :
+                             fs::directory_iterator(path, ec)) {
+                            if (entry.is_regular_file(ec)) {
+                                files.push_back(entry.path().string());
+                            } else if (recursive && entry.is_directory(ec)) {
+                                collect(entry.path());
+                            }
                         }
                     }
-                }
-            };
+                };
 
             collect(fs::path(resolved.physicalPath));
         } catch (const std::exception &) {
@@ -323,8 +348,8 @@ namespace axiom {
         return files;
     }
 
-    std::vector<std::string> VFS::ListDirectories(const std::string &virtualPath,
-                                                   bool recursive) {
+    std::vector<std::string>
+    VFS::ListDirectories(const std::string &virtualPath, bool recursive) {
         ResolvedPath resolved;
         if (!ResolvePath(virtualPath, resolved)) {
             return {};
@@ -332,19 +357,21 @@ namespace axiom {
 
         std::vector<std::string> dirs;
         try {
-            std::function<void(const fs::path &)> collect = [&](const fs::path &path) {
-                std::error_code ec;
-                if (fs::exists(path, ec) && fs::is_directory(path, ec)) {
-                    for (const auto &entry : fs::directory_iterator(path, ec)) {
-                        if (entry.is_directory(ec)) {
-                            dirs.push_back(entry.path().string());
-                            if (recursive) {
-                                collect(entry.path());
+            std::function<void(const fs::path &)> collect =
+                [&](const fs::path &path) {
+                    std::error_code ec;
+                    if (fs::exists(path, ec) && fs::is_directory(path, ec)) {
+                        for (const auto &entry :
+                             fs::directory_iterator(path, ec)) {
+                            if (entry.is_directory(ec)) {
+                                dirs.push_back(entry.path().string());
+                                if (recursive) {
+                                    collect(entry.path());
+                                }
                             }
                         }
                     }
-                }
-            };
+                };
 
             collect(fs::path(resolved.physicalPath));
         } catch (const std::exception &) {
@@ -353,7 +380,8 @@ namespace axiom {
         return dirs;
     }
 
-    void VFS::WatchFile(const std::string &virtualPath, std::function<void()> onChanged) {
+    void VFS::WatchFile(const std::string &virtualPath,
+                        std::function<void()> onChanged) {
         s_fileWatchers[virtualPath] = onChanged;
     }
 
@@ -372,7 +400,8 @@ namespace axiom {
                 auto lastWrite = fs::last_write_time(resolved.physicalPath);
                 auto lastCheck = resolved.mount->lastCheck;
 
-                if (lastWrite.time_since_epoch() > std::chrono::nanoseconds(lastCheck)) {
+                if (lastWrite.time_since_epoch() >
+                    std::chrono::nanoseconds(lastCheck)) {
                     callback();
                     resolved.mount->lastCheck =
                         lastWrite.time_since_epoch().count();

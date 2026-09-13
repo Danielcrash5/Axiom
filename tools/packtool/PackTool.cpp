@@ -1,6 +1,7 @@
 #include <axiom/assets/VFS.h>
 
 #include <algorithm>
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -131,9 +132,18 @@ int main(int argc, char **argv) {
         axiom::VFS::ListFiles(std::string(InputRoot), true);
     std::sort(files.begin(), files.end());
 
-    for (const auto &file : files) {
-        if (!addFileToZip(zf, file)) {
-            std::cerr << "Failed to add file: " << file << "\n";
+    const std::filesystem::path inputRootPath =
+        std::filesystem::absolute(inputDir).lexically_normal();
+    for (const auto &physicalFile : files) {
+        const auto relativeFile =
+            std::filesystem::relative(physicalFile, inputRootPath);
+        const std::string relativeFileString = relativeFile.generic_string();
+        const std::string virtualFile =
+            std::string(InputRoot) + relativeFileString;
+        if (relativeFile.empty() || relativeFileString == ".." ||
+            relativeFileString.starts_with("../") ||
+            !addFileToZip(zf, virtualFile)) {
+            std::cerr << "Failed to add file: " << physicalFile << "\n";
             zipClose(zf, nullptr);
             axiom::VFS::Shutdown();
             return 1;
