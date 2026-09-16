@@ -69,3 +69,11 @@ namespace axiom {
             std::abort();                                                      \
         }                                                                      \
     } while (0)
+
+#define AXIOM_ASSERT_FATAL(x, ...)                                             \
+    do {                                                                       \
+        if (!(x)) {                                                            \
+            AXIOM_FATAL("Assertion Failed: " __VA_ARGS__);                     \
+            std::abort();                                                      \
+        }                                                                      \
+    } while (0)
