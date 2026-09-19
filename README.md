@@ -1,90 +1,312 @@
-# Axiom Renderer – Fixes & Swapchain/Present-Implementierung
+# Axiom  
+Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.  
 
-## 1. Dateien in diesem ZIP direkt überschreiben
-Alle Dateien hier haben denselben relativen Pfad wie in deinem Repo – einfach
-drüberkopieren.
+---
 
-## 2. Diese Dateien musst du LÖSCHEN (Case-Mismatches, echte Ordner-Duplikate)
-Ein ZIP kann keine Löschungen ausdrücken – das musst du manuell nachziehen:
+## 📚 Inhaltsverzeichnis
+1. [Kernsysteme](#kernsystme)
+2. [Phase 1 — Rendering‑Grundlage](#phase-1--rendering-grundlage)
+3. [Phase 2 — Asset‑System](#phase-2--asset-system-inkl-asset-packs)
+4. [Phase 3 — ECS](#phase-3--ecs-mithilfe-von-entt)
+5. [Phase 4 — Renderer‑Integration](#phase-4--renderer-integration)
+6. [Phase 5 — Debug‑Tools / Editor‑Basis](#phase-5--debug-tools--editor-basis)
+7. [Phase 6 — 2D‑Platformer‑Prototyp](#phase-6--2d-platformer-prototyp)
+8. [Phase 7 — Minimaler Editor](#phase-7--minimaler-editor)
+9. [Phase 8 — Physik (Box2D)](#phase-8--physik-box2d)
+10. [Phase 9 — Skripting (Luau + C++)](#phase-9--skripting-luau--c)
+11. [Phase 10 — Audio (OpenAL)](#phase-10--audio-openal)
+12. [Phase 11 — Finaler Platformer](#phase-11--finaler-platformer)
+13. [Phase 12 — Netzwerk (Asio)](#phase-12--netzwerk-asio)
+14. [Phase 13 — Benutzeroberflächensystem](#phase-13--benutzeroberflächensystem)
+15. [Phase 14 — Multiplayer Dungeon Crawler (2D)](#phase-14--multiplayer-dungeon-crawler-2d)
+16. [Phase 15 — Editor‑Erweiterung](#phase-15--editor-erweiterung)
+17. [Phase 16 — Frame Graph / Command List](#phase-16--frame-graph--command-list)
+18. [Phase 17 — 3D‑Renderer](#phase-17--3d-renderer)
+19. [Phase 18 — 3D‑Physik (Jolt)](#phase-18--3d-physik-jolt)
+20. [Phase 19 — Plugin‑System](#phase-19--plugin-system)
+21. [Phase 20 — Spiel‑Export](#phase-20--spiel-export)
+22. [Reflection](#reflection)
+23. [Weitere Platformen](#weitere-platformen)
+24. [Multithreading](#multithreading)
 
-```
-axiom/include/axiom/ImGui/IImGuilayer.h        (ersetzt durch IImGuiLayer.h)
-axiom/include/axiom/Input/ActionMap.h          (ersetzt durch input/ActionMap.h)
-axiom/include/axiom/Input/GamepadCodes.h       (ersetzt durch input/GamepadCodes.h)
-axiom/include/axiom/Input/Input.h              (ersetzt durch input/Input.h)
-axiom/include/axiom/Input/KeyCodes.h           (ersetzt durch input/KeyCodes.h)
-axiom/include/axiom/Input/MouseCodes.h         (ersetzt durch input/MouseCodes.h)
-axiom/include/axiom/core/Layerstack.h          (ersetzt durch LayerStack.h)
-axiom/src/Input/ActionMap.cpp                  (ersetzt durch src/input/ActionMap.cpp)
-axiom/src/Input/Input.cpp                      (ersetzt durch src/input/Input.cpp)
-axiom/src/core/Layerstack.cpp                  (ersetzt durch LayerStack.cpp)
-axiom/include/axiom/renderer/rhi/Commandlist.h (ersetzt durch CommandList.h)
-```
+---
 
-Danach solltest du KEINE zwei Ordner mehr haben, die sich nur in Groß-/
-Kleinschreibung unterscheiden (`Input/` vs `input/` gab's tatsächlich beide
-gleichzeitig im Repo – auf Windows/macOS unsichtbar, auf Linux zwei getrennte
-Verzeichnisse).
+## Kernsysteme (bereits implementiert)
+- [x] Anwendungssystem (Main Loop, Lebenszyklus, Init/Shutdown)  
+- [x] Logger (Level, Ausgabe, Formatierung)  
+- [x] Profiler (Scopes, Frame Timings)  
+- [x] Fenstersystem (Kontext-Erstellung, Resize, Close Events)  
+- [x] Eingabesystem (Tastatur, Maus, Joystick)  
 
-## 3. VMA (Vulkan Memory Allocator) vendoren
-`VulkanBackend.h`/`VmaImpl.cpp` brauchen `<vma/vk_mem_alloc.h>` – das gibt's
-im Repo aktuell NIRGENDS (weder Submodule noch Fetch noch vendored Datei).
-Lade die aktuelle Single-Header-Version:
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
 
-```
-https://raw.githubusercontent.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/master/include/vk_mem_alloc.h
-```
+---
 
-und leg sie ab unter:
-```
-thirdparty/vma/vma/vk_mem_alloc.h
-```
-(die doppelte `vma/vma/`-Verschachtelung ist Absicht – der Include-Pfad
-`thirdparty/vma` wird als Include-Directory gesetzt, damit `#include
-<vma/vk_mem_alloc.h>` funktioniert.)
+## Phase 1 — Rendering-Grundlage
 
-`axiom/CMakeLists.txt` (in diesem ZIP enthalten) fügt den Include-Pfad schon
-für `axiom_engine` und `axiom_engine_test` hinzu.
+### Renderer-Architektur
+- [x] RendererAPI-Interface vorhanden  
+- [x] RenderCommand-Wrapper existiert  
+- [x] OpenGL-Backend angebunden  
+- [x] Keine direkten OpenGL-Calls außerhalb des Backends  
+- [x] Renderer wird zentral initialisiert (Renderer::Init())  
+- [x] API-Auswahl vorbereitet (RendererAPIType Enum: OpenGL, Vulkan, etc.)  
 
-## 4. Was inhaltlich neu ist
+### OpenGL-Backend (4.6)
+- [x] Init()  
+- [x] SetViewport()  
+- [x] SetClearColor()  
+- [x] Clear()  
+- [x] DrawIndexed()  
+- [x] Depth Test vorbereitet (glEnable(GL_DEPTH_TEST))  
+- [x] OpenGL Debug Callback aktiviert  
+- [x] Fehler-Logging  
 
-**Swapchain/Present (fehlte komplett):**
-- `rhi/Swapchain.h` (neu): `SwapchainDesc`, `AcquiredImage`
-- `Handle.h`: `SwapchainHandle` ergänzt
-- `IRHIBackend.h`: `createSwapchain`/`destroySwapchain`/`acquireNextImage`/
-  `present`/`swapchainFormat`/`swapchainExtent`
-- `VulkanBackend.h`/`.cpp`: vollständige Implementierung – Capabilities/
-  Format/Present-Mode-Auswahl, automatisches Resize bei
-  `VK_ERROR_OUT_OF_DATE_KHR`, ein stabiler `TextureHandle` pro Swapchain-Image
-  (kein Handle-Churn pro Frame), vollständig synchron (passt zum bisherigen
-  Stil des Backends – kein Frames-in-Flight-Overlap, das ist eine spätere
-  Optimierung)
-- **Zwei Bugs im Zuge dessen gefixt:** Destruktor hätte mit Swapchain-Images
-  abgestürzt (`vmaDestroyImage` auf einem Image ohne `VmaAllocation`), und
-  es gab noch gar keine Stelle, die Swapchains zerstört (jetzt: vor
-  Surfaces/Device, wie von Vulkan verlangt).
+### Render State Handling
+**Ziele:**  
+- Alle GPU-Zustände zentral verwalten  
+- Keine redundanten OpenGL-Calls  
+- Standardzustände definieren  
 
-**`compile()` läuft nicht mehr jeden Frame bedingungslos neu (Perf-Fix):**
-- Vergleicht jetzt Größe/Format/Usage jeder transienten Resource gegen den
-  letzten `compile()`-Aufruf und nur bei tatsächlicher Änderung neu erzeugt.
-- Test dafür umgeschrieben (`RecompileReusesUnchangedTransientTextures`
-  ersetzt den alten `RecompileReleasesPreviousTransientTextures`-Test, der
-  genau das alte, unerwünschte Verhalten erwartet hatte).
+**Aufgaben:**  
+- [x] RenderState-Struktur implementieren   
+- [x] RendererAPI: SetRenderState(RenderState state)  
+- [x] OpenGL-Mapping:  
+  - DepthTest → glEnable/glDisable(GL_DEPTH_TEST)  
+  - Blending → glEnable/glDisable(GL_BLEND)  
+  - CullFace → glEnable/glDisable(GL_CULL_FACE)  
+- [x] State-Cache: aktuelle Zustände speichern, nur ändern wenn nötig  
+- [x] Standardzustand beim Init setzen: Blending=true, DepthTest=false, CullFace=false  
 
-**Passes kennen jetzt die aktuelle View während `setup()`:**
-- `RenderGraphBuilder` bekommt dieselbe `RenderExecutionDesc` wie
-  `RenderContext` (inkl. `presentTarget()` fürs Swapchain-Image des aktuellen
-  Frames) – `compile()` nimmt jetzt einen optionalen `RenderExecutionDesc`-
-  Parameter.
-- `ClearScreenPass` nutzt das schon: Größe kommt jetzt aus der aktuellen
-  View statt hartkodiert 800×600 (Fallback bleibt 800×600, falls keine View
-  übergeben wird, z.B. in isolierten Unit-Tests).
+### Buffer-System
+- [x] VertexBuffer (abstrakt)  
+- [x] OpenGLVertexBuffer  
+- [x] IndexBuffer (abstrakt)  
+- [x] OpenGLIndexBuffer  
+- [x] Korrekte Destruktoren, keine Speicherlecks  
+- [x] Saubere Bind/Unbind-Implementierung  
 
-## 5. Verifiziert
-Komplettes Projekt (Engine, alle 3 Test-Targets, testbed) baut fehlerfrei
-mit GCC/Ninja auf Linux. Alle 3 Renderer-Tests laufen grün.
+### Vertex-Layout-System
+- [x] ShaderDataType Enum (Float, Vec2, Vec3, Vec4, Mat3, Mat4, Int, Bool usw.)  
+- [x] BufferElement-Struktur (Name, Typ, Größe, Offset, Normalized)  
+- [x] VertexBufferLayout berechnet automatisch Stride/Offset  
+- [x] Flexibel für 2D und 3D  
+- [x] Erledigt, wenn beliebige Vertex-Strukturen korrekt an Shader übergeben werden  
 
-**Nicht verifiziert:** Läuft nie gegen eine echte GPU/Fenster (Sandbox ohne
-Display/Vulkan-Treiber) – reine Compile+Logik-Verifikation über den
-`NullBackend` in den Unit-Tests. Realer Swapchain-Betrieb (echtes Fenster,
-echte Präsentation) solltest du selbst einmal durchklicken.
+### VertexArray (VAO)
+- [x] Interface existiert  
+- [x] OpenGLVertexArray implementiert  
+- [x] AddVertexBuffer() funktioniert  
+- [x] SetIndexBuffer() funktioniert  
+- [x] OpenGL-Bindings korrekt (glEnableVertexAttribArray, glVertexAttribPointer)  
+- [x] Erledigt, wenn VertexLayout im Shader korrekt ankommt  
+
+### Shader-System
+- [x] Interface (Bind(), Unbind())  
+- [x] Fehler-Logging  
+- [x] Laufzeit-Uniform- und Textur-Binding   
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 2 — Asset-System (inkl. Asset Packs)
+Abgeschlossen
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 3 — ECS mithilfe von EnTT
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 4 — Renderer-Integration
+- [x] ECS → DrawCommandBuffer  
+- [x] DrawCommand-Struktur (Mesh + Material + Transform)  
+- [x] Sortierung (nach Material/Textur)  
+- [x] Batching  
+- [x] Kamera-Handling (View/Projection)  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 5 — Debug Tools / Editor-Basis
+- [x] ImGui-Integration  
+- [ ] ImGuizmo-Integration  (Erst mal auf Eisgelegt)
+- [x] Panels: Hierarchie, Inspektor, Statistiken  
+- [x] Transform-Bearbeitung + Gizmos (leider ohne Gizmos, nur über Inspector numerische Eingabe)
+- [x] Andockbare Benutzeroberfläche  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 6 — 2D-Platformer-Prototyp 
+Nur finaler Platformer
+- [ ] Spielerbewegung  
+- [ ] Sprungmechanik  
+- [ ] Kollision (AABB)  
+- [ ] Kamera folgt dem Spieler  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 7 — Minimaler Editor
+- [ ] Szenen-Serialisierung/-Deserialisierung  
+- [ ] Entitäts-/Komponentenbearbeitung  
+- [ ] Play/Stop-Modus  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 8 — Physik (Box2D)
+- [ ] Physik-Welt  
+- [ ] Rigidbody2D-Komponente  
+- [ ] Collider2D  
+- [ ] Kollisionsevents  
+- [ ] Transform-Synchronisierung  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 9 — Skripting (Luau + C++)
+- [ ] Lua-Integration
+- [ ] dynamisches laden von C++ Webassembly modulen
+- [ ] Skript-Komponente für Luau und C++
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 10 — Audio (SDL3)
+- [ ] Audio-Gerät  
+- [ ] Soundquelle  
+- [ ] Wiedergabe  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 11 — Finaler Platformer
+- [ ] Vollständiges Level mit Gameplay  
+- [ ] Physik + Audio integriert  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 12 — Netzwerk (Asio)
+- [ ] Client/Server-Architektur  
+- [ ] UPnP-Unterstützung
+- [ ] Entitätssynchronisierung  
+- [ ] Basis-Replikation  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 13 — Benutzeroberflächensystem mit RmlUI
+- [ ] Spiel-HUD  
+- [ ] Menüs  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 14 — Multiplayer Dungeon Crawler (2D)
+- [ ] Koop-Gameplay  
+- [ ] Gegner/KI  
+- [ ] Level-Design  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 15 — Editor-Erweiterung
+- [ ] Asset-Browser  
+- [ ] Prefabs  
+- [ ] Undo/Redo  
+- [ ] Erweiterte Szenenwerkzeuge  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 16 — Frame Graph / Command List
+- [ ] Render-Pass-System  
+- [ ] Ressourcenabhängigkeiten  
+- [ ] Command-Graph-Ausführung  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 17 — 3D-Renderer
+- [ ] Mesh-Rendering  
+- [ ] Tiefentest  
+- [ ] 3D-Kamera  
+- [ ] Beleuchtung  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 18 — 3D-Physik (Jolt)
+- [ ] Rigidbody3D  
+- [ ] Collider3D  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 19 — Plugin-System
+- [ ] Dynamische Module / Erweiterbarkeit  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Phase 20 — Spiel-Export
+- [ ] Build-Pipeline  
+- [ ] Spiel-Paketierung  
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Reflection
+- [ ] Reflection für C++ Klassen (einfachere einbindung in Luau und Inspector im Editor)
+- [ ] RTTR ähnliche builder API
+- [ ] auch nutzbar in Webassembly modulen, Plugins und Modifikationen (auch wenn Mods hauptsächlich in Luau sind)
+
+---
+
+## Weitere Platformen
+- [ ] Windows
+- [ ] Web
+- [ ] Linux
+- [ ] Android
+- [ ] VR
+     
+---
+
+## Multithreading
+**Vorbereitung:**  
+- [ ] Keine globalen Renderer-Zustände  
+- [ ] Thread-sicheres CommandBuffer-Design  
+
+**Implementierung:**  
+- [ ] Job-System  
+- [ ] Thread-Pool  
+- [ ] Asynchrones Asset-Loading  
+- [ ] Parallele ECS-Verarbeitung  
+- [ ] Parallele Renderer-Kommandos
+- [ ] Fibers
+
+[⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
