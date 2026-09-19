@@ -22,12 +22,14 @@ struct PipelineTag {};
 struct BindGroupTag {};
 struct SamplerTag {};
 struct SurfaceTag {};
+struct SwapchainTag {};
 
-using BufferHandle    = Handle<BufferTag>;
-using TextureHandle   = Handle<TextureTag>;
-using PipelineHandle  = Handle<PipelineTag>;
-using BindGroupHandle = Handle<BindGroupTag>;
-using SamplerHandle   = Handle<SamplerTag>;
-using SurfaceHandle   = Handle<SurfaceTag>;
+using BufferHandle     = Handle<BufferTag>;
+using TextureHandle    = Handle<TextureTag>;
+using PipelineHandle   = Handle<PipelineTag>;
+using BindGroupHandle  = Handle<BindGroupTag>;
+using SamplerHandle    = Handle<SamplerTag>;
+using SurfaceHandle    = Handle<SurfaceTag>;
+using SwapchainHandle  = Handle<SwapchainTag>;
 
 } // namespace axiom::renderer::rhi

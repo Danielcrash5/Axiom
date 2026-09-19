@@ -2,7 +2,7 @@
 
 #include "axiom/ImGui/IImGuiPanel.h"
 #include "axiom/core/Logger.h"
-#include "axiom/core/Logsink.h"
+#include "axiom/core/LogSink.h"
 
 #include <imgui.h>
 

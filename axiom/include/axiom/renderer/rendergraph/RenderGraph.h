@@ -22,10 +22,17 @@ namespace axiom::renderer::rendergraph {
         [[nodiscard]] std::vector<RenderQueueDescriptor>
         queueDescriptors() const;
 
-        // Löst NUR Dependencies/Layouts auf (welche Barriers wo nötig sind),
-        // erzeugt transiente Resourcen. Keine Szenen-/Sortier-/Batch-Logik
-        // (die liegt in RenderQueueSystem/BatchBuilder, Abschnitt 10).
-        [[nodiscard]] rhi::RHIResult<void> compile();
+        // Löst Dependencies/Layouts auf (welche Barriers wo nötig sind),
+        // erzeugt/aktualisiert transiente Resourcen. Wiederverwendet
+        // bestehende GPU-Texturen, wenn sich ihre Beschreibung seit dem
+        // letzten compile() nicht geändert hat (kein Zerstören/Neuanlegen
+        // pro Frame nur weil renderFrame() erneut kompiliert). Keine
+        // Szenen-/Sortier-/Batch-Logik (die liegt in
+        // RenderQueueSystem/BatchBuilder, Abschnitt 10). `execution` wird an
+        // jeden Pass' setup() gereicht (RenderGraphBuilder::currentView()/
+        // presentTarget()), damit Passes z.B. View-abhängige Größen wählen
+        // können.
+        [[nodiscard]] rhi::RHIResult<void> compile(const RenderExecutionDesc &execution = {});
 
         // Führt alle Passes in der von compile() bestimmten Reihenfolge aus.
         [[nodiscard]] rhi::RHIResult<void>

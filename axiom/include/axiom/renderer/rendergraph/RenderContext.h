@@ -13,6 +13,11 @@ namespace axiom::renderer::rendergraph {
     struct RenderExecutionDesc {
         const View *view = nullptr;
         std::span<const std::vector<RenderItem>> queuedItemsByPass;
+        // Fuer Views mit RenderTargetKind::Swapchain: das fuer DIESEN Frame
+        // per acquireNextImage() geholte Swapchain-Image. Passes importieren
+        // es ueber RenderGraphBuilder::presentTarget() waehrend setup() (setup()
+        // hat jetzt Zugriff auf dieselbe RenderExecutionDesc wie execute()).
+        rhi::TextureHandle presentTarget;
     };
 
     // Wird an RenderPass::execute() gereicht - Passes loesen ihre in setup()

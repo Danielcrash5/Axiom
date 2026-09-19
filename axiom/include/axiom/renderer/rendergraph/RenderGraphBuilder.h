@@ -1,6 +1,7 @@
 #pragma once
 #include "RenderGraphTypes.h"
 #include "ResourceHandle.h"
+#include "RenderContext.h" // fuer RenderExecutionDesc
 #include <axiom/renderer/rhi/RHITypes.h>
 
 namespace axiom::renderer::rendergraph {
@@ -9,10 +10,20 @@ namespace axiom::renderer::rendergraph {
 
     // Wird nur während RenderPass::setup() gereicht – deklariert Resource-
     // Erzeugung und Lese-/Schreibzugriffe, OHNE selbst Zeichenarbeit zu tun.
+    // Bekommt dieselbe RenderExecutionDesc wie RenderContext::execute() -
+    // Passes koennen so z.B. Transient-Resourcen an die Groesse der
+    // aktuellen View anpassen oder das per-Frame-Swapchain-Image importieren
+    // (siehe presentTarget()).
     class RenderGraphBuilder {
       public:
-        explicit RenderGraphBuilder(RenderGraph &graph, uint32_t passIndex)
-            : m_graph(graph), m_passIndex(passIndex) {}
+        explicit RenderGraphBuilder(RenderGraph &graph, uint32_t passIndex,
+                                    const RenderExecutionDesc &execution = {})
+            : m_graph(graph), m_passIndex(passIndex), m_execution(execution) {}
+
+        [[nodiscard]] const View *currentView() const { return m_execution.view; }
+        [[nodiscard]] rhi::TextureHandle presentTarget() const {
+            return m_execution.presentTarget;
+        }
 
         // Transiente Resource: der Graph erzeugt/verwaltet die GPU-Textur
         // selbst.
@@ -34,6 +45,7 @@ namespace axiom::renderer::rendergraph {
       private:
         RenderGraph &m_graph;
         uint32_t m_passIndex;
+        RenderExecutionDesc m_execution;
     };
 
 } // namespace axiom::renderer::rendergraph

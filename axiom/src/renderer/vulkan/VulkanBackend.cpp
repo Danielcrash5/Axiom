@@ -4,6 +4,7 @@
 #include <iostream>
 #include <optional>
 #include <array>
+#include <algorithm>
 
 namespace axiom::renderer::rhi::vulkan {
 
@@ -344,7 +345,21 @@ VulkanBackend::~VulkanBackend() {
     for (auto& slot : m_textures) {
         if (slot.alive) {
             vkDestroyImageView(m_device, slot.view, nullptr);
-            vmaDestroyImage(m_allocator, slot.image, slot.allocation);
+            // Swapchain-Image-Views werden hier mitzerstoert (korrekt, die
+            // besitzen wir) - das zugehoerige VkImage NICHT, das gehoert der
+            // Swapchain und wird unten bei vkDestroySwapchainKHR mitzerstoert.
+            if (!slot.externallyOwnedImage) {
+                vmaDestroyImage(m_allocator, slot.image, slot.allocation);
+            }
+        }
+    }
+    // Swapchains VOR ihren Surfaces und VOR vkDestroyDevice zerstoeren -
+    // Vulkan verlangt das explizit (Swapchain haelt eine Referenz auf die
+    // Surface). Die Image-Views wurden oben schon ueber m_textures zerstoert.
+    for (auto& slot : m_swapchains) {
+        if (slot.alive) {
+            vkDestroyFence(m_device, slot.acquireFence, nullptr);
+            vkDestroySwapchainKHR(m_device, slot.swapchain, nullptr);
         }
     }
     for (auto& slot : m_bindGroups) {
@@ -506,10 +521,16 @@ void VulkanBackend::destroyTexture(TextureHandle handle) {
     if (!slot.alive || slot.generation != handle.generation) return;
 
     vkDestroyImageView(m_device, slot.view, nullptr);
-    vmaDestroyImage(m_allocator, slot.image, slot.allocation);
+    // Swapchain-Images gehoeren der Swapchain (zerstoert bei
+    // vkDestroySwapchainKHR) - wir haben dafuer nie eine VmaAllocation
+    // besessen und duerfen das VkImage selbst nicht zerstoeren.
+    if (!slot.externallyOwnedImage) {
+        vmaDestroyImage(m_allocator, slot.image, slot.allocation);
+    }
     slot.view = VK_NULL_HANDLE;
     slot.image = VK_NULL_HANDLE;
     slot.allocation = VK_NULL_HANDLE;
+    slot.externallyOwnedImage = false;
     slot.alive = false;
     m_freeTextureSlots.push_back(handle.index);
 }
@@ -683,8 +704,11 @@ void VulkanBackend::submit(CommandList& cmd) {
 
     vkResetFences(m_device, 1, &m_graphFence);
     vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, m_graphFence);
-    // Synchron/blockierend fuer Phase 2/3 - Frame-Pacing mit mehreren Fences
-    // "in flight" kommt erst mit der Swapchain in Phase 8.
+    // Synchron/blockierend - genau deshalb braucht present() (siehe Swapchain-
+    // Abschnitt oben) keine Wait-Semaphores: zum Zeitpunkt des Aufrufs ist
+    // die GPU-Arbeit bereits abgeschlossen. Frame-Pacing mit mehreren Fences
+    // "in flight" (Ueberlappung von CPU/GPU-Arbeit) ist eine spaetere
+    // Performance-Optimierung, kein Korrektheitsproblem.
     vkWaitForFences(m_device, 1, &m_graphFence, VK_TRUE, UINT64_MAX);
 
     vkFreeCommandBuffers(m_device, m_graphCommandPool, 1, &commandBuffer);
@@ -716,8 +740,8 @@ RHIResult<SurfaceHandle> VulkanBackend::createSurface(void* nativeSurfaceHandle)
     m_surfaces[index].surface = reinterpret_cast<VkSurfaceKHR>(nativeSurfaceHandle);
     m_surfaces[index].alive = true;
 
-    // Swapchain-Erzeugung aus dieser Surface folgt in Phase 8 (Views). Jede
-    // zusaetzliche ImGui-Viewport-Fenster-Surface durchlaeuft denselben Pfad.
+    // Swapchain-Erzeugung aus dieser Surface: IRHIBackend::createSwapchain().
+    // Jede zusaetzliche ImGui-Viewport-Fenster-Surface durchlaeuft denselben Pfad.
     return SurfaceHandle{ index, m_surfaces[index].generation };
 }
 
@@ -730,6 +754,320 @@ void VulkanBackend::destroySurface(SurfaceHandle handle) {
     slot.surface = VK_NULL_HANDLE;
     slot.alive = false;
     m_freeSurfaceSlots.push_back(handle.index);
+}
+
+// ============================================================================
+// Swapchain/Present
+// ============================================================================
+
+RHIResult<void> VulkanBackend::recreateSwapchainInternal(SwapchainSlot& slot,
+                                                          uint32_t requestedWidth,
+                                                          uint32_t requestedHeight) {
+    VkBool32 presentSupported = VK_FALSE;
+    vkGetPhysicalDeviceSurfaceSupportKHR(m_physicalDevice, m_graphicsQueueFamily,
+                                         slot.surface, &presentSupported);
+    if (!presentSupported) {
+        // Fuer den ersten Wurf nehmen wir an, dass die Graphics-Queue auch
+        // praesentieren kann (uebliche Konfiguration auf Desktop). Eine
+        // dedizierte Present-Queue-Suche ist eine spaetere Erweiterung, falls
+        // das auf einer Zielplattform mal nicht zutrifft.
+        return std::unexpected(RHIError::InvalidDescriptor);
+    }
+
+    VkSurfaceCapabilitiesKHR caps{};
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physicalDevice, slot.surface, &caps);
+
+    VkExtent2D extent;
+    if (caps.currentExtent.width != 0xFFFFFFFFu) {
+        extent = caps.currentExtent;
+    } else {
+        extent.width = std::clamp(requestedWidth, caps.minImageExtent.width, caps.maxImageExtent.width);
+        extent.height = std::clamp(requestedHeight, caps.minImageExtent.height, caps.maxImageExtent.height);
+    }
+    if (extent.width == 0 || extent.height == 0) {
+        // Minimiertes Fenster o.ae. - Swapchain-Erzeugung mit Groesse 0 ist
+        // ungueltig. Aufrufer soll es spaeter (nach Restore) erneut versuchen.
+        return std::unexpected(RHIError::InvalidDescriptor);
+    }
+
+    uint32_t formatCount = 0;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, slot.surface, &formatCount, nullptr);
+    if (formatCount == 0) return std::unexpected(RHIError::Unknown);
+    std::vector<VkSurfaceFormatKHR> formats(formatCount);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, slot.surface, &formatCount, formats.data());
+
+    VkSurfaceFormatKHR chosenFormat = formats[0];
+    for (auto& f : formats) {
+        if ((f.format == VK_FORMAT_B8G8R8A8_UNORM || f.format == VK_FORMAT_R8G8B8A8_UNORM) &&
+            f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            chosenFormat = f;
+            break;
+        }
+    }
+    // Alles ausser diesen beiden Formaten wird als BGRA8Unorm behandelt -
+    // eine bewusste Vereinfachung fuer den ersten Wurf; auf den allermeisten
+    // Desktop-Plattformen liefert obige Bevorzugung ohnehin eines der beiden.
+    TextureFormat rhiFormat = chosenFormat.format == VK_FORMAT_R8G8B8A8_UNORM
+        ? TextureFormat::RGBA8Unorm : TextureFormat::BGRA8Unorm;
+
+    uint32_t presentModeCount = 0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, slot.surface, &presentModeCount, nullptr);
+    std::vector<VkPresentModeKHR> presentModes(presentModeCount);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, slot.surface, &presentModeCount, presentModes.data());
+
+    VkPresentModeKHR chosenMode = VK_PRESENT_MODE_FIFO_KHR; // immer garantiert verfuegbar
+    if (!slot.vsync) {
+        bool foundMailbox = false;
+        for (auto mode : presentModes) {
+            if (mode == VK_PRESENT_MODE_MAILBOX_KHR) { chosenMode = mode; foundMailbox = true; break; }
+        }
+        if (!foundMailbox) {
+            for (auto mode : presentModes) {
+                if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) { chosenMode = mode; break; }
+            }
+        }
+    }
+
+    uint32_t imageCount = caps.minImageCount + 1;
+    if (caps.maxImageCount != 0 && imageCount > caps.maxImageCount) {
+        imageCount = caps.maxImageCount;
+    }
+
+    VkImageUsageFlags imageUsage = (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+                                 & caps.supportedUsageFlags;
+
+    VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    if (!(caps.supportedCompositeAlpha & compositeAlpha)) {
+        for (VkCompositeAlphaFlagBitsKHR candidate : { VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+                                                        VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+                                                        VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR }) {
+            if (caps.supportedCompositeAlpha & candidate) { compositeAlpha = candidate; break; }
+        }
+    }
+
+    VkSwapchainKHR oldSwapchain = slot.swapchain;
+
+    VkSwapchainCreateInfoKHR createInfo{ .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
+    createInfo.surface = slot.surface;
+    createInfo.minImageCount = imageCount;
+    createInfo.imageFormat = chosenFormat.format;
+    createInfo.imageColorSpace = chosenFormat.colorSpace;
+    createInfo.imageExtent = extent;
+    createInfo.imageArrayLayers = 1;
+    createInfo.imageUsage = imageUsage;
+    createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    createInfo.preTransform = caps.currentTransform;
+    createInfo.compositeAlpha = compositeAlpha;
+    createInfo.presentMode = chosenMode;
+    createInfo.clipped = VK_TRUE;
+    createInfo.oldSwapchain = oldSwapchain;
+
+    VkSwapchainKHR newSwapchain;
+    if (vkCreateSwapchainKHR(m_device, &createInfo, nullptr, &newSwapchain) != VK_SUCCESS) {
+        return std::unexpected(RHIError::Unknown);
+    }
+
+    // Alte Image-Views (ueber m_textures) und die alte Swapchain selbst erst
+    // JETZT zerstoeren, nachdem die neue erfolgreich erzeugt wurde - so
+    // schreibt Vulkan das per oldSwapchain-Retire-Pfad vor.
+    for (TextureHandle oldHandle : slot.imageTextures) {
+        destroyTexture(oldHandle);
+    }
+    slot.imageTextures.clear();
+    if (oldSwapchain != VK_NULL_HANDLE) {
+        vkDestroySwapchainKHR(m_device, oldSwapchain, nullptr);
+    }
+
+    slot.swapchain = newSwapchain;
+    slot.format = chosenFormat.format;
+    slot.rhiFormat = rhiFormat;
+    slot.width = extent.width;
+    slot.height = extent.height;
+
+    uint32_t actualImageCount = 0;
+    vkGetSwapchainImagesKHR(m_device, slot.swapchain, &actualImageCount, nullptr);
+    std::vector<VkImage> images(actualImageCount);
+    vkGetSwapchainImagesKHR(m_device, slot.swapchain, &actualImageCount, images.data());
+
+    slot.imageTextures.reserve(actualImageCount);
+    for (VkImage image : images) {
+        VkImageViewCreateInfo viewInfo{ .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+        viewInfo.image = image;
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format = slot.format;
+        viewInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+        VkImageView view;
+        if (vkCreateImageView(m_device, &viewInfo, nullptr, &view) != VK_SUCCESS) {
+            return std::unexpected(RHIError::Unknown);
+        }
+
+        uint32_t index;
+        if (!m_freeTextureSlots.empty()) {
+            index = m_freeTextureSlots.back();
+            m_freeTextureSlots.pop_back();
+            m_textures[index].generation += 1;
+        } else {
+            index = static_cast<uint32_t>(m_textures.size());
+            m_textures.push_back(TextureSlot{});
+            m_textures[index].generation = 1;
+        }
+
+        auto& texSlot = m_textures[index];
+        texSlot.image = image;
+        texSlot.allocation = VK_NULL_HANDLE; // extern besessen - siehe externallyOwnedImage
+        texSlot.view = view;
+        texSlot.format = rhiFormat;
+        texSlot.width = extent.width;
+        texSlot.height = extent.height;
+        texSlot.alive = true;
+        texSlot.externallyOwnedImage = true;
+
+        slot.imageTextures.push_back(TextureHandle{ index, texSlot.generation });
+    }
+
+    return {};
+}
+
+RHIResult<SwapchainHandle> VulkanBackend::createSwapchain(const SwapchainDesc& desc) {
+    VkSurfaceKHR surface = nativeSurface(desc.surface);
+    if (surface == VK_NULL_HANDLE) {
+        return std::unexpected(RHIError::InvalidDescriptor);
+    }
+
+    uint32_t index;
+    if (!m_freeSwapchainSlots.empty()) {
+        index = m_freeSwapchainSlots.back();
+        m_freeSwapchainSlots.pop_back();
+        m_swapchains[index].generation += 1;
+    } else {
+        index = static_cast<uint32_t>(m_swapchains.size());
+        m_swapchains.push_back(SwapchainSlot{});
+        m_swapchains[index].generation = 1;
+    }
+
+    auto& slot = m_swapchains[index];
+    slot.surface = surface;
+    slot.vsync = desc.vsync;
+    slot.alive = true;
+
+    VkFenceCreateInfo fenceInfo{ .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+    if (vkCreateFence(m_device, &fenceInfo, nullptr, &slot.acquireFence) != VK_SUCCESS) {
+        slot.alive = false;
+        m_freeSwapchainSlots.push_back(index);
+        return std::unexpected(RHIError::Unknown);
+    }
+
+    if (auto result = recreateSwapchainInternal(slot, desc.width, desc.height); !result) {
+        vkDestroyFence(m_device, slot.acquireFence, nullptr);
+        slot.acquireFence = VK_NULL_HANDLE;
+        slot.alive = false;
+        m_freeSwapchainSlots.push_back(index);
+        return std::unexpected(result.error());
+    }
+
+    return SwapchainHandle{ index, slot.generation };
+}
+
+void VulkanBackend::destroySwapchain(SwapchainHandle handle) {
+    if (handle.index >= m_swapchains.size()) return;
+    auto& slot = m_swapchains[handle.index];
+    if (!slot.alive || slot.generation != handle.generation) return;
+
+    for (TextureHandle texHandle : slot.imageTextures) {
+        destroyTexture(texHandle);
+    }
+    slot.imageTextures.clear();
+
+    vkDestroyFence(m_device, slot.acquireFence, nullptr);
+    vkDestroySwapchainKHR(m_device, slot.swapchain, nullptr);
+
+    slot.swapchain = VK_NULL_HANDLE;
+    slot.acquireFence = VK_NULL_HANDLE;
+    slot.surface = VK_NULL_HANDLE;
+    slot.alive = false;
+    m_freeSwapchainSlots.push_back(handle.index);
+}
+
+RHIResult<AcquiredImage> VulkanBackend::acquireNextImage(SwapchainHandle handle) {
+    if (handle.index >= m_swapchains.size()) {
+        return std::unexpected(RHIError::InvalidDescriptor);
+    }
+    auto& slot = m_swapchains[handle.index];
+    if (!slot.alive || slot.generation != handle.generation) {
+        return std::unexpected(RHIError::InvalidDescriptor);
+    }
+
+    uint32_t imageIndex = 0;
+    // Kein Semaphore, nur eine Fence - vollstaendig synchron (siehe
+    // IRHIBackend::acquireNextImage()-Kommentar): wir warten unten sofort,
+    // bis das Image tatsaechlich beschreibbar ist, bevor wir zurueckkehren.
+    VkResult result = vkAcquireNextImageKHR(m_device, slot.swapchain, UINT64_MAX,
+                                             VK_NULL_HANDLE, slot.acquireFence, &imageIndex);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        if (auto recreateResult = recreateSwapchainInternal(slot, slot.width, slot.height); !recreateResult) {
+            return std::unexpected(recreateResult.error());
+        }
+        result = vkAcquireNextImageKHR(m_device, slot.swapchain, UINT64_MAX,
+                                        VK_NULL_HANDLE, slot.acquireFence, &imageIndex);
+    }
+
+    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        return std::unexpected(RHIError::Unknown);
+    }
+
+    vkWaitForFences(m_device, 1, &slot.acquireFence, VK_TRUE, UINT64_MAX);
+    vkResetFences(m_device, 1, &slot.acquireFence);
+
+    if (imageIndex >= slot.imageTextures.size()) {
+        return std::unexpected(RHIError::Unknown);
+    }
+    return AcquiredImage{ slot.imageTextures[imageIndex], imageIndex };
+}
+
+RHIResult<void> VulkanBackend::present(SwapchainHandle handle, uint32_t imageIndex) {
+    if (handle.index >= m_swapchains.size()) {
+        return std::unexpected(RHIError::InvalidDescriptor);
+    }
+    auto& slot = m_swapchains[handle.index];
+    if (!slot.alive || slot.generation != handle.generation) {
+        return std::unexpected(RHIError::InvalidDescriptor);
+    }
+
+    // Keine Wait-Semaphores noetig: submit() (VulkanBackend::submit) blockiert
+    // bereits per Fence bis zur GPU-Fertigstellung, bevor es zurueckkehrt -
+    // zum Zeitpunkt von present() ist das Rendering also garantiert fertig.
+    VkPresentInfoKHR presentInfo{ .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &slot.swapchain;
+    presentInfo.pImageIndices = &imageIndex;
+
+    VkResult result = vkQueuePresentKHR(m_graphicsQueue, &presentInfo);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        // Dieser Frame ist ohnehin schon veraltet praesentiert (oder gar
+        // nicht) - Swapchain fuer den naechsten Frame neu aufbauen, statt
+        // hier einen Fehler zurueckzugeben.
+        return recreateSwapchainInternal(slot, slot.width, slot.height);
+    }
+    if (result != VK_SUCCESS) {
+        return std::unexpected(RHIError::Unknown);
+    }
+    return {};
+}
+
+TextureFormat VulkanBackend::swapchainFormat(SwapchainHandle handle) const {
+    if (handle.index >= m_swapchains.size()) return TextureFormat::RGBA8Unorm;
+    auto& slot = m_swapchains[handle.index];
+    if (!slot.alive || slot.generation != handle.generation) return TextureFormat::RGBA8Unorm;
+    return slot.rhiFormat;
+}
+
+std::pair<uint32_t, uint32_t> VulkanBackend::swapchainExtent(SwapchainHandle handle) const {
+    if (handle.index >= m_swapchains.size()) return { 0, 0 };
+    auto& slot = m_swapchains[handle.index];
+    if (!slot.alive || slot.generation != handle.generation) return { 0, 0 };
+    return { slot.width, slot.height };
 }
 
 // ============================================================================

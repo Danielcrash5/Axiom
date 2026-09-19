@@ -90,8 +90,14 @@ namespace axiom::renderer::rendergraph {
         return rhi::TextureLayout::Undefined;
     }
 
-    rhi::RHIResult<void> RenderGraph::compile() {
-        releaseTransientResources();
+    rhi::RHIResult<void> RenderGraph::compile(const RenderExecutionDesc &execution) {
+        // Alte Resource-Beschreibungen VOR dem Ueberschreiben sichern, um
+        // unveraenderte transiente Resourcen unten wiederzuverwenden, statt
+        // sie bei jedem compile()-Aufruf (z.B. einmal pro View pro Frame in
+        // Renderer::renderFrame()) bedingungslos zu zerstoeren und neu
+        // anzulegen. Import-Resourcen kosten dabei ohnehin nichts (siehe
+        // Schritt 2), nur transiente GPU-Texturen sind teuer.
+        std::vector<ResourceEntry> previousResources = std::move(m_resources);
         m_resources.clear();
         for (auto &passEntry : m_passes) {
             passEntry.accesses.clear();
@@ -102,24 +108,44 @@ namespace axiom::renderer::rendergraph {
         // tatsächlich angelegt wird – der Graph deklariert erst vollständig,
         // welche Resourcen/Zugriffe existieren, bevor er Entscheidungen trifft
         // (Dependency-Order, künftig: Aliasing). addPass() tut das bewusst
-        // NICHT – siehe oben.
+        // NICHT – siehe oben. `execution` wird durchgereicht, damit Passes
+        // waehrend setup() z.B. die aktuelle View oder ein per-Frame
+        // Present-Target (Swapchain-Image) kennen.
         for (uint32_t passIndex = 0; passIndex < m_passes.size(); ++passIndex) {
-            RenderGraphBuilder builder(*this, passIndex);
+            RenderGraphBuilder builder(*this, passIndex, execution);
             m_passes[passIndex].pass->setup(builder);
         }
 
         // Schritt 2: tatsächliche GPU-Texturen für transiente Resourcen
-        // anlegen. Keine Topological-Sort nötig – Passes laufen in
-        // addPass()-Reihenfolge. Wird relevant, sobald Passes wechselseitig
-        // voneinander lesen/schreiben.
+        // anlegen - ABER nur, wenn sich ihre Beschreibung gegenüber dem
+        // vorigen compile() geändert hat (Groesse/Format/Usage). Die
+        // Reihenfolge ist stabil, weil Passes ihre setup()-Reihenfolge nicht
+        // ändern, daher entspricht Index i in previousResources derselben
+        // deklarierten Resource wie Index i in m_resources.
         //
-        // Transientes Speicher-Aliasing ist hier bewusst NICHT implementiert –
-        // lohnt sich erst bei mehreren Transient-Texturen mit klar getrennten
-        // Lebenszeitfenstern. Für jetzt legt jede transiente Resource ihre
-        // eigene GPU-Textur an.
-        for (auto &resource : m_resources) {
+        // Keine Topological-Sort nötig – Passes laufen in addPass()-
+        // Reihenfolge. Transientes Speicher-Aliasing ist weiterhin bewusst
+        // NICHT implementiert – jede transiente Resource hat ihre eigene
+        // GPU-Textur, nur eben nicht mehr pro compile()-Aufruf neu.
+        for (size_t i = 0; i < m_resources.size(); ++i) {
+            auto &resource = m_resources[i];
             if (resource.isImported)
                 continue; // Lebensdauer nicht unsere Sache
+
+            bool canReuse = i < previousResources.size() &&
+                            !previousResources[i].isImported &&
+                            previousResources[i].textureHandle.valid() &&
+                            previousResources[i].desc.width == resource.desc.width &&
+                            previousResources[i].desc.height == resource.desc.height &&
+                            previousResources[i].desc.format == resource.desc.format &&
+                            previousResources[i].desc.usage == resource.desc.usage;
+
+            if (canReuse) {
+                resource.textureHandle = previousResources[i].textureHandle;
+                resource.currentLayout = previousResources[i].currentLayout;
+                previousResources[i].textureHandle = {}; // als "übernommen" markieren
+                continue;
+            }
 
             rhi::TextureDesc desc{
                 .width = resource.desc.width,
@@ -130,10 +156,30 @@ namespace axiom::renderer::rendergraph {
             };
             auto textureResult = m_backend.createTexture(desc);
             if (!textureResult) {
+                // Alles, was wir aus previousResources noch nicht als
+                // "übernommen" markiert haben, ist jetzt verwaist - sauber
+                // aufräumen, bevor wir mit Fehler zurückkehren.
+                for (auto &old : previousResources) {
+                    if (!old.isImported && old.textureHandle.valid()) {
+                        m_backend.destroyTexture(old.textureHandle);
+                    }
+                }
                 return std::unexpected(textureResult.error());
             }
             resource.textureHandle = *textureResult;
         }
+
+        // Schritt 3: alles aus dem letzten compile(), das NICHT übernommen
+        // wurde (textureHandle wurde oben auf {} zurückgesetzt, wenn
+        // übernommen), jetzt zerstören. Absichtlich NACH Schritt 2, damit wir
+        // uns nicht selbst die Textur wegreißen, die wir gerade
+        // wiederverwenden wollen.
+        for (auto &old : previousResources) {
+            if (!old.isImported && old.textureHandle.valid()) {
+                m_backend.destroyTexture(old.textureHandle);
+            }
+        }
+
         m_compiled = true;
         return {};
     }

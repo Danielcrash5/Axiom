@@ -1,5 +1,5 @@
 #pragma once
-#include <axiom/axiom.h>
+#include <axiom/Axiom.h>
 #include "InspectorPanel.h"
 #include <memory>
 

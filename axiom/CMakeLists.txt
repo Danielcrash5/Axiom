@@ -29,12 +29,11 @@ if(AXIOM_ENABLE_CONSOLE_LOG)
 endif()
 target_compile_definitions(axiom_engine PUBLIC GLM_ENABLE_EXPERIMENTAL)
 
-find_package(Vulkan REQUIRED COMPONENTS
-    volk
-)
+find_package(Vulkan REQUIRED)
 
 target_include_directories(axiom_engine PRIVATE
     ${Vulkan_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/thirdparty/vma
 )
 
 target_link_libraries(axiom_engine PRIVATE
@@ -63,7 +62,10 @@ target_compile_definitions(axiom_engine_test PUBLIC
 if(AXIOM_ENABLE_CONSOLE_LOG)
     target_compile_definitions(axiom_engine_test PUBLIC AXIOM_ENABLE_CONSOLE_LOG)
 endif()
-target_include_directories(axiom_engine_test PRIVATE ${Vulkan_INCLUDE_DIRS})
+target_include_directories(axiom_engine_test PRIVATE
+    ${Vulkan_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/thirdparty/vma
+)
 target_link_libraries(axiom_engine_test
     PUBLIC minizip SDL3::SDL3 stb imgui nlohmann_json::nlohmann_json
            cereal::cereal EnTT::EnTT

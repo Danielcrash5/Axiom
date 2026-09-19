@@ -2,11 +2,13 @@
 #include <memory>
 #include <span>
 #include <cstddef>
+#include <utility>
 #include "RHITypes.h"
 #include "CommandList.h"
 #include "PipelineDesc.h"
 #include "BindGroup.h"
 #include "Sampler.h"
+#include "Swapchain.h"
 
 namespace axiom::renderer::rhi {
 
@@ -56,6 +58,27 @@ public:
 
     [[nodiscard]] virtual RHIResult<SamplerHandle> createSampler(const SamplerDesc&) = 0;
     virtual void destroySampler(SamplerHandle) = 0;
+
+    // --- Swapchain/Present ---
+    // Jedes Swapchain-Image bekommt EINEN stabilen TextureHandle bei
+    // createSwapchain() (siehe Swapchain.h) - kein Handle-Churn pro Frame.
+    // Vollstaendig synchron (kein Frames-in-Flight-Overlap): acquireNextImage()
+    // blockiert per Fence, bis das Image tatsaechlich beschreibbar ist; submit()
+    // blockiert schon vorher bis GPU-Fertigstellung - present() braucht daher
+    // keine Wait-Semaphores mehr. Passt zum bisherigen synchronen Stil dieses
+    // Backends (wie z.B. bei den Immediate-Uploads); Ueberlappung ist eine
+    // spaetere Optimierung, kein Korrektheitsproblem.
+    [[nodiscard]] virtual RHIResult<SwapchainHandle> createSwapchain(const SwapchainDesc&) = 0;
+    virtual void destroySwapchain(SwapchainHandle) = 0;
+
+    // Erkennt VK_ERROR_OUT_OF_DATE_KHR/SUBOPTIMAL intern und rekonstruiert die
+    // Swapchain automatisch anhand der aktuellen Surface-Capabilities, bevor
+    // erneut versucht wird - Aufrufer muss Resize nicht selbst behandeln.
+    [[nodiscard]] virtual RHIResult<AcquiredImage> acquireNextImage(SwapchainHandle) = 0;
+    [[nodiscard]] virtual RHIResult<void> present(SwapchainHandle, uint32_t imageIndex) = 0;
+
+    [[nodiscard]] virtual TextureFormat swapchainFormat(SwapchainHandle) const = 0;
+    [[nodiscard]] virtual std::pair<uint32_t, uint32_t> swapchainExtent(SwapchainHandle) const = 0;
 };
 
 } // namespace axiom::renderer::rhi

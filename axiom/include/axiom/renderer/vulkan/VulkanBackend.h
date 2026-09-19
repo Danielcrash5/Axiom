@@ -56,6 +56,14 @@ public:
     RHIResult<SamplerHandle> createSampler(const SamplerDesc&) override;
     void destroySampler(SamplerHandle) override;
 
+    // --- IRHIBackend: Swapchain/Present ---
+    RHIResult<SwapchainHandle> createSwapchain(const SwapchainDesc&) override;
+    void destroySwapchain(SwapchainHandle) override;
+    RHIResult<AcquiredImage> acquireNextImage(SwapchainHandle) override;
+    RHIResult<void> present(SwapchainHandle, uint32_t imageIndex) override;
+    TextureFormat swapchainFormat(SwapchainHandle) const override;
+    std::pair<uint32_t, uint32_t> swapchainExtent(SwapchainHandle) const override;
+
     // --- Interne Helfer, von VulkanCommandList genutzt (kein IRHIBackend-Bestandteil) ---
     [[nodiscard]] VkImage nativeImage(TextureHandle handle) const;
     [[nodiscard]] VkImageView nativeImageView(TextureHandle handle) const;
@@ -102,12 +110,16 @@ private:
     };
     struct TextureSlot {
         VkImage image = VK_NULL_HANDLE;
-        VmaAllocation allocation = VK_NULL_HANDLE;
+        VmaAllocation allocation = VK_NULL_HANDLE; // VK_NULL_HANDLE bei externallyOwnedImage
         VkImageView view = VK_NULL_HANDLE;
         TextureFormat format{};
         uint32_t width = 0, height = 0;
         uint32_t generation = 0;
         bool alive = false;
+        // true fuer Swapchain-Images: VkImage gehoert der Swapchain (wird bei
+        // vkDestroySwapchainKHR mitzerstoert), wir besitzen nur den ImageView.
+        // destroyTexture() darf in diesem Fall NICHT vmaDestroyImage aufrufen.
+        bool externallyOwnedImage = false;
     };
     struct PipelineSlot {
         VkPipeline pipeline = VK_NULL_HANDLE;
@@ -136,6 +148,28 @@ private:
         uint32_t generation = 0;
         bool alive = false;
     };
+    struct SwapchainSlot {
+        VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+        VkSurfaceKHR surface = VK_NULL_HANDLE; // nicht besessen, nur referenziert
+        VkFormat format = VK_FORMAT_UNDEFINED;
+        TextureFormat rhiFormat{};
+        uint32_t width = 0, height = 0;
+        bool vsync = true;
+        // Ein stabiler TextureHandle PRO Swapchain-Image, einmal bei
+        // (Re-)Erzeugung angelegt - siehe Swapchain.h fuer die Begruendung.
+        std::vector<TextureHandle> imageTextures;
+        // Ein Fence fuer acquireNextImage() - vollstaendig synchron, siehe
+        // IRHIBackend::acquireNextImage()-Kommentar.
+        VkFence acquireFence = VK_NULL_HANDLE;
+        uint32_t generation = 0;
+        bool alive = false;
+    };
+
+    // Baut/erneuert die eigentliche VkSwapchainKHR + Image-Views fuer einen
+    // bestehenden Slot - genutzt von createSwapchain() UND intern von
+    // acquireNextImage() bei OUT_OF_DATE/SUBOPTIMAL.
+    RHIResult<void> recreateSwapchainInternal(SwapchainSlot& slot, uint32_t requestedWidth,
+                                               uint32_t requestedHeight);
 
     std::vector<BufferSlot>  m_buffers;
     std::vector<uint32_t>    m_freeBufferSlots;
@@ -151,6 +185,8 @@ private:
     std::vector<uint32_t>    m_freeSamplerSlots;
     std::vector<SurfaceSlot> m_surfaces;
     std::vector<uint32_t>    m_freeSurfaceSlots;
+    std::vector<SwapchainSlot> m_swapchains;
+    std::vector<uint32_t>      m_freeSwapchainSlots;
 
     // Staging-Buffer fuer Uploads, waechst bei Bedarf
     VkBuffer      m_stagingBuffer = VK_NULL_HANDLE;

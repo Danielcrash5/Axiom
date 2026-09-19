@@ -1,6 +1,6 @@
 // ===== axiom/include/axiom/core/Application.h =====
 #pragma once
-#include "axiom/core/Layerstack.h"
+#include "axiom/core/LayerStack.h"
 #include "axiom/events/EventBus.h"
 #include "axiom/events/Events.h"
 #include "axiom/input/Input.h"

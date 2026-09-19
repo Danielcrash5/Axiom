@@ -2,6 +2,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <optional>
 #include <axiom/assets/TypedUUID.h>
 #include <axiom/assets/AssetRegistry.h>
 #include <axiom/assets/AssetHandle.h>

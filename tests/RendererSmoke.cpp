@@ -99,10 +99,35 @@ public:
 
     void destroySampler(SamplerHandle) override { ++destroyedSamplers; }
 
+    RHIResult<SwapchainHandle> createSwapchain(const SwapchainDesc&) override {
+        return SwapchainHandle{++m_nextSwapchain, 1};
+    }
+
+    void destroySwapchain(SwapchainHandle) override { ++destroyedSwapchains; }
+
+    RHIResult<AcquiredImage> acquireNextImage(SwapchainHandle) override {
+        return AcquiredImage{TextureHandle{++m_nextTexture, 1}, 0};
+    }
+
+    RHIResult<void> present(SwapchainHandle, uint32_t) override {
+        ++presents;
+        return {};
+    }
+
+    TextureFormat swapchainFormat(SwapchainHandle) const override {
+        return TextureFormat::BGRA8Unorm;
+    }
+
+    std::pair<uint32_t, uint32_t> swapchainExtent(SwapchainHandle) const override {
+        return {800, 600};
+    }
+
     int createdTextures = 0;
     int destroyedTextures = 0;
     int destroyedBuffers = 0;
     int destroyedSurfaces = 0;
+    int destroyedSwapchains = 0;
+    int presents = 0;
     int destroyedPipelines = 0;
     int destroyedBindGroupLayouts = 0;
     int destroyedBindGroups = 0;
@@ -117,6 +142,7 @@ private:
     uint32_t m_nextBindGroupLayout = 0;
     uint32_t m_nextBindGroup = 0;
     uint32_t m_nextSampler = 0;
+    uint32_t m_nextSwapchain = 0;
 };
 
 struct ProbeFrame {
@@ -200,7 +226,12 @@ TEST(RenderQueueTest, FiltersSortsAndBatchesItems) {
     EXPECT_EQ(batches[0].instanceTransforms.size(), 2u);
 }
 
-TEST(RenderGraphTest, RecompileReleasesPreviousTransientTextures) {
+TEST(RenderGraphTest, RecompileReusesUnchangedTransientTextures) {
+    // Ersetzt den alten Test, der ein bedingungsloses Zerstoeren/Neuanlegen
+    // bei JEDEM compile()-Aufruf erwartete - das war das Performance-Problem
+    // aus dem Architektur-Review (Renderer::renderFrame() ruft compile() bei
+    // jedem Frame auf, pro View). Jetzt: gleiche Resource-Beschreibung wird
+    // wiederverwendet, nur eine tatsaechliche Aenderung (Resize) legt neu an.
     NullBackend backend;
     rendergraph::RenderGraph graph(backend);
     graph.addPass(std::make_unique<passes::ClearScreenPass>());
@@ -212,7 +243,20 @@ TEST(RenderGraphTest, RecompileReleasesPreviousTransientTextures) {
     ASSERT_TRUE(graph.execute());
     EXPECT_EQ(backend.submits, 1);
 
+    // Zweiter compile() OHNE View (Fallback 800x600, wie beim ersten Aufruf) -
+    // Beschreibung ist unveraendert, muss wiederverwendet werden.
     ASSERT_TRUE(graph.compile());
+    EXPECT_EQ(backend.createdTextures, 1);
+    EXPECT_EQ(backend.destroyedTextures, 0);
+
+    // Dritter compile() MIT View, die eine andere Viewport-Groesse hat -
+    // ClearScreenPass deklariert jetzt eine andere Groesse, muss also
+    // tatsaechlich neu angelegt werden.
+    View resizedView;
+    resizedView.viewport = Viewport{0, 0, 1920, 1080};
+    rendergraph::RenderExecutionDesc resizedExecution{.view = &resizedView};
+
+    ASSERT_TRUE(graph.compile(resizedExecution));
     EXPECT_EQ(backend.createdTextures, 2);
     EXPECT_EQ(backend.destroyedTextures, 1);
 
