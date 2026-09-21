@@ -217,6 +217,27 @@ namespace axiom::renderer::rendergraph {
             passEntry.pass->execute(ctx, *cmdList);
         }
 
+        // Wenn diese View auf eine Swapchain zielt: das Present-Target muss
+        // vor vkQueuePresentKHR im PRESENT_SRC_KHR-Layout sein - das passiert
+        // sonst nirgends automatisch (Passes kennen nur Read/Write, nicht
+        // "wird gleich praesentiert"). Renderer::renderFrame() ruft
+        // present() direkt nach execute() auf, das Layout muss also HIER,
+        // im letzten CommandList vor dem Submit, gesetzt werden.
+        if (execution.presentTarget.valid()) {
+            for (auto &resource : m_resources) {
+                if (resource.type == ResourceType::Texture &&
+                    resource.textureHandle == execution.presentTarget) {
+                    if (resource.currentLayout != rhi::TextureLayout::Present) {
+                        cmdList->transitionTexture(resource.textureHandle,
+                                                   resource.currentLayout,
+                                                   rhi::TextureLayout::Present);
+                        resource.currentLayout = rhi::TextureLayout::Present;
+                    }
+                    break;
+                }
+            }
+        }
+
         m_backend.submit(*cmdList);
         return {};
     }

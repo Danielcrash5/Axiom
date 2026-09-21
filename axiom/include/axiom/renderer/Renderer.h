@@ -111,6 +111,11 @@ private:
     [[nodiscard]] rhi::RHIResult<void>
     finishBackendInit(const RendererInitDesc& initDesc);
     [[nodiscard]] std::vector<ViewID> sortedViewIds() const;
+    // Legt bei Bedarf einen Swapchain fuer diese Surface an (einmalig,
+    // danach wiederverwendet) - eine Surface kann mehrere Views bedienen,
+    // aber jede Surface hat genau einen Swapchain.
+    [[nodiscard]] rhi::RHIResult<rhi::SwapchainHandle>
+    getOrCreateSwapchain(rhi::SurfaceHandle surface, uint32_t width, uint32_t height);
 
     std::unique_ptr<rhi::IRHIBackend> m_backend;
     std::unique_ptr<rendergraph::RenderGraph> m_renderGraph;
@@ -120,6 +125,7 @@ private:
     RenderLayerRegistry m_layerRegistry;
     RenderQueueSystem m_renderQueues;
     rhi::SurfaceHandle m_mainSurface;
+    std::vector<std::pair<rhi::SurfaceHandle, rhi::SwapchainHandle>> m_swapchains;
     std::vector<RenderItem> m_itemPool;
     std::unordered_map<ViewID, View> m_views;
     ViewID m_nextViewId = 1;
