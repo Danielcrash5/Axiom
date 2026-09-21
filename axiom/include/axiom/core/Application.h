@@ -6,7 +6,9 @@
 #include "axiom/input/Input.h"
 #include "axiom/input/InputSystem.h"
 #include "axiom/platform/Window.h"
-// #include "axiom/renderer/Renderer.h"
+#include "axiom/renderer/Renderer.h"
+#include "axiom/renderer/adapters/SDL3Window.h"
+#include "axiom/renderer/passes/ClearScreenPass.h"
 #include "axiom/ImGui/IImGuiLayer.h"
 #include "axiom/ImGui/ImGuiPanelManager.h"
 #include "axiom/ecs/Scene.h"
@@ -85,6 +87,8 @@ namespace axiom {
             return m_SystemManager;
         }
 
+        renderer::Renderer &GetRenderer() { return *m_Renderer; }
+
       protected:
         virtual void OnInit() {}
         virtual void OnShutdown() {}
@@ -126,7 +130,14 @@ namespace axiom {
         bool OnWindowResize(WindowResizeEvent &e) {
             m_Width = e.width;
             m_Height = e.height;
-            // m_Renderer->on_window_resize(m_Width, m_Height);
+            if (m_Renderer && m_MainViewId != renderer::kInvalidViewID) {
+                if (const renderer::View *current = m_Renderer->view(m_MainViewId)) {
+                    renderer::View updated = *current;
+                    updated.viewport.width = e.width;
+                    updated.viewport.height = e.height;
+                    m_Renderer->updateView(m_MainViewId, updated);
+                }
+            }
             m_SystemManager.OnViewportResize(e.width, e.height);
             return false;
         }
@@ -136,7 +147,8 @@ namespace axiom {
         std::shared_ptr<Window> m_Window;
         std::string m_AppName;
 
-        // std::unique_ptr<Renderer> m_Renderer;
+        std::unique_ptr<renderer::Renderer> m_Renderer;
+        renderer::ViewID m_MainViewId = renderer::kInvalidViewID;
 
         uint32_t m_Width, m_Height;
 

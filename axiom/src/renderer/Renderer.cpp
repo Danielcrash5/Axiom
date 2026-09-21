@@ -60,6 +60,15 @@ void Renderer::shutdown() {
     m_materialSystem.reset();
     m_bindlessTextures.shutdown();
 
+    // Swapchains VOR ihrer Surface zerstoeren (Vulkan verlangt das) - siehe
+    // VulkanBackend::destroySwapchain()/destroySurface()-Reihenfolge.
+    if (m_backend) {
+        for (auto& [surface, swapchain] : m_swapchains) {
+            m_backend->destroySwapchain(swapchain);
+        }
+    }
+    m_swapchains.clear();
+
     if (m_backend && m_mainSurface.valid()) {
         m_backend->destroySurface(m_mainSurface);
     }
@@ -167,13 +176,70 @@ std::vector<ViewID> Renderer::sortedViewIds() const {
     return ids;
 }
 
+rhi::RHIResult<rhi::SwapchainHandle> Renderer::getOrCreateSwapchain(
+    rhi::SurfaceHandle surface, uint32_t width, uint32_t height) {
+    for (auto& [existingSurface, existingSwapchain] : m_swapchains) {
+        if (existingSurface == surface) {
+            return existingSwapchain;
+        }
+    }
+
+    rhi::SwapchainDesc desc{
+        .surface = surface,
+        .width = width,
+        .height = height,
+        .vsync = true,
+    };
+    auto result = m_backend->createSwapchain(desc);
+    if (!result) {
+        return std::unexpected(result.error());
+    }
+    m_swapchains.emplace_back(surface, *result);
+    return *result;
+}
+
 rhi::RHIResult<void> Renderer::renderFrame() {
     if (!m_backend || !m_renderGraph) {
         return std::unexpected(rhi::RHIError::InvalidDescriptor);
     }
 
     auto renderOneView = [this](const View* view) -> rhi::RHIResult<void> {
-        auto compileResult = m_renderGraph->compile();
+        // Fuer Views mit Swapchain-Target: VOR compile()/execute() das
+        // aktuelle Swapchain-Image holen, damit Passes es waehrend setup()
+        // ueber RenderGraphBuilder::presentTarget() importieren koennen
+        // (siehe ClearScreenPass). Ohne diesen Schritt bleibt das Fenster
+        // schwarz, weil nie in ein tatsaechliches Swapchain-Image gezeichnet
+        // und nie praesentiert wird.
+        rhi::TextureHandle presentTarget;
+        std::optional<rhi::SwapchainHandle> swapchainToPresent;
+        uint32_t presentImageIndex = 0;
+
+        if (view && view->target.kind == RenderTargetKind::Swapchain &&
+            view->target.surface.valid()) {
+            uint32_t width = view->viewport.width > 0 ? view->viewport.width : 1;
+            uint32_t height = view->viewport.height > 0 ? view->viewport.height : 1;
+
+            auto swapchainResult = getOrCreateSwapchain(view->target.surface, width, height);
+            if (!swapchainResult) {
+                return std::unexpected(swapchainResult.error());
+            }
+
+            auto acquireResult = m_backend->acquireNextImage(*swapchainResult);
+            if (!acquireResult) {
+                return std::unexpected(acquireResult.error());
+            }
+
+            presentTarget = acquireResult->texture;
+            presentImageIndex = acquireResult->imageIndex;
+            swapchainToPresent = *swapchainResult;
+        }
+
+        rendergraph::RenderExecutionDesc execution{
+            .view = view,
+            .presentTarget = presentTarget,
+        };
+
+        auto compileResult = m_renderGraph->compile(execution);
         if (!compileResult) {
             return std::unexpected(compileResult.error());
         }
@@ -183,12 +249,16 @@ rhi::RHIResult<void> Renderer::renderFrame() {
             view ? view->visibleLayers : ~RenderLayerMask{0};
         auto queues =
             m_renderQueues.build(m_itemPool, descriptors, visibleLayers);
+        execution.queuedItemsByPass = queues;
 
-        rendergraph::RenderExecutionDesc execution{
-            .view = view,
-            .queuedItemsByPass = queues,
-        };
-        return m_renderGraph->execute(execution);
+        if (auto result = m_renderGraph->execute(execution); !result) {
+            return result;
+        }
+
+        if (swapchainToPresent) {
+            return m_backend->present(*swapchainToPresent, presentImageIndex);
+        }
+        return {};
     };
 
     if (m_views.empty()) {

@@ -85,14 +85,28 @@ namespace axiom {
                        engineAssetPath);
         // m_ImGuiLayer = IImGuiLayer::Create(m_Window);
 
-        /*try {
-                m_Renderer =
-        std::make_unique<Renderer>(m_Window->GetNativeHandle());
+        {
+            auto windowSurfaceDesc = renderer::adapters::makeSDL3WindowSurfaceDesc(
+                m_Window->GetNativeHandle());
+            m_Renderer = std::make_unique<renderer::Renderer>();
+            if (auto result = m_Renderer->init(windowSurfaceDesc); !result) {
+                AXIOM_FATAL("Renderer-Initialisierung fehlgeschlagen");
+                m_Running = false;
+                return;
+            }
+
+            renderer::View mainView;
+            mainView.target.kind = renderer::RenderTargetKind::Swapchain;
+            mainView.target.surface = m_Renderer->mainSurface();
+            mainView.viewport = renderer::Viewport{0, 0, m_Width, m_Height};
+            mainView.priority = 0;
+            m_MainViewId = m_Renderer->registerView(mainView);
+
+            // Platzhalter-Pass, bis echte 2D-Passes existieren (Phase 6) -
+            // zeigt zumindest, dass die komplette Pipeline (Acquire -> Clear
+            // -> Present) tatsaechlich funktioniert.
+            m_Renderer->addPass(std::make_unique<renderer::passes::ClearScreenPass>());
         }
-        catch (const std::exception& e) {
-                AXIOM_FATAL("Fataler Fehler beim Start der Engine: {}",
-        e.what()); m_Running = false; return;
-        }*/
 
         OnInit();
     }
@@ -129,32 +143,29 @@ namespace axiom {
 
     void Application::Render(double alpha) {
         AXIOM_PROFILE_SCOPE("Render");
+        if (!m_Renderer) {
+            return;
+        }
 
-        // CommandBuffer cmd;
-        // if (m_Renderer->begin_frame(cmd)) {
-        //	cmd.begin_rendering(0, 0.1f, 0.1f, 0.15f, 1.0f);
+        m_Renderer->beginFrame();
 
-        //	// 2. Schließe das Rendern ab
-        //	// User render
-        //	OnRender(alpha);
+        OnRender(alpha);
 
-        //	// System render
-        //	m_SystemManager.BeginRenderFrame();
-        //	for (auto& scene : m_Scenes) {
-        //		if (scene)
-        //			m_SystemManager.Render(*scene, alpha);
-        //	}
+        m_SystemManager.BeginRenderFrame();
+        for (auto &scene : m_Scenes) {
+            if (scene) {
+                m_SystemManager.Render(*scene, alpha);
+            }
+        }
 
-        //	// Layer rendering
-        //	for (auto& layer : m_LayerStack) {
-        //		AXIOM_PROFILE_SCOPE(layer->GetName());
-        //		layer->OnRender(alpha);
-        //	}
+        for (auto &layer : m_LayerStack) {
+            AXIOM_PROFILE_SCOPE(layer->GetName());
+            layer->OnRender(alpha);
+        }
 
-        //	cmd.end_rendering();
-
-        //	m_Renderer->end_frame();
-        //}
+        if (auto result = m_Renderer->renderFrame(); !result) {
+            AXIOM_ERROR("renderFrame() fehlgeschlagen");
+        }
     }
 
     void Application::ImGuiRender() {
