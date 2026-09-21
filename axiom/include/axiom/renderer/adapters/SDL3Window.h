@@ -1,7 +1,9 @@
 #pragma once
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
+
 #include <axiom/renderer/Renderer.h>
 
 namespace axiom::renderer::adapters {
