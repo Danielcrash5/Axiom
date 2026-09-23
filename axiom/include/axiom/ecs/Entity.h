@@ -1,116 +1,113 @@
 #pragma once
 #include <any>
 #include <cstdint>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "Scene.h"
-#include <entt/entt.hpp>
+#include <flecs.h>
 
 namespace axiom {
 
     class Entity {
       public:
         Entity() = default;
-        Entity(entt::entity handle, Scene *scene)
+        Entity(flecs::entity handle, Scene *scene)
             : m_Entity(handle), m_Scene(scene) {}
 
-        entt::entity GetID() const { return m_Entity; }
+        flecs::entity_t GetID() const { return m_Entity.id(); }
 
         bool operator==(const Entity &other) const {
             return m_Entity == other.m_Entity && m_Scene == other.m_Scene;
         }
 
         std::string GetName() const {
-            return m_Scene->m_Registry.get<TagComponent>(m_Entity).Tag;
+            return m_Entity.get_mut<TagComponent>().Tag;
         }
 
         void SetName(const std::string &name) {
-            auto &tag = m_Scene->m_Registry.get<TagComponent>(m_Entity);
-            tag.Tag = name;
+            m_Entity.get_mut<TagComponent>().Tag = name;
         }
 
-        void Destroy() { m_Scene->m_Registry.destroy(m_Entity); }
+        void Destroy() { m_Entity.destruct(); }
 
+        // flecs::entity::emplace<T>(Args&&...) fuegt hinzu (entspricht
+        // entt::registry::emplace) - Rueckgabe ist bei flecs void, daher
+        // hinterher get_mut<T>() fuer die Referenz, um dieselbe Signatur wie
+        // vorher (T&) zu behalten.
         template <typename T, typename... Args>
         T &AddComponent(Args &&...args) {
-            return m_Scene->m_Registry.emplace<T>(m_Entity,
-                                                  std::forward<Args>(args)...);
+            m_Entity.emplace<T>(std::forward<Args>(args)...);
+            return m_Entity.get_mut<T>();
         }
 
+        // flecs::entity::set<T>(T&&) fuegt hinzu ODER ueberschreibt, falls
+        // die Component schon existiert - deckt emplace_or_replace UND
+        // replace gleichermassen ab (flecs unterscheidet das nicht wie entt).
         template <typename T, typename... Args>
         T &AddOrReplaceComponent(Args &&...args) {
-            return m_Scene->m_Registry.emplace_or_replace<T>(
-                m_Entity, std::forward<Args>(args)...);
+            m_Entity.set<T>(T(std::forward<Args>(args)...));
+            return m_Entity.get_mut<T>();
         }
 
         template <typename T, typename... Args>
         T &ReplaceComponent(Args &&...args) {
-            return m_Scene->m_Registry.replace<T>(m_Entity,
-                                                  std::forward<Args>(args)...);
+            m_Entity.set<T>(T(std::forward<Args>(args)...));
+            return m_Entity.get_mut<T>();
         }
 
         template <typename T> void RemoveComponent() {
-            m_Scene->m_Registry.remove<T>(m_Entity);
+            m_Entity.remove<T>();
         }
 
         template <typename T> T &GetComponent() {
-            return m_Scene->m_Registry.get<T>(m_Entity);
+            return m_Entity.get_mut<T>();
         }
 
         struct ComponentInfo {
-            entt::id_type id;
+            flecs::id_t id;
+            std::string name;
 
-            const entt::sparse_set *storage;
-
-            std::string GetName() const {
-                if (storage) {
-                    std::string name{storage->info().name()};
-                    return name;
-                }
-                return "Unknown Component";
-            }
+            std::string GetName() const { return name; }
         };
 
+        // Laeuft ueber flecs' eingebaute Reflection (entity.each(flecs::id))
+        // statt wie zuvor ueber entt::registry::storage() - flecs bringt
+        // sowas nativ mit, kein Workaround noetig.
         std::vector<ComponentInfo> GetComponents() const {
             std::vector<ComponentInfo> result;
-
-            for (auto &&[id, storage] : m_Scene->m_Registry.storage()) {
-                if (storage.contains(m_Entity)) {
-
-                    result.push_back({id, &storage});
-                }
-            }
-
+            m_Entity.each([&](flecs::id id) {
+                result.push_back({id.raw_id(), id.str().c_str()});
+            });
             return result;
         }
 
-        std::any GetComponentById(entt::id_type id) const {
-            auto *storage = m_Scene->m_Registry.storage(id);
-            if (storage && storage->contains(m_Entity)) {
-                // Wir geben den rohen Pointer verpackt in std::any zurück
-                // Note: std::any requires a copyable type, so we store the pointer
-                return std::any(reinterpret_cast<uintptr_t>(storage->value(m_Entity)));
-            }
-            return std::any(); // Gibt ein leeres std::any zurück
+        // Echter void* statt des alten uintptr_t-Hacks (der frueher rohe
+        // Adressen als Integer in std::any verpackt hat, was jeden Konsumenten
+        // zwang, den Typ selbst wieder zurueckzucasten UND zu wissen, dass es
+        // eigentlich ein Pointer war) - direkte, klar typisierte Verbesserung
+        // im Zuge der Migration.
+        std::any GetComponentById(flecs::id_t id) const {
+            void *ptr = ecs_get_mut_id(m_Scene->m_World.c_ptr(), m_Entity.id(), id);
+            if (!ptr) return std::any();
+            return std::any(ptr);
         }
 
         std::any GetComponentByComponentInfo(const ComponentInfo &info) const {
-            if (info.storage && info.storage->contains(m_Entity)) {
-                return std::any(reinterpret_cast<uintptr_t>(info.storage->value(m_Entity)));
-            }
-            return std::any();
+            return GetComponentById(info.id);
         }
 
         template <typename T> bool HasComponent() const {
-            return m_Scene->m_Registry.all_of<T>(m_Entity);
+            return m_Entity.has<T>();
         }
 
-        operator bool() const { return m_Entity != entt::null; }
+        operator bool() const { return m_Entity.is_valid(); }
 
-        operator entt::entity() const { return m_Entity; }
+        operator flecs::entity() const { return m_Entity; }
 
       private:
-        entt::entity m_Entity{entt::null};
+        flecs::entity m_Entity{};
         Scene *m_Scene = nullptr;
 
         friend class Scene;

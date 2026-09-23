@@ -5,7 +5,11 @@
 
 namespace axiom {
     Entity Scene::CreateEntity(const std::string &name) {
-        Entity entity(m_Registry.create(), this);
+        // Bewusst anonyme flecs-Entity (kein flecs-eigener Name) - die
+        // "Namensverwaltung" laeuft weiterhin komplett ueber TagComponent,
+        // wie zuvor mit entt, um nicht zwei parallele Namenssysteme zu haben.
+        flecs::entity handle = m_World.entity();
+        Entity entity(handle, this);
         entity.AddComponent<IDComponent>();
         entity.AddComponent<TagComponent>(name.empty() ? "Entity" : name);
         entity.AddComponent<TransformComponent>();
@@ -13,16 +17,15 @@ namespace axiom {
     }
 
     void Scene::DestroyEntity(Entity entity) {
-        m_Registry.destroy(entity.m_Entity);
+        entity.m_Entity.destruct();
     }
 
     std::vector<std::shared_ptr<Entity>> Scene::GetAllEntities() {
         std::vector<std::shared_ptr<Entity>> entities;
-        auto view = m_Registry.view<TransformComponent>();
-        for (auto entity : view) {
-            auto temp_entity = std::make_shared<Entity>(entity, this);
-            entities.push_back(temp_entity);
-        }
+        auto query = m_World.query<TransformComponent>();
+        query.each([&](flecs::entity e, TransformComponent &) {
+            entities.push_back(std::make_shared<Entity>(e, this));
+        });
         return entities;
     }
 
@@ -56,16 +59,27 @@ namespace axiom {
     }
 
     Entity Scene::GetPrimaryCameraEntity() {
-        auto view = m_Registry.view<TransformComponent, CameraComponent>();
-        for (auto entity : view) {
-            const auto &camera = view.get<CameraComponent>(entity);
-            if (camera.Primary)
-                return Entity(entity, this);
-        }
+        auto query = m_World.query<TransformComponent, CameraComponent>();
 
-        for (auto entity : view)
-            return Entity(entity, this);
+        Entity result{};
+        bool found = false;
+        query.each([&](flecs::entity e, TransformComponent &, CameraComponent &camera) {
+            if (found) return;
+            if (camera.Primary) {
+                result = Entity(e, this);
+                found = true;
+            }
+        });
+        if (found) return result;
 
-        return {};
+        // Kein Primary-Camera markiert - erste gefundene Kamera als Fallback,
+        // wie zuvor mit entt.
+        query.each([&](flecs::entity e, TransformComponent &, CameraComponent &) {
+            if (!found) {
+                result = Entity(e, this);
+                found = true;
+            }
+        });
+        return result;
     }
 } // namespace axiom

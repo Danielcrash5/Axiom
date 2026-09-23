@@ -45,6 +45,7 @@ target_link_libraries(axiom_engine
         nlohmann_json::nlohmann_json
         cereal::cereal
         EnTT::EnTT
+        flecs::flecs
 )
 
 target_sources(axiom_engine PRIVATE
@@ -91,4 +92,5 @@ target_link_libraries(axiom_engine_test
         nlohmann_json::nlohmann_json
         cereal::cereal
         EnTT::EnTT
+        flecs::flecs
 )

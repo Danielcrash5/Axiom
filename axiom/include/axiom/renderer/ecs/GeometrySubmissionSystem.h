@@ -26,13 +26,14 @@ public:
         : m_renderer(renderer), m_layerRegistry(layerRegistry) {}
 
     void Render(axiom::Scene& scene, double /*alpha*/) override {
-        auto view = scene.View<axiom::TransformComponent, GeometryComponent>();
-        for (auto&& [entityHandle, transform, geometry] : view.each()) {
+        auto query = scene.View<axiom::TransformComponent, GeometryComponent>();
+        query.each([&](flecs::entity entityHandle, axiom::TransformComponent& transform,
+                        GeometryComponent& geometry) {
             RenderItem item;
             item.transform = transform.GetTransform();
 
             if (!buildItem(geometry, item)) {
-                continue; // Ableitung signalisiert "nicht renderbar"
+                return; // Ableitung signalisiert "nicht renderbar" (statt continue - Lambda-Body)
             }
 
             axiom::Entity entity(entityHandle, &scene);
@@ -52,7 +53,7 @@ public:
             }
 
             m_renderer.submitItem(std::move(item));
-        }
+        });
     }
 
 protected:

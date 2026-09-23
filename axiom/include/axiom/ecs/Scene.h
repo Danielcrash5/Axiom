@@ -1,5 +1,5 @@
 #pragma once
-#include <entt/entt.hpp>
+#include <flecs.h>
 #include <memory>
 #include <optional>
 #include <string>
@@ -25,18 +25,22 @@ namespace axiom {
 
         Entity GetPrimaryCameraEntity();
 
+        // flecs::query ist selbst leichtgewichtig genug, um pro Aufruf neu
+        // gebaut zu werden (kein Cache noetig) - anders als bei entt::view
+        // gibt es hier keine impliziten Lifetime-Fallstricke, weil die Query
+        // nicht auf interne Registry-Iteratoren verweist.
         template <typename... Components> auto View() {
-            return m_Registry.view<Components...>();
+            return m_World.query<Components...>();
         }
 
         template <typename... Components> auto View() const {
-            return m_Registry.view<const Components...>();
+            return m_World.query<const Components...>();
         }
 
         std::string GetName() const { return m_Name; }
 
       private:
-        entt::registry m_Registry;
+        flecs::world m_World;
 
         std::string m_Name;
 
