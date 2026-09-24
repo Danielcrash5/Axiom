@@ -77,6 +77,22 @@ public:
     [[nodiscard]] VkSampler nativeSampler(SamplerHandle handle) const;
     [[nodiscard]] VkSurfaceKHR nativeSurface(SurfaceHandle handle) const;
 
+    // Rohe Vulkan-Handles fuer Integrationen, die selbst gegen Vulkan
+    // sprechen muessen (z.B. imgui_impl_vulkan). Nur nutzen, wenn ein
+    // Vulkan-spezifischer Layer das explizit braucht - der Rest der Engine
+    // geht ueber IRHIBackend.
+    struct NativeContext {
+        VkInstance       instance = VK_NULL_HANDLE;
+        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+        VkDevice         device = VK_NULL_HANDLE;
+        VkQueue          graphicsQueue = VK_NULL_HANDLE;
+        uint32_t         graphicsQueueFamily = 0;
+    };
+    [[nodiscard]] NativeContext nativeContext() const {
+        return {m_instance, m_physicalDevice, m_device, m_graphicsQueue,
+                m_graphicsQueueFamily};
+    }
+
 private:
     VulkanBackend() = default;
 

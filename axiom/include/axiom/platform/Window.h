@@ -2,8 +2,10 @@
 
 #include "axiom/events/EventBus.h"
 
+#include <SDL3/SDL_events.h>
 #include <SDL3/SDL_video.h>
 
+#include <functional>
 #include <string>
 
 namespace axiom {
@@ -31,6 +33,13 @@ namespace axiom {
 
         SDL_Window *GetNativeHandle() const;
 
+        // Sieht jedes rohe SDL_Event VOR der Uebersetzung in EventBus-Events.
+        // Rueckgabe true = Event konsumiert (z.B. von ImGui), wird verworfen.
+        using NativeEventHook = std::function<bool(const SDL_Event &)>;
+        void SetNativeEventHook(NativeEventHook hook) {
+            m_NativeEventHook = std::move(hook);
+        }
+
         bool VsyncEnabled() { return m_Vsync; }
         void ToggleVsync();
 
@@ -42,6 +51,7 @@ namespace axiom {
         SDL_Window *m_Window = nullptr;
 
         EventBus &m_EventBus;
+        NativeEventHook m_NativeEventHook;
 
         bool m_Vsync = true;
         bool m_ShouldClose = false;

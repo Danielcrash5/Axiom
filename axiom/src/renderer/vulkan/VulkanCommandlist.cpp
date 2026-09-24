@@ -150,14 +150,20 @@ void VulkanCommandList::dispatch(uint32_t x, uint32_t y, uint32_t z) {
 }
 
 void VulkanCommandList::beginRendering(TextureHandle colorTarget,
-                                        std::optional<TextureHandle> depthTarget) {
+                                        std::optional<TextureHandle> depthTarget,
+                                        std::optional<ClearColor> clearColor) {
     VkImageView colorView = m_backend.nativeImageView(colorTarget);
     auto [width, height] = m_backend.nativeExtent(colorTarget);
 
     VkRenderingAttachmentInfo colorAttachment{ .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
     colorAttachment.imageView = colorView;
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; // RenderGraph hat schon geclearet falls noetig
+    colorAttachment.loadOp = clearColor ? VK_ATTACHMENT_LOAD_OP_CLEAR
+                                        : VK_ATTACHMENT_LOAD_OP_LOAD;
+    if (clearColor) {
+        colorAttachment.clearValue.color = {
+            {clearColor->r, clearColor->g, clearColor->b, clearColor->a}};
+    }
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
     VkRenderingInfo renderingInfo{ .sType = VK_STRUCTURE_TYPE_RENDERING_INFO };

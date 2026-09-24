@@ -1,11 +1,9 @@
 #include "axiom/ImGui/IImGuiLayer.h"
-#include "axiom/core/Logger.h"
-#include "axiom/platform/Window.h"
-#include <memory>
+#include "axiom/ImGui/VulkanImGuiLayer.h"
 
 namespace axiom {
-    std::unique_ptr<IImGuiLayer>
-    IImGuiLayer::Create(std::unique_ptr<Window> &window) {
-        return nullptr;
+    std::unique_ptr<IImGuiLayer> IImGuiLayer::Create(Window &window,
+                                                     renderer::Renderer &renderer) {
+        return VulkanImGuiLayer::Create(window, renderer);
     }
 } // namespace axiom

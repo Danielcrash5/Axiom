@@ -68,7 +68,8 @@ namespace axiom {
     void Window::PollEvents() {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            // ImGui_ImplSDL3_ProcessEvent(&event);
+            if (m_NativeEventHook && m_NativeEventHook(event))
+                continue;
             switch (event.type) {
             case SDL_EVENT_QUIT: {
                 m_ShouldClose = true;

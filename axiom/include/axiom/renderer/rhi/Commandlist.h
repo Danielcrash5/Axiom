@@ -46,8 +46,10 @@ public:
 
     // Fuer Dynamic Rendering: Pass muss Color/Depth-Attachments selbst
     // "beginnen"/"beenden" (Ersatz fuer VkRenderPass::begin).
+    // clearColor gesetzt -> loadOp = CLEAR, sonst LOAD (Inhalt bleibt erhalten).
     virtual void beginRendering(TextureHandle colorTarget,
-                                 std::optional<TextureHandle> depthTarget) = 0;
+                                 std::optional<TextureHandle> depthTarget,
+                                 std::optional<ClearColor> clearColor = std::nullopt) = 0;
     virtual void endRendering() = 0;
 };
 

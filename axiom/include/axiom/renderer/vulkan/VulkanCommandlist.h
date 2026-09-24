@@ -32,7 +32,8 @@ public:
     void drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex) override;
     void dispatch(uint32_t x, uint32_t y, uint32_t z) override;
     void beginRendering(TextureHandle colorTarget,
-                         std::optional<TextureHandle> depthTarget) override;
+                         std::optional<TextureHandle> depthTarget,
+                         std::optional<ClearColor> clearColor) override;
     void endRendering() override;
 
     [[nodiscard]] VkCommandBuffer nativeHandle() const { return m_commandBuffer; }

@@ -84,6 +84,12 @@ public:
     // angelegt - Renderer haelt hier bewusst nur die des Hauptfensters vor.
     [[nodiscard]] rhi::SurfaceHandle mainSurface() const { return m_mainSurface; }
 
+    // Legt (falls noetig) den Swapchain dieser Surface an und liefert sein
+    // Format. Fuer Consumer, die Pipelines gegen das Present-Format bauen
+    // muessen, BEVOR der erste renderFrame() lief (z.B. ImGui-Backend).
+    [[nodiscard]] rhi::RHIResult<rhi::TextureFormat>
+    surfaceFormat(rhi::SurfaceHandle surface, uint32_t width, uint32_t height);
+
     // --- Item-Pool (Phase 4) ---
     // ECS-Systeme (RenderSubmissionSystem-Ableitungen) rufen das pro Entity
     // auf - roh, unsortiert. Sortierung/Batching passiert spaeter im Graph

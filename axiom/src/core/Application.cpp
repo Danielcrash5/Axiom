@@ -83,7 +83,6 @@ namespace axiom {
         if (!VFS::MountPath("engine://", engineAssetPath))
             AXIOM_WARN("Failed to mount engine asset path: {}",
                        engineAssetPath);
-        // m_ImGuiLayer = IImGuiLayer::Create(m_Window);
 
         {
             auto windowSurfaceDesc = renderer::adapters::makeSDL3WindowSurfaceDesc(
@@ -102,10 +101,20 @@ namespace axiom {
             mainView.priority = 0;
             m_MainViewId = m_Renderer->registerView(mainView);
 
-            // Platzhalter-Pass, bis echte 2D-Passes existieren (Phase 6) -
-            // zeigt zumindest, dass die komplette Pipeline (Acquire -> Clear
-            // -> Present) tatsaechlich funktioniert.
-            m_Renderer->addPass(std::make_unique<renderer::passes::ClearScreenPass>());
+            // ImGui registriert seinen eigenen Pass (cleart per loadOp).
+            m_ImGuiLayer = IImGuiLayer::Create(*m_Window, *m_Renderer);
+            if (m_ImGuiLayer) {
+                m_Window->SetNativeEventHook(
+                    [layer = m_ImGuiLayer.get()](const SDL_Event &event) {
+                        return layer->ProcessEvent(event);
+                    });
+            } else {
+                // Platzhalter-Pass, bis echte 2D-Passes existieren (Phase 6) -
+                // zeigt zumindest, dass die komplette Pipeline (Acquire ->
+                // Clear -> Present) tatsaechlich funktioniert.
+                m_Renderer->addPass(
+                    std::make_unique<renderer::passes::ClearScreenPass>());
+            }
         }
 
         OnInit();
@@ -124,8 +133,10 @@ namespace axiom {
                 MainUpdate();
                 double alpha = (Time::GetTime() - m_LastFixedUpdate) /
                                m_FixedUpdateInterval;
-                Render(alpha);
+                // ImGui::Render() (nur CPU) MUSS vor renderFrame() laufen:
+                // der ImGuiPass liest die DrawData waehrend execute().
                 ImGuiRender();
+                Render(alpha);
 
                 m_Window->SwapBuffers();
             }
@@ -169,15 +180,18 @@ namespace axiom {
     }
 
     void Application::ImGuiRender() {
-        /*AXIOM_PROFILE_SCOPE("ImGuiRender");
+        if (!m_ImGuiLayer)
+            return;
+
+        AXIOM_PROFILE_SCOPE("ImGuiRender");
         m_ImGuiLayer->Begin();
         OnImGuiRender();
         m_ImGuiPanelManager.ImGuiRender();
-        for (auto& layer : m_LayerStack) {
-                AXIOM_PROFILE_SCOPE(layer->GetName());
-                layer->OnImGuiRender();
+        for (auto &layer : m_LayerStack) {
+            AXIOM_PROFILE_SCOPE(layer->GetName());
+            layer->OnImGuiRender();
         }
-        m_ImGuiLayer->End();*/
+        m_ImGuiLayer->End();
     }
 
     void Application::PreUpdate(double dt) {
@@ -264,6 +278,13 @@ namespace axiom {
         AXIOM_PROFILE_SCOPE("Application::Shutdown");
         OnShutdown();
         m_LayerStack.Shutdown();
+
+        // ImGui haengt am Vulkan-Device: VOR dem Renderer abbauen. Als Member
+        // (public, weit oben deklariert) wuerde es sonst erst NACH m_Renderer
+        // zerstoert.
+        m_Window->SetNativeEventHook(nullptr);
+        m_ImGuiLayer.reset();
+
         VFS::Shutdown();
     }
 

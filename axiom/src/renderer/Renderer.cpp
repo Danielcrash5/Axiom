@@ -198,6 +198,19 @@ rhi::RHIResult<rhi::SwapchainHandle> Renderer::getOrCreateSwapchain(
     return *result;
 }
 
+rhi::RHIResult<rhi::TextureFormat>
+Renderer::surfaceFormat(rhi::SurfaceHandle surface, uint32_t width, uint32_t height) {
+    if (!m_backend) {
+        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+    }
+    auto swapchain = getOrCreateSwapchain(surface, width > 0 ? width : 1,
+                                          height > 0 ? height : 1);
+    if (!swapchain) {
+        return std::unexpected(swapchain.error());
+    }
+    return m_backend->swapchainFormat(*swapchain);
+}
+
 rhi::RHIResult<void> Renderer::renderFrame() {
     if (!m_backend || !m_renderGraph) {
         return std::unexpected(rhi::RHIError::InvalidDescriptor);

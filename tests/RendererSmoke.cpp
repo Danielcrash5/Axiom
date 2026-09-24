@@ -23,7 +23,8 @@ public:
     void draw(uint32_t, uint32_t, uint32_t, uint32_t) override {}
     void drawIndexed(uint32_t, uint32_t, uint32_t) override {}
     void dispatch(uint32_t, uint32_t, uint32_t) override {}
-    void beginRendering(TextureHandle, std::optional<TextureHandle>) override {}
+    void beginRendering(TextureHandle, std::optional<TextureHandle>,
+                        std::optional<ClearColor>) override {}
     void endRendering() override {}
 };
 
