@@ -18,8 +18,6 @@ target_include_directories(axiom_engine
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/thirdparty/glm
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/thirdparty/vma
 )
 
 # Compiler-Definitionen
@@ -44,7 +42,6 @@ target_link_libraries(axiom_engine
         imgui
         nlohmann_json::nlohmann_json
         cereal::cereal
-        EnTT::EnTT
         flecs::flecs
 )
 
@@ -67,8 +64,6 @@ target_include_directories(axiom_engine_test
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/thirdparty/glm
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/thirdparty/vma
 )
 
 target_compile_definitions(axiom_engine_test PUBLIC
@@ -91,6 +86,5 @@ target_link_libraries(axiom_engine_test
         imgui
         nlohmann_json::nlohmann_json
         cereal::cereal
-        EnTT::EnTT
         flecs::flecs
 )

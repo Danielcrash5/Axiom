@@ -43,7 +43,6 @@ add_subdirectory(thirdparty/nlohmann_json)
 
 add_subdirectory(thirdparty/cereal)
 
-add_subdirectory(thirdparty/entt) # TODO: entfernen, sobald ecs/ komplett auf flecs migriert ist
 add_subdirectory(thirdparty/flecs)
 
 add_subdirectory(thirdparty/imgui)
