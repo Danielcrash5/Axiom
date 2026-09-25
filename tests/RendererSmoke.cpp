@@ -233,7 +233,7 @@ TEST(RenderGraphTest, RecompileReusesUnchangedTransientTextures) {
     // aus dem Architektur-Review (Renderer::renderFrame() ruft compile() bei
     // jedem Frame auf, pro View). Jetzt: gleiche Resource-Beschreibung wird
     // wiederverwendet, nur eine tatsaechliche Aenderung (Resize) legt neu an.
-    NullBackend backend;
+    ::NullBackend backend;
     rendergraph::RenderGraph graph(backend);
     graph.addPass(std::make_unique<passes::ClearScreenPass>());
 

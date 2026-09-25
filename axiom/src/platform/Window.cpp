@@ -45,7 +45,6 @@ namespace axiom {
             throw std::runtime_error(
                 std::string("Failed to create SDL3 window: ") + SDL_GetError());
 
-        m_Vsync = props.vsync;
 
         m_Width = props.width;
         m_Height = props.height;
@@ -167,9 +166,5 @@ namespace axiom {
     uint32_t Window::GetHeight() const { return m_Height; }
 
     SDL_Window *Window::GetNativeHandle() const { return m_Window; }
-
-    void Window::SwapBuffers() { return; }
-
-    void Window::ToggleVsync() { return; }
 
 } // namespace axiom

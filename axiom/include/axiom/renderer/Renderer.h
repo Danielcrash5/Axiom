@@ -90,6 +90,12 @@ public:
     [[nodiscard]] rhi::RHIResult<rhi::TextureFormat>
     surfaceFormat(rhi::SurfaceHandle surface, uint32_t width, uint32_t height);
 
+    // Schaltet VSync fuer die Swapchain der uebergebenen Surface um (FIFO vs.
+    // MAILBOX/IMMEDIATE). Synchron, wartet einmal auf das Device - nur bei
+    // Nutzeraktion aufrufen (Settings-Menu), nicht pro Frame.
+    [[nodiscard]] rhi::RHIResult<void> setVsync(rhi::SurfaceHandle surface,
+                                                bool enabled);
+
     // --- Item-Pool (Phase 4) ---
     // ECS-Systeme (RenderSubmissionSystem-Ableitungen) rufen das pro Entity
     // auf - roh, unsortiert. Sortierung/Batching passiert spaeter im Graph

@@ -1111,6 +1111,20 @@ namespace axiom::renderer::rhi::vulkan {
         return {};
     }
 
+    RHIResult<void> VulkanBackend::setSwapchainVsync(SwapchainHandle handle,
+                                                     bool enabled) {
+        if (handle.index >= m_swapchains.size())
+            return std::unexpected(RHIError::InvalidHandle);
+        auto &slot = m_swapchains[handle.index];
+        if (!slot.alive || slot.generation != handle.generation)
+            return std::unexpected(RHIError::InvalidHandle);
+        if (slot.vsync == enabled)
+            return {}; // schon im gewuenschten Modus, kein unnoetiger Rebuild
+
+        slot.vsync = enabled;
+        return recreateSwapchainInternal(slot, slot.width, slot.height);
+    }
+
     RHIResult<SwapchainHandle>
     VulkanBackend::createSwapchain(const SwapchainDesc &desc) {
         VkSurfaceKHR surface = nativeSurface(desc.surface);

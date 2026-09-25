@@ -61,6 +61,8 @@ public:
     void destroySwapchain(SwapchainHandle) override;
     RHIResult<AcquiredImage> acquireNextImage(SwapchainHandle) override;
     RHIResult<void> present(SwapchainHandle, uint32_t imageIndex) override;
+    [[nodiscard]] RHIResult<void> setSwapchainVsync(SwapchainHandle,
+                                                     bool enabled) override;
     TextureFormat swapchainFormat(SwapchainHandle) const override;
     std::pair<uint32_t, uint32_t> swapchainExtent(SwapchainHandle) const override;
 

@@ -211,6 +211,22 @@ Renderer::surfaceFormat(rhi::SurfaceHandle surface, uint32_t width, uint32_t hei
     return m_backend->swapchainFormat(*swapchain);
 }
 
+rhi::RHIResult<void> Renderer::setVsync(rhi::SurfaceHandle surface,
+                                        bool enabled) {
+    if (!m_backend) {
+        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+    }
+    for (auto &[existingSurface, existingSwapchain] : m_swapchains) {
+        if (existingSurface == surface) {
+            return m_backend->setSwapchainVsync(existingSwapchain, enabled);
+        }
+    }
+    // Swapchain existiert noch nicht (z.B. vor dem ersten Frame) - nichts zu
+    // tun, createSwapchain() greift beim ersten renderFrame() ohnehin auf
+    // SwapchainDesc::vsync zurueck.
+    return std::unexpected(rhi::RHIError::InvalidDescriptor);
+}
+
 rhi::RHIResult<void> Renderer::renderFrame() {
     if (!m_backend || !m_renderGraph) {
         return std::unexpected(rhi::RHIError::InvalidDescriptor);

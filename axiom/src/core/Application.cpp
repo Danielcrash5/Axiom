@@ -137,7 +137,6 @@ namespace axiom {
                 ImGuiRender();
                 Render(alpha);
 
-                m_Window->SwapBuffers();
             }
 
             axiom::profiling::Profiler::EndFrame();

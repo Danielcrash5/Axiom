@@ -12,6 +12,7 @@ enum class RHIError : uint8_t {
     InvalidDescriptor,
     AdapterRequestFailed,
     DeviceRequestFailed,
+    InvalidHandle,
     Unknown,
 };
 

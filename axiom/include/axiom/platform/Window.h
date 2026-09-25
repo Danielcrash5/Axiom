@@ -16,7 +16,6 @@ namespace axiom {
             uint32_t width = 1280;
             uint32_t height = 720;
             std::string title = "Engine";
-            bool vsync = true;
         };
 
       public:
@@ -24,7 +23,6 @@ namespace axiom {
         ~Window();
 
         void PollEvents();
-        void SwapBuffers();
 
         bool ShouldClose() const;
 
@@ -40,9 +38,6 @@ namespace axiom {
             m_NativeEventHook = std::move(hook);
         }
 
-        bool VsyncEnabled() { return m_Vsync; }
-        void ToggleVsync();
-
       private:
         void Init(const Props &props);
         void Shutdown();
@@ -53,7 +48,6 @@ namespace axiom {
         EventBus &m_EventBus;
         NativeEventHook m_NativeEventHook;
 
-        bool m_Vsync = true;
         bool m_ShouldClose = false;
 
         uint32_t m_Width = 0;

@@ -77,6 +77,13 @@ public:
     [[nodiscard]] virtual RHIResult<AcquiredImage> acquireNextImage(SwapchainHandle) = 0;
     [[nodiscard]] virtual RHIResult<void> present(SwapchainHandle, uint32_t imageIndex) = 0;
 
+    // Baut die Swapchain mit FIFO (true) bzw. MAILBOX/IMMEDIATE (false) neu -
+    // synchron, wartet also einmal auf das Device (siehe VulkanBackend::
+    // recreateSwapchainInternal). Nicht pro Frame aufrufen, nur bei
+    // Nutzeraktion (Settings-Toggle).
+    [[nodiscard]] virtual RHIResult<void> setSwapchainVsync(SwapchainHandle,
+                                                            bool enabled) = 0;
+
     [[nodiscard]] virtual TextureFormat swapchainFormat(SwapchainHandle) const = 0;
     [[nodiscard]] virtual std::pair<uint32_t, uint32_t> swapchainExtent(SwapchainHandle) const = 0;
 };
