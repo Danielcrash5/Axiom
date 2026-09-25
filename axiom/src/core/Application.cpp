@@ -4,8 +4,7 @@
 #include "axiom/core/Time.h"
 #include "axiom/platform/Window.h"
 #include "axiom/profiling/Profiler.h"
-// #include "axiom/renderer/Renderer.h"
-// #include <axiom/renderer/RendererRHI.h>
+#include "axiom/renderer/Renderer.h"
 #include "axiom/ImGui/Panels/LogPanel.h"
 #include "axiom/assets/VFS.h"
 #include <vector>
@@ -52,7 +51,7 @@ namespace axiom {
         std::shared_ptr<ImGuiPanelLogsink> logsink =
             std::make_shared<ImGuiPanelLogsink>();
 
-        // AddImGuiPanel(std::make_shared<LogPanel>(logsink));
+        AddImGuiPanel(std::make_shared<LogPanel>(logsink));
 
 #ifdef AXIOM_ENABLE_CONSOLE_LOG
         Logger::Get().AddSink(std::make_shared<ConsoleSink>());
