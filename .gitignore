@@ -7,3 +7,4 @@ CMakeSettings.json
 buildlog.txt
 *.patch
 buildlog.txt
+imgui.ini
