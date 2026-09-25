@@ -137,6 +137,10 @@ namespace axiom {
                 ImGuiRender();
                 Render(alpha);
 
+                // Sekundaere ImGui-Fenster (ausgedockt) erst NACH dem
+                // Praesentieren des Hauptfensters - siehe RenderAdditionalViewports().
+                if (m_ImGuiLayer)
+                    m_ImGuiLayer->RenderAdditionalViewports();
             }
 
             axiom::profiling::Profiler::EndFrame();

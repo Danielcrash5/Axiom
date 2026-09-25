@@ -128,9 +128,14 @@ namespace axiom {
         ImGuiIO &io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-        // Bewusst KEIN ViewportsEnable: das Backend wuerde fuer jedes
-        // rausgezogene Fenster eigene Swapchains an Renderer/RenderGraph
-        // vorbei verwalten.
+        // Jedes rausgezogene Fenster bekommt eine eigene, vom Backend
+        // selbst verwaltete Swapchain - komplett am RenderGraph vorbei.
+        // ImGui_ImplSDL3/_Vulkan erkennen das Flag selbst und richten
+        // Platform_CreateVkSurface etc. automatisch ein (siehe
+        // ImGui_ImplSDL3_InitMultiViewportSupport / _InitMultiViewportSupport
+        // in imgui_impl_vulkan.cpp) - hier ist nichts weiter noetig als das
+        // Flag VOR den beiden Init-Aufrufen unten zu setzen.
+        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
         ImGui::StyleColorsDark();
 
         if (!ImGui_ImplSDL3_InitForVulkan(window.GetNativeHandle())) {
@@ -204,6 +209,20 @@ namespace axiom {
     }
 
     void VulkanImGuiLayer::End() { ImGui::Render(); }
+
+    void VulkanImGuiLayer::RenderAdditionalViewports() {
+        ImGuiIO &io = ImGui::GetIO();
+        if (!(io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable))
+            return;
+
+        // Zeichnet + praesentiert jedes Sekundaerfenster ueber dessen eigene,
+        // vom Vulkan-Backend selbst angelegte Swapchain. Muss NACH dem
+        // Praesentieren des Hauptfensters laufen (siehe Application::MainLoop) -
+        // parallel dazu waere ein zweites vkQueuePresentKHR auf derselben
+        // Queue ohne zusaetzliche Synchronisation.
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
+    }
 
     bool VulkanImGuiLayer::ProcessEvent(const SDL_Event &event) {
         ImGui_ImplSDL3_ProcessEvent(&event);

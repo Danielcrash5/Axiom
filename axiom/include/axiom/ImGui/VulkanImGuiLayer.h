@@ -32,6 +32,7 @@ namespace axiom {
         void Begin() override;
         void End() override;
         bool ProcessEvent(const SDL_Event &event) override;
+        void RenderAdditionalViewports() override;
 
       private:
         VulkanImGuiLayer() = default;

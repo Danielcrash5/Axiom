@@ -38,6 +38,13 @@ namespace axiom {
         // true = Event wurde von der UI konsumiert (nicht ans Spiel geben).
         virtual bool ProcessEvent(const SDL_Event &event) { return false; }
 
+        // Zeichnet und praesentiert aus dem Dockspace herausgezogene
+        // ImGui-Fenster als eigene OS-Fenster (ImGuiConfigFlags_ViewportsEnable).
+        // MUSS NACH dem Praesentieren des Hauptfensters aufgerufen werden -
+        // die Sekundaerfenster haben ihre eigenen Swapchains, komplett am
+        // RenderGraph vorbei. No-op, wenn Viewports nicht aktiviert sind.
+        virtual void RenderAdditionalViewports() {}
+
         // Erzeugt den Layer passend zum Renderer-Backend und registriert
         // dessen RenderPass. nullptr bei Fehler (Renderer laeuft dann ohne UI).
         // Muss vor dem Renderer zerstoert werden.

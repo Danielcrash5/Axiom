@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <axiom/core/Logger.h>
 #include <axiom/renderer/vulkan/VulkanBackend.h>
 #include <axiom/renderer/vulkan/VulkanCommandlist.h>
 #include <cstring>
@@ -178,9 +179,16 @@ namespace axiom::renderer::rhi::vulkan {
             VkDebugUtilsMessageSeverityFlagBitsEXT severity,
             VkDebugUtilsMessageTypeFlagsEXT,
             const VkDebugUtilsMessengerCallbackDataEXT *data, void *) {
-            if (severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-                std::cerr << "[Vulkan] " << data->pMessage << "\n";
+            // Bitmaske, deshalb & statt >= - die Severity-Werte sind zufaellig
+            // aufsteigend, kein garantiert linearer Enum.
+            if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+                AXIOM_ERROR("[Vulkan] {}", data->pMessage);
+            } else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+                AXIOM_WARN("[Vulkan] {}", data->pMessage);
             }
+            // Kann von einem beliebigen Vulkan-internen Thread aufgerufen
+            // werden, nicht nur vom Main-Thread - Logger::Log() ist per
+            // std::mutex synchronisiert, das ist also sicher.
             return VK_FALSE;
         }
 #endif
