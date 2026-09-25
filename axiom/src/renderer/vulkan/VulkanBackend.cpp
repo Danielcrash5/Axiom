@@ -285,7 +285,8 @@ namespace axiom::renderer::rhi::vulkan {
 
             if (!features13.dynamicRendering || !features13.synchronization2 ||
                 !features12.descriptorIndexing ||
-                !features12.runtimeDescriptorArray) {
+                !features12.runtimeDescriptorArray ||
+                !features12.descriptorBindingSampledImageUpdateAfterBind) {
                 continue;
             }
 
@@ -344,6 +345,14 @@ namespace axiom::renderer::rhi::vulkan {
         enable12.descriptorBindingVariableDescriptorCount = VK_TRUE;
         enable12.runtimeDescriptorArray = VK_TRUE;
         enable12.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
+        // Noetig, weil createBindGroupLayout() JEDEM bindless-Binding
+        // VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT gibt - aktuell nur
+        // fuer SampledTexture genutzt (BindlessTextureHeap). Falls spaeter
+        // auch bindless Sampler/Storage-/Uniform-Buffer dazukommen, muss
+        // hier UND in der Feature-Pruefung oben das jeweilige
+        // descriptorBinding*UpdateAfterBind-Flag ergaenzt werden - sonst
+        // derselbe Validation-Error, nur fuer den anderen Deskriptor-Typ.
+        enable12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
 
         VkPhysicalDeviceFeatures2 enableFeatures2{
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
