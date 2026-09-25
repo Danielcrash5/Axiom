@@ -181,10 +181,35 @@ namespace axiom::renderer::rhi::vulkan {
             const VkDebugUtilsMessengerCallbackDataEXT *data, void *) {
             // Bitmaske, deshalb & statt >= - die Severity-Werte sind zufaellig
             // aufsteigend, kein garantiert linearer Enum.
+            // pMessageIdName ist die eigentliche VUID (z.B.
+            // "VUID-vkQueueSubmit-pCommandBuffers-06010" oder eine
+            // "UNASSIGNED-..."-ID) - zuverlaessiger zum gezielten Filtern
+            // als ein Substring-Match auf den (uebersetzbaren, SDK-
+            // versionsabhaengigen) Nachrichtentext.
+            const char *vuid = data->pMessageIdName ? data->pMessageIdName
+                                                     : "<keine ID>";
+
+            // Bekannte, harmlose Race in ImGuis eigenem
+            // imgui_impl_vulkan.cpp (nicht unser Code): bei sehr schnellem
+            // Resize/Move eines ausgedockten ImGui-Fensters (Docking +
+            // Multi-Viewport + Dynamic Rendering) kann waehrend des
+            // Swapchain-Rebuilds kurz ein Bild transitioniert werden, das
+            // fuer DIESEN Rebuild-Zyklus noch nicht (neu) acquired wurde.
+            // Optisch nichts sichtbar kaputt, verschwindet sobald die
+            // Drag-Geste endet - siehe Verlauf zu diesem Bug. Bewusst nur
+            // nach TRACE geloggt statt komplett verschluckt, damit ein
+            // ECHTES Acquire-Problem (z.B. im HAUPTfenster-Pfad,
+            // VulkanBackend::acquireNextImage/present) weiterhin als ERROR
+            // auffaellt.
+            if (std::strcmp(vuid, "UNASSIGNED-non-acquired-swapchain-image-used") == 0) {
+                AXIOM_TRACE("[Vulkan][{}] {}", vuid, data->pMessage);
+                return VK_FALSE;
+            }
+
             if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-                AXIOM_ERROR("[Vulkan] {}", data->pMessage);
+                AXIOM_ERROR("[Vulkan][{}] {}", vuid, data->pMessage);
             } else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-                AXIOM_WARN("[Vulkan] {}", data->pMessage);
+                AXIOM_WARN("[Vulkan][{}] {}", vuid, data->pMessage);
             }
             // Kann von einem beliebigen Vulkan-internen Thread aufgerufen
             // werden, nicht nur vom Main-Thread - Logger::Log() ist per
