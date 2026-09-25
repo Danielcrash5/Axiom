@@ -88,6 +88,14 @@ public:
         return {};
     }
 
+    RHIResult<void> setSwapchainVsync(SwapchainHandle, bool) override {
+        return {};
+    }
+
+    TextureFormat swapchainFormat(SwapchainHandle) const override {
+        return TextureFormat::BGRA8Unorm;
+    }
+
     void destroyBindGroupLayout(BindGroupLayoutHandle) override {
         ++destroyedBindGroupLayouts;
     }
@@ -113,10 +121,6 @@ public:
     RHIResult<void> present(SwapchainHandle, uint32_t) override {
         ++presents;
         return {};
-    }
-
-    TextureFormat swapchainFormat(SwapchainHandle) const override {
-        return TextureFormat::BGRA8Unorm;
     }
 
     std::pair<uint32_t, uint32_t> swapchainExtent(SwapchainHandle) const override {

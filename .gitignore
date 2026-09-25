@@ -6,3 +6,4 @@ CMakePresets.json
 CMakeSettings.json
 buildlog.txt
 *.patch
+buildlog.txt
