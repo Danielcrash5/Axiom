@@ -1,10 +1,11 @@
 #pragma once
 
-#include "axiom/core/TypedUUID.h"
+#include "axiom/core/TaggedUUID.h"
 // #include "axiom/renderer/Sprite.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include <string>
 #include <utility>
@@ -27,7 +28,11 @@ namespace axiom {
 
     struct TransformComponent {
         glm::vec3 Translation{0.0f, 0.0f, 0.0f};
-        glm::vec3 Rotation{0.0f, 0.0f, 0.0f};
+        // Quaternion statt Euler: keine Gimbal-Lock-Probleme bei Komposition/
+        // Interpolation (Physik, Animation, Gizmo). Editierbare Euler-Winkel
+        // fuers Inspector-UI sind ein reiner Darstellungs-Cache dort, nicht
+        // Teil dieser Komponente - siehe TODO in InspectorPanel.cpp.
+        glm::quat Rotation{1.0f, 0.0f, 0.0f, 0.0f}; // (w,x,y,z) Identitaet
         glm::vec3 Scale{1.0f, 1.0f, 1.0f};
 
         TransformComponent() = default;
@@ -35,15 +40,8 @@ namespace axiom {
             : Translation(translation) {}
 
         glm::mat4 GetTransform() const {
-            const glm::mat4 rotation =
-                glm::rotate(glm::mat4(1.0f), Rotation.x,
-                            glm::vec3(1.0f, 0.0f, 0.0f)) *
-                glm::rotate(glm::mat4(1.0f), Rotation.y,
-                            glm::vec3(0.0f, 1.0f, 0.0f)) *
-                glm::rotate(glm::mat4(1.0f), Rotation.z,
-                            glm::vec3(0.0f, 0.0f, 1.0f));
-
-            return glm::translate(glm::mat4(1.0f), Translation) * rotation *
+            return glm::translate(glm::mat4(1.0f), Translation) *
+                   glm::mat4_cast(Rotation) *
                    glm::scale(glm::mat4(1.0f), Scale);
         }
     };

@@ -2,6 +2,7 @@
 
 #include <axiom/Axiom.h>
 #include <imgui_internal.h>
+#include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 namespace testbed {
@@ -83,7 +84,16 @@ namespace testbed {
 									});
 		DrawComponent<axiom::TransformComponent>("Transform", entity.GetComponent<axiom::TransformComponent>(), [](auto& transform) {
 			DrawVec3Control("Translation", transform.Translation);
-			DrawVec3Control("Rotation", transform.Rotation);
+			// TODO Platzhalter: rechnet JEDEN Frame Quaternion<->Euler um, ohne
+			// die zuletzt editierten Winkel zu cachen. Das fuehrt bei kleinen
+			// Edits zu Winkel-Spruengen (z.B. 90 -> -270), weil die Quat->Euler-
+			// Umkehrung nicht eindeutig ist. Fix, sobald dieses Panel wirklich
+			// registriert wird: zuletzt editierte Euler-Winkel PRO ENTITY (Key:
+			// IDComponent::ID) im Panel-State cachen, nur bei Fremdaenderung des
+			// Quaternions (Gizmo/Animation/Physik) neu aus dem Quat ableiten.
+			glm::vec3 eulerDegrees = glm::degrees(glm::eulerAngles(transform.Rotation));
+			DrawVec3Control("Rotation", eulerDegrees);
+			transform.Rotation = glm::quat(glm::radians(eulerDegrees));
 			DrawVec3Control("Scale", transform.Scale, 1.0f);
 					  });
 /*		if (entity.HasComponent<axiom::SpriteRendererComponent>()) {
