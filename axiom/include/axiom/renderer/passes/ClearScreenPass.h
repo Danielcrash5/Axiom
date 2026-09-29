@@ -7,24 +7,18 @@ namespace axiom::renderer::passes {
     class ClearScreenPass final : public rendergraph::RenderPass {
       public:
         void setup(rendergraph::RenderGraphBuilder &builder) override {
-            // Wenn diese View ein Swapchain-Image fuer diesen Frame hat
-            // (presentTarget), DIREKT dort reinclearen und importieren -
-            // sonst landet der Clear in einer eigenen Offscreen-Textur, die
-            // nie praesentiert wird und das Fenster bleibt schwarz. Fallback
-            // (eigene Transient-Textur) bleibt fuer Views mit
-            // RenderTargetKind::Texture oder isolierte Unit-Tests ohne View.
-            if (rhi::TextureHandle present = builder.presentTarget(); present.valid()) {
-                rendergraph::TextureResourceDesc presentDesc{
-                    .width = builder.currentView() ? builder.currentView()->viewport.width : 0,
-                    .height = builder.currentView() ? builder.currentView()->viewport.height : 0,
-                    .format = rhi::TextureFormat::BGRA8Unorm,
-                    // CopyDst (nicht RenderTarget) - requiredLayoutFor() mappt
-                    // Write sonst auf ColorAttachment, aber clearTexture()
-                    // (Vulkan) erwartet TransferDst-Layout fuer vkCmdClearColorImage.
-                    .usage = rhi::TextureUsage::CopyDst,
-                    .debugName = "SwapchainPresentTarget",
-                };
-                m_target = builder.write(builder.importTexture(present, presentDesc));
+            // Wenn diese View ein Swapchain-Image fuer diesen Frame hat,
+            // DIREKT dort reinclearen - sonst landet der Clear in einer
+            // eigenen Offscreen-Textur, die nie praesentiert wird und das
+            // Fenster bleibt schwarz. Das Present-Target kommt vom Graph
+            // (einmal zentral importiert); das Layout gibt dieser Zugriff
+            // selbst an: clearTexture() (Vulkan) erwartet TransferDst fuer
+            // vkCmdClearColorImage. Fallback (eigene Transient-Textur)
+            // bleibt fuer Views mit RenderTargetKind::Texture oder
+            // isolierte Unit-Tests ohne View.
+            if (const auto present = builder.presentTargetResource();
+                present.valid()) {
+                m_target = builder.write(present, rhi::TextureLayout::TransferDst);
                 return;
             }
 

@@ -27,40 +27,38 @@ namespace axiom {
         }
 
         // Schreibt die von ImGui::Render() erzeugten DrawData ins
-        // Swapchain-Image des Hauptfensters. Clear passiert per loadOp -
-        // dieser Pass ersetzt damit den ClearScreenPass, solange ImGui
-        // der einzige Schreiber aufs Present-Target ist.
+        // Swapchain-Image des Hauptfensters. Clear oder Load entscheidet
+        // der Graph: ist ImGui der erste Schreiber aufs Present-Target
+        // (kein Szenen-Pass davor), cleart es per loadOp; laeuft davor ein
+        // Pass, der das Bild schon beschrieben hat, LAEDT es und
+        // ueberzeichnet nur.
         class ImGuiPass final : public rg::RenderPass {
           public:
-            ImGuiPass(rhi::SurfaceHandle surface, rhi::TextureFormat format)
-                : m_Surface(surface), m_Format(format) {}
+            explicit ImGuiPass(rhi::SurfaceHandle surface)
+                : m_Surface(surface) {}
 
             void setup(rg::RenderGraphBuilder &builder) override {
                 m_Target = {}; // pro compile() neu bestimmen
 
                 const renderer::View *view = builder.currentView();
-                const rhi::TextureHandle present = builder.presentTarget();
+                const rg::ResourceHandle present = builder.presentTargetResource();
                 if (!view || !present.valid() ||
                     !(view->target.surface == m_Surface))
                     return; // andere View / kein Swapchain-Ziel: nichts tun
 
-                rg::TextureResourceDesc desc{
-                    .width = view->viewport.width,
-                    .height = view->viewport.height,
-                    .format = m_Format,
-                    // RenderTarget -> Graph legt ColorAttachment-Layout an.
-                    .usage = rhi::TextureUsage::RenderTarget,
-                    .debugName = "ImGuiPresentTarget",
-                };
-                m_Target = builder.write(builder.importTexture(present, desc));
+                m_Target = builder.write(present, rhi::TextureLayout::ColorAttachment);
             }
 
             void execute(rg::RenderContext &ctx, rhi::CommandList &cmd) override {
                 if (!m_Target.valid())
                     return;
 
+                std::optional<rhi::ClearColor> clear;
+                if (ctx.isFirstWrite(m_Target))
+                    clear = rhi::ClearColor{0.05f, 0.05f, 0.08f, 1.0f};
+
                 cmd.beginRendering(ctx.resolveTexture(m_Target), std::nullopt,
-                                   rhi::ClearColor{0.05f, 0.05f, 0.08f, 1.0f});
+                                   clear);
 
                 if (ImGui::GetCurrentContext()) {
                     if (ImDrawData *drawData = ImGui::GetDrawData()) {
@@ -78,7 +76,6 @@ namespace axiom {
 
           private:
             rhi::SurfaceHandle m_Surface;
-            rhi::TextureFormat m_Format;
             rg::ResourceHandle m_Target;
         };
 
@@ -173,7 +170,7 @@ namespace axiom {
         layer->m_VulkanBackendReady = true;
 
         renderer.addPass(
-            std::make_unique<ImGuiPass>(renderer.mainSurface(), *format));
+            std::make_unique<ImGuiPass>(renderer.mainSurface()));
 
         return layer;
     }

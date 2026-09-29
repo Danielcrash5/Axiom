@@ -2,6 +2,7 @@
 #include "RenderPass.h"
 #include <axiom/renderer/rhi/IRHIBackend.h>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -50,11 +51,19 @@ namespace axiom::renderer::rendergraph {
                 false; // false = transient, vom Graph selbst erzeugt
             TextureResourceDesc desc;
             uint32_t generation = 0;
+            // Wird in execute() nach dem ersten Pass gesetzt, der diese
+            // Resource schreibt (siehe RenderContext::isFirstWrite()).
+            bool writtenThisExecute = false;
         };
 
         struct ResourceAccess {
             ResourceHandle handle;
             AccessType access;
+            // Wenn gesetzt, bestimmt der ZUGRIFF das benoetigte Layout,
+            // nicht die TextureUsage der Resource. Noetig, sobald mehrere
+            // Passes dieselbe Resource mit verschiedenen Layouts schreiben
+            // (z.B. Clear per Transfer, danach Rendern als Attachment).
+            std::optional<rhi::TextureLayout> layoutOverride;
         };
 
         struct PassEntry {
@@ -65,14 +74,23 @@ namespace axiom::renderer::rendergraph {
         // Von RenderGraphBuilder genutzt:
         ResourceHandle
         registerTransientTexture(const TextureResourceDesc &desc);
+        // Dedupliziert nach externem Handle: importieren mehrere Passes
+        // dasselbe Image (z.B. das Swapchain-Image), bekommen sie EINEN
+        // gemeinsamen ResourceEntry - und damit eine durchgaengige
+        // Layout-Historie statt je eines isolierten Entries, der immer bei
+        // Undefined anfaengt (ein Uebergang von Undefined darf den Inhalt
+        // verwerfen, was das Ergebnis des vorigen Passes zerstoeren wuerde).
         ResourceHandle registerImportedTexture(rhi::TextureHandle handle,
                                                const TextureResourceDesc &desc);
         void recordAccess(uint32_t passIndex, ResourceHandle handle,
-                          AccessType access);
+                          AccessType access,
+                          std::optional<rhi::TextureLayout> layoutOverride =
+                              std::nullopt);
 
         // Von RenderContext genutzt:
         [[nodiscard]] rhi::TextureHandle
         resolveTexture(ResourceHandle handle) const;
+        [[nodiscard]] bool isFirstWrite(ResourceHandle handle) const;
 
         // Bestimmt für ein AccessType das benötigte Layout. Fürs
         // Clear-Test-Pass reicht TransferDst; ColorAttachment/ShaderReadOnly
@@ -85,6 +103,11 @@ namespace axiom::renderer::rendergraph {
         rhi::IRHIBackend &m_backend;
         std::vector<PassEntry> m_passes;
         std::vector<ResourceEntry> m_resources;
+        // Das Present-Target der aktuellen compile()-Execution, EINMAL
+        // zentral importiert (ungueltig, wenn die View kein Swapchain-Image
+        // hat). Passes greifen ueber RenderGraphBuilder::
+        // presentTargetResource() darauf zu, statt selbst zu importieren.
+        ResourceHandle m_presentResource;
         bool m_compiled = false;
     };
 

@@ -19,6 +19,7 @@ namespace axiom::renderer::rendergraph {
         releaseTransientResources();
         m_resources.clear();
         m_passes.clear();
+        m_presentResource = {};
         m_compiled = false;
     }
 
@@ -52,6 +53,20 @@ namespace axiom::renderer::rendergraph {
     ResourceHandle
     RenderGraph::registerImportedTexture(rhi::TextureHandle handle,
                                          const TextureResourceDesc &desc) {
+        // Dedup nach externem Handle (siehe Header-Kommentar): dasselbe
+        // Image bekommt immer denselben Entry. Die Usage wird vereinigt -
+        // das benoetigte Layout bestimmt ohnehin der einzelne Zugriff.
+        if (handle.valid()) {
+            for (uint32_t i = 0; i < m_resources.size(); ++i) {
+                ResourceEntry &existing = m_resources[i];
+                if (existing.isImported && existing.type == ResourceType::Texture &&
+                    existing.textureHandle == handle) {
+                    existing.desc.usage = existing.desc.usage | desc.usage;
+                    return ResourceHandle{i, existing.generation};
+                }
+            }
+        }
+
         ResourceEntry entry;
         entry.type = ResourceType::Texture;
         entry.isImported = true;
@@ -66,9 +81,20 @@ namespace axiom::renderer::rendergraph {
         return ResourceHandle{index, entry.generation};
     }
 
-    void RenderGraph::recordAccess(uint32_t passIndex, ResourceHandle handle,
-                                   AccessType access) {
-        m_passes[passIndex].accesses.push_back(ResourceAccess{handle, access});
+    void RenderGraph::recordAccess(
+        uint32_t passIndex, ResourceHandle handle, AccessType access,
+        std::optional<rhi::TextureLayout> layoutOverride) {
+        m_passes[passIndex].accesses.push_back(
+            ResourceAccess{handle, access, layoutOverride});
+    }
+
+    bool RenderGraph::isFirstWrite(ResourceHandle handle) const {
+        // Ungueltiger Handle -> false: im Zweifel LOAD statt CLEAR, damit
+        // ein Fehler hier nie fremden Inhalt loescht.
+        if (!handle.valid() || handle.index >= m_resources.size()) {
+            return false;
+        }
+        return !m_resources[handle.index].writtenThisExecute;
     }
 
     rhi::TextureHandle
@@ -103,6 +129,25 @@ namespace axiom::renderer::rendergraph {
             passEntry.accesses.clear();
         }
         m_compiled = false;
+
+        // Schritt 0: Present-Target (Swapchain-Image dieses Frames) EINMAL
+        // zentral importieren. Passes holen sich den Handle ueber
+        // RenderGraphBuilder::presentTargetResource(), statt jeder selbst zu
+        // importieren. Usage RenderTarget|CopyDst, weil das Swapchain-Image
+        // beides kann (COLOR_ATTACHMENT|TRANSFER_DST); welches Layout ein
+        // Pass tatsaechlich braucht, gibt er per write(handle, layout) an.
+        m_presentResource = {};
+        if (execution.presentTarget.valid()) {
+            TextureResourceDesc presentDesc{
+                .width = execution.view ? execution.view->viewport.width : 0,
+                .height = execution.view ? execution.view->viewport.height : 0,
+                .format = rhi::TextureFormat::BGRA8Unorm, // bei Imports unbenutzt
+                .usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::CopyDst,
+                .debugName = "SwapchainPresentTarget",
+            };
+            m_presentResource =
+                registerImportedTexture(execution.presentTarget, presentDesc);
+        }
 
         // Schritt 1: setup() für ALLE Passes aufrufen, bevor irgendetwas
         // tatsächlich angelegt wird – der Graph deklariert erst vollständig,
@@ -196,6 +241,10 @@ namespace axiom::renderer::rendergraph {
 
         RenderContext ctx(*this, execution);
 
+        for (auto &resource : m_resources) {
+            resource.writtenThisExecute = false;
+        }
+
         for (uint32_t passIndex = 0; passIndex < m_passes.size(); ++passIndex) {
             auto &passEntry = m_passes[passIndex];
             ctx.setCurrentPassIndex(passIndex);
@@ -205,7 +254,9 @@ namespace axiom::renderer::rendergraph {
                 if (resource.type != ResourceType::Texture)
                     continue;
 
-                rhi::TextureLayout required = requiredLayoutFor(resource, access.access);
+                const rhi::TextureLayout required =
+                    access.layoutOverride.value_or(
+                        requiredLayoutFor(resource, access.access));
                 if (resource.currentLayout != required) {
                     cmdList->transitionTexture(resource.textureHandle,
                                                resource.currentLayout,
@@ -215,6 +266,14 @@ namespace axiom::renderer::rendergraph {
             }
 
             passEntry.pass->execute(ctx, *cmdList);
+
+            // Erst NACH execute() markieren: der Pass selbst muss waehrend
+            // seiner Ausfuehrung noch "erster Schreiber" sein koennen.
+            for (auto &access : passEntry.accesses) {
+                if (access.access == AccessType::Write) {
+                    m_resources[access.handle.index].writtenThisExecute = true;
+                }
+            }
         }
 
         // Wenn diese View auf eine Swapchain zielt: das Present-Target muss
@@ -275,11 +334,25 @@ namespace axiom::renderer::rendergraph {
         return handle;
     }
 
+    ResourceHandle RenderGraphBuilder::write(ResourceHandle handle,
+                                             rhi::TextureLayout layout) {
+        m_graph.recordAccess(m_passIndex, handle, AccessType::Write, layout);
+        return handle;
+    }
+
+    ResourceHandle RenderGraphBuilder::presentTargetResource() const {
+        return m_graph.m_presentResource;
+    }
+
     // --- RenderContext ---
 
     rhi::TextureHandle
     RenderContext::resolveTexture(ResourceHandle handle) const {
         return m_graph.resolveTexture(handle);
+    }
+
+    bool RenderContext::isFirstWrite(ResourceHandle handle) const {
+        return m_graph.isFirstWrite(handle);
     }
 
     std::span<const RenderItem> RenderContext::items() const {

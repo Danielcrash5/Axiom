@@ -38,6 +38,14 @@ namespace axiom::renderer::rendergraph {
             return m_execution.view;
         }
 
+        // true, solange in diesem execute() noch KEIN vorheriger Pass diese
+        // Resource geschrieben hat. Ein Pass, der auf ein geteiltes Ziel
+        // schreibt (Swapchain-Image), cleart nur, wenn er der erste
+        // Schreiber ist - sonst laedt er (loadOp = LOAD) und ueberzeichnet.
+        // So haengt das Clear-Verhalten nicht an einer Pass-Reihenfolge-
+        // Konvention, sondern an dem, was der Graph tatsaechlich weiss.
+        [[nodiscard]] bool isFirstWrite(ResourceHandle handle) const;
+
         [[nodiscard]] std::span<const RenderItem> items() const;
         [[nodiscard]] std::span<const RenderItem> itemsForPass(uint32_t passIndex) const;
 

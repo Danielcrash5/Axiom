@@ -10,12 +10,29 @@ using namespace axiom::renderer::rhi;
 
 namespace {
 
+// Protokoll der fuer die RenderGraph-Tests relevanten Befehle.
+struct CmdEvent {
+    enum class Kind { Transition, BeginRendering, ClearTexture } kind;
+    TextureLayout from = TextureLayout::Undefined; // nur Transition
+    TextureLayout to = TextureLayout::Undefined;   // nur Transition
+    bool clear = false;                            // nur BeginRendering (loadOp)
+};
+
 class NullCommandList final : public CommandList {
 public:
+    explicit NullCommandList(std::vector<CmdEvent>* log = nullptr) : m_log(log) {}
+
     void copyBufferToBuffer(BufferHandle, uint64_t, BufferHandle, uint64_t,
                             uint64_t) override {}
-    void transitionTexture(TextureHandle, TextureLayout, TextureLayout) override {}
-    void clearTexture(TextureHandle, ClearColor) override {}
+    void transitionTexture(TextureHandle, TextureLayout from,
+                           TextureLayout to) override {
+        if (m_log)
+            m_log->push_back({CmdEvent::Kind::Transition, from, to, false});
+    }
+    void clearTexture(TextureHandle, ClearColor) override {
+        if (m_log)
+            m_log->push_back({CmdEvent::Kind::ClearTexture});
+    }
     void bindPipeline(PipelineHandle) override {}
     void bindVertexBuffer(uint32_t, BufferHandle) override {}
     void bindIndexBuffer(BufferHandle, bool) override {}
@@ -24,8 +41,16 @@ public:
     void drawIndexed(uint32_t, uint32_t, uint32_t) override {}
     void dispatch(uint32_t, uint32_t, uint32_t) override {}
     void beginRendering(TextureHandle, std::optional<TextureHandle>,
-                        std::optional<ClearColor>) override {}
+                        std::optional<ClearColor> clearColor) override {
+        if (m_log)
+            m_log->push_back({CmdEvent::Kind::BeginRendering,
+                              TextureLayout::Undefined, TextureLayout::Undefined,
+                              clearColor.has_value()});
+    }
     void endRendering() override {}
+
+private:
+    std::vector<CmdEvent>* m_log;
 };
 
 class NullBackend final : public IRHIBackend {
@@ -53,7 +78,7 @@ public:
     }
 
     std::unique_ptr<CommandList> createCommandList() override {
-        return std::make_unique<NullCommandList>();
+        return std::make_unique<NullCommandList>(&events);
     }
 
     void submit(CommandList&) override { ++submits; }
@@ -138,6 +163,7 @@ public:
     int destroyedBindGroups = 0;
     int destroyedSamplers = 0;
     int submits = 0;
+    std::vector<CmdEvent> events; // von allen CommandLists dieses Backends
 
 private:
     uint32_t m_nextBuffer = 0;
@@ -267,6 +293,191 @@ TEST(RenderGraphTest, RecompileReusesUnchangedTransientTextures) {
 
     graph.clear();
     EXPECT_EQ(backend.destroyedTextures, 2);
+}
+
+namespace {
+
+// Schreibt das Present-Target mit einem festen Layout. Verhaelt sich wie die
+// echten Passes: TransferDst -> clearTexture(), sonst beginRendering() mit
+// loadOp CLEAR nur als erster Schreiber.
+class PresentWritePass final : public rendergraph::RenderPass {
+public:
+    PresentWritePass(TextureLayout layout, std::vector<bool>* firstWrites,
+                     bool legacyImport = false)
+        : m_layout(layout), m_firstWrites(firstWrites),
+          m_legacyImport(legacyImport) {}
+
+    void setup(rendergraph::RenderGraphBuilder& builder) override {
+        if (m_legacyImport) {
+            // Altes Muster: Pass importiert das Swapchain-Image selbst.
+            rendergraph::TextureResourceDesc desc{
+                .width = 64,
+                .height = 64,
+                .format = TextureFormat::BGRA8Unorm,
+                .usage = TextureUsage::RenderTarget,
+                .debugName = "LegacyImport",
+            };
+            m_target = builder.write(
+                builder.importTexture(builder.presentTarget(), desc), m_layout);
+        } else {
+            m_target = builder.write(builder.presentTargetResource(), m_layout);
+        }
+    }
+
+    void execute(rendergraph::RenderContext& ctx, CommandList& cmd) override {
+        const bool first = ctx.isFirstWrite(m_target);
+        if (m_firstWrites)
+            m_firstWrites->push_back(first);
+
+        if (m_layout == TextureLayout::TransferDst) {
+            cmd.clearTexture(ctx.resolveTexture(m_target), ClearColor{});
+            return;
+        }
+        std::optional<ClearColor> clear;
+        if (first)
+            clear = ClearColor{};
+        cmd.beginRendering(ctx.resolveTexture(m_target), std::nullopt, clear);
+        cmd.endRendering();
+    }
+
+    const char* name() const override { return "PresentWritePass"; }
+
+private:
+    TextureLayout m_layout;
+    std::vector<bool>* m_firstWrites;
+    bool m_legacyImport;
+    rendergraph::ResourceHandle m_target;
+};
+
+class PresentProbePass final : public rendergraph::RenderPass {
+public:
+    explicit PresentProbePass(bool* sawValidResource)
+        : m_saw(sawValidResource) {}
+    void setup(rendergraph::RenderGraphBuilder& builder) override {
+        *m_saw = builder.presentTargetResource().valid();
+    }
+    void execute(rendergraph::RenderContext&, CommandList&) override {}
+    const char* name() const override { return "PresentProbePass"; }
+
+private:
+    bool* m_saw;
+};
+
+rendergraph::RenderExecutionDesc makePresentExecution(const View& view) {
+    return rendergraph::RenderExecutionDesc{
+        .view = &view, .presentTarget = TextureHandle{7, 1}};
+}
+
+} // namespace
+
+TEST(RenderGraphTest, TwoPassesShareOnePresentTargetAndSecondLoads) {
+    // Zwei Passes schreiben das Swapchain-Image. Erwartet: EIN gemeinsamer
+    // Resource-Entry, also nur EIN Uebergang Undefined -> ColorAttachment
+    // (ein zweiter Uebergang von Undefined koennte den Inhalt des ersten
+    // Passes verwerfen), der zweite Pass laedt statt zu clearen, und am
+    // Ende genau ein Uebergang nach Present.
+    ::NullBackend backend;
+    rendergraph::RenderGraph graph(backend);
+    std::vector<bool> firstWrites;
+    graph.addPass(std::make_unique<PresentWritePass>(
+        TextureLayout::ColorAttachment, &firstWrites));
+    graph.addPass(std::make_unique<PresentWritePass>(
+        TextureLayout::ColorAttachment, &firstWrites));
+
+    View view;
+    view.viewport = Viewport{0, 0, 640, 480};
+    const auto execution = makePresentExecution(view);
+    ASSERT_TRUE(graph.compile(execution));
+    ASSERT_TRUE(graph.execute(execution));
+
+    ASSERT_EQ(firstWrites.size(), 2u);
+    EXPECT_TRUE(firstWrites[0]);
+    EXPECT_FALSE(firstWrites[1]);
+
+    using K = CmdEvent::Kind;
+    ASSERT_EQ(backend.events.size(), 4u);
+    EXPECT_EQ(backend.events[0].kind, K::Transition);
+    EXPECT_EQ(backend.events[0].from, TextureLayout::Undefined);
+    EXPECT_EQ(backend.events[0].to, TextureLayout::ColorAttachment);
+    EXPECT_EQ(backend.events[1].kind, K::BeginRendering);
+    EXPECT_TRUE(backend.events[1].clear);   // erster Schreiber cleart
+    EXPECT_EQ(backend.events[2].kind, K::BeginRendering);
+    EXPECT_FALSE(backend.events[2].clear);  // zweiter laedt
+    EXPECT_EQ(backend.events[3].kind, K::Transition);
+    EXPECT_EQ(backend.events[3].from, TextureLayout::ColorAttachment);
+    EXPECT_EQ(backend.events[3].to, TextureLayout::Present);
+}
+
+TEST(RenderGraphTest, ImportsOfTheSameImageAreDeduplicated) {
+    // Altes Muster: Passes importieren das Present-Target selbst (zusaetzlich
+    // zum zentralen Import des Graphen). Muss trotzdem denselben Entry
+    // ergeben, also dieselbe Ereignisfolge wie oben.
+    ::NullBackend backend;
+    rendergraph::RenderGraph graph(backend);
+    std::vector<bool> firstWrites;
+    graph.addPass(std::make_unique<PresentWritePass>(
+        TextureLayout::ColorAttachment, &firstWrites, /*legacyImport=*/true));
+    graph.addPass(std::make_unique<PresentWritePass>(
+        TextureLayout::ColorAttachment, &firstWrites, /*legacyImport=*/true));
+
+    View view;
+    view.viewport = Viewport{0, 0, 640, 480};
+    const auto execution = makePresentExecution(view);
+    ASSERT_TRUE(graph.compile(execution));
+    ASSERT_TRUE(graph.execute(execution));
+
+    ASSERT_EQ(firstWrites.size(), 2u);
+    EXPECT_TRUE(firstWrites[0]);
+    EXPECT_FALSE(firstWrites[1]);
+    ASSERT_EQ(backend.events.size(), 4u); // 1 Transition, 2 Begin, 1 Present
+}
+
+TEST(RenderGraphTest, LayoutFollowsTheAccessNotTheResource) {
+    // Pass 1 cleart per Transfer, Pass 2 rendert als Attachment - auf
+    // DERSELBEN Resource. Frueher haette die Resource-Usage beide auf ein
+    // Layout gezwungen. Erwartet: Undefined -> TransferDst, dann
+    // TransferDst -> ColorAttachment, Pass 2 laedt (Pass 1 hat schon
+    // geschrieben), am Ende Present.
+    ::NullBackend backend;
+    rendergraph::RenderGraph graph(backend);
+    std::vector<bool> firstWrites;
+    graph.addPass(std::make_unique<PresentWritePass>(
+        TextureLayout::TransferDst, &firstWrites));
+    graph.addPass(std::make_unique<PresentWritePass>(
+        TextureLayout::ColorAttachment, &firstWrites));
+
+    View view;
+    view.viewport = Viewport{0, 0, 640, 480};
+    const auto execution = makePresentExecution(view);
+    ASSERT_TRUE(graph.compile(execution));
+    ASSERT_TRUE(graph.execute(execution));
+
+    using K = CmdEvent::Kind;
+    ASSERT_EQ(backend.events.size(), 5u);
+    EXPECT_EQ(backend.events[0].kind, K::Transition);
+    EXPECT_EQ(backend.events[0].to, TextureLayout::TransferDst);
+    EXPECT_EQ(backend.events[1].kind, K::ClearTexture);
+    EXPECT_EQ(backend.events[2].kind, K::Transition);
+    EXPECT_EQ(backend.events[2].from, TextureLayout::TransferDst);
+    EXPECT_EQ(backend.events[2].to, TextureLayout::ColorAttachment);
+    EXPECT_EQ(backend.events[3].kind, K::BeginRendering);
+    EXPECT_FALSE(backend.events[3].clear);
+    EXPECT_EQ(backend.events[4].to, TextureLayout::Present);
+}
+
+TEST(RenderGraphTest, PresentTargetResourceIsInvalidWithoutSwapchainImage) {
+    ::NullBackend backend;
+    rendergraph::RenderGraph graph(backend);
+    bool sawValid = true;
+    graph.addPass(std::make_unique<PresentProbePass>(&sawValid));
+    ASSERT_TRUE(graph.compile()); // keine View, kein Present-Target
+    EXPECT_FALSE(sawValid);
+
+    sawValid = false;
+    View view;
+    view.viewport = Viewport{0, 0, 640, 480};
+    ASSERT_TRUE(graph.compile(makePresentExecution(view)));
+    EXPECT_TRUE(sawValid);
 }
 
 TEST(RendererTest, RenderFrameRunsViewsInPriorityOrderAndQueuesVisibleItems) {

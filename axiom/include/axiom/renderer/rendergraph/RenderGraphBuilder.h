@@ -2,6 +2,7 @@
 #include "RenderGraphTypes.h"
 #include "ResourceHandle.h"
 #include "RenderContext.h" // fuer RenderExecutionDesc
+#include <axiom/renderer/rhi/Commandlist.h> // TextureLayout
 #include <axiom/renderer/rhi/RHITypes.h>
 
 namespace axiom::renderer::rendergraph {
@@ -25,6 +26,12 @@ namespace axiom::renderer::rendergraph {
             return m_execution.presentTarget;
         }
 
+        // Das Present-Target dieses Frames als Graph-Resource - vom Graph
+        // EINMAL pro compile() importiert, alle Passes teilen sich denselben
+        // ResourceHandle (und damit dieselbe Layout-Historie). Ungueltig
+        // (valid() == false), wenn die View kein Swapchain-Image hat.
+        [[nodiscard]] ResourceHandle presentTargetResource() const;
+
         // Transiente Resource: der Graph erzeugt/verwaltet die GPU-Textur
         // selbst.
         [[nodiscard]] ResourceHandle
@@ -41,6 +48,10 @@ namespace axiom::renderer::rendergraph {
         // und automatische Barrier-Einfügung in RenderGraph::compile() genutzt.
         ResourceHandle read(ResourceHandle handle);
         ResourceHandle write(ResourceHandle handle);
+        // Wie write(), aber der Zugriff legt das Layout fest (statt der
+        // TextureUsage der Resource) - z.B. TransferDst fuer einen Clear,
+        // ColorAttachment fuer Rendern, beides auf derselben Resource.
+        ResourceHandle write(ResourceHandle handle, rhi::TextureLayout layout);
 
       private:
         RenderGraph &m_graph;
