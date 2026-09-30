@@ -1,6 +1,8 @@
 #include <axiom/renderer/ShaderRegistry.h>
 #include <axiom/assets/VFS.h>
+#include <axiom/core/Logger.h>
 #include <cstring>
+#include <optional>
 
 namespace axiom::renderer {
 
@@ -38,6 +40,65 @@ rhi::RHIResult<ShaderID> ShaderRegistry::loadFromFiles(
 
     entry.vertexCode = std::move(*vertexCode);
     entry.pixelCode = std::move(*pixelCode);
+    entry.desc.stages = rhi::ShaderStage::Vertex | rhi::ShaderStage::Pixel;
+    entry.desc.vertexSpirv = entry.vertexCode;
+    entry.desc.pixelSpirv = entry.pixelCode;
+    entry.desc.vertexLayout = std::move(vertexLayout);
+
+    return static_cast<ShaderID>(id);
+}
+
+namespace {
+    std::optional<std::string> readTextFile(const std::string &path) {
+        std::vector<uint8_t> raw;
+        if (!axiom::VFS::ReadFile(path, raw))
+            return std::nullopt;
+        return std::string(raw.begin(), raw.end());
+    }
+} // namespace
+
+rhi::RHIResult<ShaderID> ShaderRegistry::compileFromSource(
+    const std::string &vertexGlslPath, const std::string &pixelGlslPath,
+    rhi::VertexLayout vertexLayout) {
+    auto vertexSource = readTextFile(vertexGlslPath);
+    if (!vertexSource) {
+        AXIOM_ERROR("ShaderRegistry: Vertex-Shader nicht lesbar: {}", vertexGlslPath);
+        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+    }
+    auto pixelSource = readTextFile(pixelGlslPath);
+    if (!pixelSource) {
+        AXIOM_ERROR("ShaderRegistry: Pixel-Shader nicht lesbar: {}", pixelGlslPath);
+        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+    }
+
+    ShaderCompiler compiler;
+    auto vertexResult = compiler.Compile(*vertexSource, vertexGlslPath,
+                                         ShaderStageKind::Vertex);
+    if (!vertexResult.errors.empty()) {
+        AXIOM_ERROR("Shader-Kompilierung fehlgeschlagen ({}):\n{}",
+                    vertexGlslPath, vertexResult.errors);
+        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+    }
+    if (!vertexResult.warnings.empty()) {
+        AXIOM_WARN("Shader-Warnung ({}):\n{}", vertexGlslPath, vertexResult.warnings);
+    }
+
+    auto pixelResult = compiler.Compile(*pixelSource, pixelGlslPath,
+                                        ShaderStageKind::Fragment);
+    if (!pixelResult.errors.empty()) {
+        AXIOM_ERROR("Shader-Kompilierung fehlgeschlagen ({}):\n{}",
+                    pixelGlslPath, pixelResult.errors);
+        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+    }
+    if (!pixelResult.warnings.empty()) {
+        AXIOM_WARN("Shader-Warnung ({}):\n{}", pixelGlslPath, pixelResult.warnings);
+    }
+
+    uint64_t id = m_nextId++;
+    Entry &entry = m_entries[id]; // erzeugt Node an fester, stabiler Adresse
+
+    entry.vertexCode = std::move(vertexResult.spirv);
+    entry.pixelCode = std::move(pixelResult.spirv);
     entry.desc.stages = rhi::ShaderStage::Vertex | rhi::ShaderStage::Pixel;
     entry.desc.vertexSpirv = entry.vertexCode;
     entry.desc.pixelSpirv = entry.pixelCode;

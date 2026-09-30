@@ -12,6 +12,13 @@ list(FILTER AXIOM_TEST_SOURCES EXCLUDE REGEX "/EntryPoint\\.cpp$")
 
 # Vulkan
 find_package(Vulkan REQUIRED)
+# shaderc_combined: fuer ShaderCompiler (GLSL->SPIR-V zur Laufzeit, ersetzt
+# tools/bake_shaders.py). Teil jedes Vulkan-SDK-Installs, kein zusaetzliches
+# Tooling/Download noetig. Vulkan::shaderc_combined wird von CMakes
+# FindVulkan-Modul (>= 3.24) bereitgestellt, wenn die Komponente gefunden
+# wird - deshalb hier separat angefragt statt vorauszusetzen, dass
+# find_package(Vulkan REQUIRED) es automatisch mitbringt.
+find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
 
 # Include Pfade
 target_include_directories(axiom_engine
@@ -36,6 +43,7 @@ endif()
 target_link_libraries(axiom_engine
     PUBLIC
         Vulkan::Vulkan
+        Vulkan::shaderc_combined
         minizip
         SDL3::SDL3
         stb
@@ -80,6 +88,7 @@ endif()
 target_link_libraries(axiom_engine_test
     PUBLIC
         Vulkan::Vulkan
+        Vulkan::shaderc_combined
         minizip
         SDL3::SDL3
         stb

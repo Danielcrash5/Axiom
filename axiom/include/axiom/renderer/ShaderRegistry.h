@@ -5,6 +5,7 @@
 #include <vector>
 #include <axiom/renderer/rhi/ShaderDesc.h>
 #include <axiom/renderer/rhi/RHITypes.h>
+#include <axiom/renderer/ShaderCompiler.h>
 
 namespace axiom::renderer {
 
@@ -17,6 +18,17 @@ class ShaderRegistry {
 public:
     [[nodiscard]] rhi::RHIResult<ShaderID> loadFromFiles(
         const std::string& vertexSpvPath, const std::string& pixelSpvPath,
+        rhi::VertexLayout vertexLayout);
+
+    // Wie loadFromFiles(), aber liest GLSL-QUELLTEXT (ueber VFS, z.B.
+    // "engine://shaders/Quad.vert") und kompiliert ihn zur Laufzeit ueber
+    // ShaderCompiler zu SPIR-V, statt eine fertige .spv-Datei zu laden.
+    // Fuer den Editor gedacht (Live-Kompilierung beim Speichern); ein
+    // spaeterer Packager kann dieselbe Methode fuer den Offline-Bake-
+    // Schritt nutzen und das Ergebnis dann selbst als .spv wegschreiben
+    // (ueber find()->vertexSpirv/pixelSpirv).
+    [[nodiscard]] rhi::RHIResult<ShaderID> compileFromSource(
+        const std::string& vertexGlslPath, const std::string& pixelGlslPath,
         rhi::VertexLayout vertexLayout);
 
     [[nodiscard]] const rhi::ShaderDesc* find(ShaderID id) const;
