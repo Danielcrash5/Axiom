@@ -57,6 +57,13 @@ target_sources(axiom_engine PRIVATE
     ${AXIOM_SOURCES}
 )
 
+# Precompiled Header - siehe include/axiom/pch.h fuer die Regeln, was rein
+# darf (nur stabile Drittanbieter-Header, NIE vma/vk_mem_alloc.h). Muss
+# NACH target_link_libraries() stehen, damit die Include-Pfade der
+# verlinkten Ziele (imgui, SDL3, flecs, ...) beim Erzeugen der PCH schon
+# bekannt sind.
+target_precompile_headers(axiom_engine PRIVATE include/axiom/pch.h)
+
 
 # ============================================================
 # Test Engine
@@ -97,3 +104,8 @@ target_link_libraries(axiom_engine_test
         cereal::cereal
         flecs::flecs
 )
+
+# Gleiche PCH wie axiom_engine, siehe dort fuer die Begruendung/Regeln.
+# Eigenes target_precompile_headers noetig - PCHs werden nicht zwischen
+# Targets geteilt, auch nicht bei identischen Quellen/Flags.
+target_precompile_headers(axiom_engine_test PRIVATE include/axiom/pch.h)
