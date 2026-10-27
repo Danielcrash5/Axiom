@@ -56,12 +56,18 @@ enable_testing()
 
 add_executable(axiom_asset_serializer_tests tests/AssetSerializerSmoke.cpp)
 target_link_libraries(axiom_asset_serializer_tests PRIVATE axiom_engine_test GTest::gtest_main)
+target_precompile_headers(axiom_asset_serializer_tests PRIVATE axiom/include/axiom/pch.h)
 
 add_executable(axiom_asset_manager_tests tests/AssetManagerSmoke.cpp)
 target_link_libraries(axiom_asset_manager_tests PRIVATE axiom_engine_test GTest::gtest_main)
+target_precompile_headers(axiom_asset_manager_tests PRIVATE axiom/include/axiom/pch.h)
 
 add_executable(axiom_renderer_tests tests/RendererSmoke.cpp)
 target_link_libraries(axiom_renderer_tests PRIVATE axiom_engine_test GTest::gtest_main)
+target_precompile_headers(axiom_renderer_tests PRIVATE axiom/include/axiom/pch.h)
+# Je nur eine Datei - der Gewinn ist hier kleiner als bei testbed/axiom_engine
+# (keine wiederholte Parse-Ersparnis ueber viele Dateien), aber nicht null
+# und die drei Zeilen kosten nichts.
 
 include(GoogleTest)
 gtest_discover_tests(axiom_asset_serializer_tests)

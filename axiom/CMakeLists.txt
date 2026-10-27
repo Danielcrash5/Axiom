@@ -12,13 +12,36 @@ list(FILTER AXIOM_TEST_SOURCES EXCLUDE REGEX "/EntryPoint\\.cpp$")
 
 # Vulkan
 find_package(Vulkan REQUIRED)
+
 # shaderc_combined: fuer ShaderCompiler (GLSL->SPIR-V zur Laufzeit, ersetzt
-# tools/bake_shaders.py). Teil jedes Vulkan-SDK-Installs, kein zusaetzliches
-# Tooling/Download noetig. Vulkan::shaderc_combined wird von CMakes
-# FindVulkan-Modul (>= 3.24) bereitgestellt, wenn die Komponente gefunden
-# wird - deshalb hier separat angefragt statt vorauszusetzen, dass
-# find_package(Vulkan REQUIRED) es automatisch mitbringt.
-find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
+# tools/bake_shaders.py). NICHT die vom Vulkan-SDK mitgelieferte
+# shaderc_combined(d).lib verwenden - die ist MSVC-kompiliert (Name-Mangling
+# + MSVC-STL-ABI), komplett inkompatibel mit unserem MinGW/libstdc++-
+# Toolchain (kein Linker-Konfigurationsfehler, sondern ein fundamentaler
+# ABI-Konflikt - keine Kombination von CMake-Flags behebt das). Deshalb
+# wird shaderc selbst aus dem Quellcode vendort und mit unserem eigenen
+# Compiler gebaut ("Build with MinGW" ist ein offiziell unterstuetzter
+# shaderc-Build-Pfad, kein Hack). SHADERC_SKIP_TESTS/EXAMPLES halten den
+# Build so klein wie moeglich - trotzdem deutlich schwerer als die
+# anderen vendorten Bibliotheken (zieht glslang + SPIRV-Tools +
+# SPIRV-Headers mit), erster Configure/Build-Durchlauf dauert spuerbar
+# laenger.
+set(SHADERC_SKIP_TESTS ON CACHE BOOL "" FORCE)
+set(SHADERC_SKIP_EXAMPLES ON CACHE BOOL "" FORCE)
+set(SHADERC_SKIP_COPYRIGHT_CHECK ON CACHE BOOL "" FORCE)
+set(SPIRV_SKIP_TESTS ON CACHE BOOL "" FORCE)
+set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "" FORCE)
+set(SPIRV_WERROR OFF CACHE BOOL "" FORCE)
+set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "" FORCE)
+# ACHTUNG: SHADERC_SKIP_INSTALL/ENABLE_SPIRV_TOOLS_INSTALL/
+# SKIP_GLSLANG_INSTALL NICHT setzen - das bricht beim Configure mit einem
+# Export-Set-Fehler (glslangs install(EXPORT) verweist dann auf ein
+# SPIRV-Tools-opt-Target ohne eigenes Export-Set). Erprobt: Configure
+# funktioniert nur OHNE diese drei Flags.
+add_subdirectory(
+    ${CMAKE_SOURCE_DIR}/thirdparty/shaderc
+    ${CMAKE_BINARY_DIR}/thirdparty/shaderc
+)
 
 # Include Pfade
 target_include_directories(axiom_engine
@@ -43,7 +66,7 @@ endif()
 target_link_libraries(axiom_engine
     PUBLIC
         Vulkan::Vulkan
-        Vulkan::shaderc_combined
+        shaderc_combined
         minizip
         SDL3::SDL3
         stb
@@ -95,7 +118,7 @@ endif()
 target_link_libraries(axiom_engine_test
     PUBLIC
         Vulkan::Vulkan
-        Vulkan::shaderc_combined
+        shaderc_combined
         minizip
         SDL3::SDL3
         stb

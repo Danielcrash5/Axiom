@@ -17,6 +17,13 @@ target_link_libraries(testbed
     PRIVATE axiom_engine
 )
 
+# Gleiche PCH wie axiom_engine (axiom/include/axiom/pch.h - nur stabile
+# Drittanbieter-Header, siehe dort fuer die Begruendung). testbed war der
+# groesste PCH-bluecke Build-Zeit-Verlust bisher: viele eigene Quelldateien,
+# aber bisher keine PCH, obwohl es dieselben schweren Header (Vulkan, ImGui,
+# flecs, ...) transitiv ueber axiom_engine's Header mehrfach parst.
+target_precompile_headers(testbed PRIVATE ${CMAKE_SOURCE_DIR}/axiom/include/axiom/pch.h)
+
 
 # Output-Verzeichnis und Debug-Verzeichnis
 set(TESTBED_RUNTIME_DIR "${CMAKE_BINARY_DIR}/testbed")
