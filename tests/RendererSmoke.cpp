@@ -1,4 +1,5 @@
 #include <axiom/renderer/Renderer.h>
+#include <axiom/renderer/Renderer2D.h>
 #include <axiom/renderer/passes/ClearScreenPass.h>
 #include <gtest/gtest.h>
 
@@ -478,6 +479,28 @@ TEST(RenderGraphTest, PresentTargetResourceIsInvalidWithoutSwapchainImage) {
     view.viewport = Viewport{0, 0, 640, 480};
     ASSERT_TRUE(graph.compile(makePresentExecution(view)));
     EXPECT_TRUE(sawValid);
+}
+
+TEST(Renderer2DTest, SubmitsQuadCircleAndLinePrimitivesToRenderer) {
+    Renderer renderer;
+    Renderer2D::setActiveRenderer(&renderer);
+
+    Renderer2D::BeginScene();
+    Renderer2D::SubmitQuad(glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 2.0f, 0.0f)),
+                           glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    Renderer2D::SubmitCircle(glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 4.0f, 0.0f)),
+                            0.75f, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    Renderer2D::SubmitLine(glm::vec3(5.0f, 0.0f, 0.0f), glm::vec3(7.0f, 0.0f, 0.0f),
+                          glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    Renderer2D::EndScene();
+
+    ASSERT_EQ(renderer.itemPool().size(), 3u);
+    EXPECT_EQ(renderer.itemPool()[0].indexCount, 6u);
+    EXPECT_EQ(renderer.itemPool()[1].indexCount, 6u);
+    EXPECT_EQ(renderer.itemPool()[2].indexCount, 2u);
+    EXPECT_EQ(Renderer2D::queuedItemCount(), 0u);
+
+    Renderer2D::setActiveRenderer(nullptr);
 }
 
 TEST(RendererTest, RenderFrameRunsViewsInPriorityOrderAndQueuesVisibleItems) {
