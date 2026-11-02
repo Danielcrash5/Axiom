@@ -39,6 +39,10 @@ class Testbed : public axiom::Application {
             renderer.addPass(std::move(quadPass));
         }
 
+        m_Render2DSystem = RegisterSystem<axiom::Render2DSystem>(
+            renderer, GetMainViewID(), GetWidth(), GetHeigth());
+        BuildControllerScene(CreateScene());
+
         /*std::shared_ptr<testbed::InspectorPanel> inspectorPanel =
         std::make_shared<testbed::InspectorPanel>();
 
@@ -47,9 +51,8 @@ class Testbed : public axiom::Application {
     }
 
     void OnUpdate(double dt) override {
-        /* UpdateCamera(dt);
-         UpdateControllerView();
-         UpdateOverlayScene();*/
+        UpdateCamera(dt);
+        UpdateControllerView();
     }
 
   private:
@@ -60,7 +63,7 @@ class Testbed : public axiom::Application {
         auto &transform = entity.GetComponent<axiom::TransformComponent>();
         transform.Translation = position;
         transform.Scale = glm::vec3(size, 1.0f);
-        //        entity.AddComponent<axiom::SpriteRendererComponent>(color);
+        entity.AddComponent<axiom::QuadRendererComponent>(color);
         return entity;
     }
 
@@ -76,9 +79,8 @@ class Testbed : public axiom::Application {
     }
 
     void SetColor(axiom::Entity entity, const glm::vec4 &color) {
-        //        if (entity.HasComponent<axiom::SpriteRendererComponent>())
-        //          entity.GetComponent<axiom::SpriteRendererComponent>().Color
-        //          = color;
+        if (entity.HasComponent<axiom::QuadRendererComponent>())
+            entity.GetComponent<axiom::QuadRendererComponent>().Color = color;
         if (entity.HasComponent<axiom::CircleRendererComponent>())
             entity.GetComponent<axiom::CircleRendererComponent>().Color = color;
     }
@@ -397,7 +399,7 @@ class Testbed : public axiom::Application {
     }
 
   private:
-    // std::shared_ptr<axiom::Render2DSystem> m_Render2DSystem;
+    std::shared_ptr<axiom::Render2DSystem> m_Render2DSystem;
 
     axiom::Entity m_MainCamera;
     axiom::Entity m_OverlayCamera;

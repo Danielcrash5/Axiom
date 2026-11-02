@@ -21,6 +21,7 @@ struct RenderItem {
     rhi::BufferHandle indexBuffer;
     uint32_t indexCount = 0;
     glm::mat4 transform{1.0f};
+    glm::vec4 color{1.0f};
 };
 
 } // namespace axiom::renderer

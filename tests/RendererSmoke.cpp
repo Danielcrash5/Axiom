@@ -3,6 +3,9 @@
 #include <axiom/renderer/passes/ClearScreenPass.h>
 #include <axiom/renderer/passes/QuadRenderPass.h>
 #include <axiom/assets/VFS.h>
+#include <axiom/ecs/Entity.h>
+#include <axiom/ecs/Render2DSystem.h>
+#include <axiom/ecs/Scene.h>
 #include <gtest/gtest.h>
 
 #include <memory>
@@ -24,8 +27,10 @@ struct CmdEvent {
 class NullCommandList final : public CommandList {
 public:
     explicit NullCommandList(std::vector<CmdEvent>* log = nullptr,
-                             int* indexedDrawCalls = nullptr)
-        : m_log(log), m_indexedDrawCalls(indexedDrawCalls) {}
+                             int* indexedDrawCalls = nullptr,
+                             std::vector<uint32_t>* drawVertexCounts = nullptr)
+        : m_log(log), m_indexedDrawCalls(indexedDrawCalls),
+          m_drawVertexCounts(drawVertexCounts) {}
 
     void copyBufferToBuffer(BufferHandle, uint64_t, BufferHandle, uint64_t,
                             uint64_t) override {}
@@ -42,7 +47,11 @@ public:
     void bindVertexBuffer(uint32_t, BufferHandle) override {}
     void bindIndexBuffer(BufferHandle, bool) override {}
     void bindGroup(uint32_t, BindGroupHandle) override {}
-    void draw(uint32_t, uint32_t, uint32_t, uint32_t) override {}
+    void draw(uint32_t vertexCount, uint32_t, uint32_t, uint32_t) override {
+        if (m_drawVertexCounts) {
+            m_drawVertexCounts->push_back(vertexCount);
+        }
+    }
     void drawIndexed(uint32_t, uint32_t, uint32_t) override {
         if (m_indexedDrawCalls) {
             ++*m_indexedDrawCalls;
@@ -61,6 +70,7 @@ public:
 private:
     std::vector<CmdEvent>* m_log;
     int* m_indexedDrawCalls;
+    std::vector<uint32_t>* m_drawVertexCounts;
 };
 
 class NullBackend final : public IRHIBackend {
@@ -88,7 +98,8 @@ public:
     }
 
     std::unique_ptr<CommandList> createCommandList() override {
-        return std::make_unique<NullCommandList>(&events, &indexedDrawCalls);
+        return std::make_unique<NullCommandList>(&events, &indexedDrawCalls,
+                                                 &drawVertexCounts);
     }
 
     void submit(CommandList&) override { ++submits; }
@@ -174,6 +185,7 @@ public:
     int destroyedSamplers = 0;
     int submits = 0;
     int indexedDrawCalls = 0;
+    std::vector<uint32_t> drawVertexCounts;
     std::vector<CmdEvent> events; // von allen CommandLists dieses Backends
 
 private:
@@ -565,7 +577,7 @@ TEST(RendererTest, RenderFrameRunsViewsInPriorityOrderAndQueuesVisibleItems) {
     EXPECT_EQ(backendPtr->submits, 2);
 }
 
-TEST(QuadRenderPassTest, CompilesShaderAndDrawsIndexedQuad) {
+TEST(QuadRenderPassTest, CompilesShaderAndDrawsSceneQuad) {
     axiom::VFS::Shutdown();
     struct VfsCleanup {
         ~VfsCleanup() { axiom::VFS::Shutdown(); }
@@ -594,6 +606,56 @@ TEST(QuadRenderPassTest, CompilesShaderAndDrawsIndexedQuad) {
     view.viewport = Viewport{0, 0, 640, 480};
     (void)renderer.registerView(view);
 
+    RenderItem item;
+    item.layer = 1u;
+    item.transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.25f, -0.5f, 0.0f)) *
+                     glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 1.0f));
+    item.color = glm::vec4(0.2f, 0.7f, 0.9f, 1.0f);
+    renderer.submitItem(item);
+
     ASSERT_TRUE(renderer.renderFrame());
-    EXPECT_EQ(backendProbe->indexedDrawCalls, 1);
+    ASSERT_EQ(backendProbe->drawVertexCounts.size(), 1u);
+    EXPECT_EQ(backendProbe->drawVertexCounts[0], 6u);
+}
+
+TEST(Render2DSystemTest, UpdatesCameraViewAndSubmitsQuadEntities) {
+    auto backend = std::make_unique<NullBackend>();
+    Renderer renderer;
+    ASSERT_TRUE(renderer.init(
+        std::move(backend),
+        RendererServicesDesc{
+            .initializeAssetManager = false,
+            .assetWorkerThreadCount = 0,
+            .initializeBindlessTextureHeap = false,
+        }));
+
+    View view;
+    view.viewport = Viewport{0, 0, 800, 600};
+    const ViewID viewId = renderer.registerView(view);
+    axiom::Render2DSystem system(renderer, viewId, 800, 600);
+
+    axiom::Scene scene;
+    auto camera = scene.CreateEntity("Camera");
+    camera.AddComponent<axiom::CameraComponent>(true).OrthographicSize = 100.0f;
+    camera.GetComponent<axiom::TransformComponent>().Translation =
+        glm::vec3(10.0f, 20.0f, 0.0f);
+
+    auto quad = scene.CreateEntity("Quad");
+    auto &quadTransform = quad.GetComponent<axiom::TransformComponent>();
+    quadTransform.Translation = glm::vec3(2.0f, 3.0f, 0.0f);
+    quadTransform.Scale = glm::vec3(12.0f, 8.0f, 1.0f);
+    const glm::vec4 color(0.7f, 0.2f, 0.1f, 1.0f);
+    quad.AddComponent<axiom::QuadRendererComponent>(color);
+
+    system.Render(scene, 0.0);
+
+    ASSERT_EQ(renderer.itemPool().size(), 1u);
+    EXPECT_EQ(renderer.itemPool()[0].transform, quadTransform.GetTransform());
+    EXPECT_EQ(renderer.itemPool()[0].color, color);
+
+    const View *updatedView = renderer.view(viewId);
+    ASSERT_NE(updatedView, nullptr);
+    EXPECT_FLOAT_EQ(updatedView->viewMatrix[3][0], -10.0f);
+    EXPECT_FLOAT_EQ(updatedView->viewMatrix[3][1], -20.0f);
+    EXPECT_NE(updatedView->projectionMatrix, glm::mat4(1.0f));
 }

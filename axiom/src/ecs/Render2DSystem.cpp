@@ -1,17 +1,18 @@
 #include "axiom/ecs/Render2DSystem.h"
 #include "axiom/ecs/Entity.h"
 #include "axiom/ecs/Scene.h"
-// #include "axiom/renderer/DrawCommandBuffer.h"
-// #include "axiom/renderer/Renderer.h"
-// #include "axiom/renderer/Renderer2D.h"
+#include "axiom/renderer/Renderer.h"
 
 #include <glm/gtc/matrix_inverse.hpp>
 
 namespace axiom {
 
-    Render2DSystem::Render2DSystem(uint32_t viewportWidth,
+    Render2DSystem::Render2DSystem(renderer::Renderer &renderer,
+                                   renderer::ViewID viewId,
+                                   uint32_t viewportWidth,
                                    uint32_t viewportHeight)
-        : m_ViewportWidth(viewportWidth), m_ViewportHeight(viewportHeight) {}
+        : m_Renderer(&renderer), m_ViewId(viewId),
+          m_ViewportWidth(viewportWidth), m_ViewportHeight(viewportHeight) {}
 
     void Render2DSystem::SetViewport(uint32_t width, uint32_t height) {
         m_ViewportWidth = width;
@@ -22,59 +23,53 @@ namespace axiom {
         SetViewport(width, height);
     }
 
-    void Render2DSystem::BeginRenderFrame() { m_HasRenderedFrame = false; }
-
     void Render2DSystem::Render(Scene &scene, double alpha) {
         (void)alpha;
-
-        /*Entity cameraEntity = scene.GetPrimaryCameraEntity();
-        if (!cameraEntity)
+        if (!m_Renderer || m_ViewId == renderer::kInvalidViewID) {
             return;
+        }
 
-        const auto& cameraTransform =
-        cameraEntity.GetComponent<TransformComponent>(); const auto& camera =
-        cameraEntity.GetComponent<CameraComponent>(); const float aspectRatio =
-        m_ViewportHeight > 0 ? static_cast<float>(m_ViewportWidth) /
-        static_cast<float>(m_ViewportHeight) : 1.0f;
+        Entity cameraEntity = scene.GetPrimaryCameraEntity();
+        if (!cameraEntity) {
+            return;
+        }
 
-        const glm::mat4 viewProjection = camera.GetProjection(aspectRatio) *
-        glm::inverse(cameraTransform.GetTransform());
+        const auto *currentView = m_Renderer->view(m_ViewId);
+        if (!currentView) {
+            return;
+        }
 
-        ClearState clearState;
-        clearState.ClearColor = !m_HasRenderedFrame;
-        clearState.ClearDepth = !m_HasRenderedFrame;
+        const uint32_t width = currentView->viewport.width > 0
+                                   ? currentView->viewport.width
+                                   : m_ViewportWidth;
+        const uint32_t height = currentView->viewport.height > 0
+                                    ? currentView->viewport.height
+                                    : m_ViewportHeight;
+        const float aspectRatio =
+            height > 0
+                ? static_cast<float>(width) / static_cast<float>(height)
+                : 1.0f;
 
-        Renderer::BeginScene(viewProjection, clearState);
-        m_HasRenderedFrame = true;
-        Renderer2D::BeginScene();
+        const auto &cameraTransform =
+            cameraEntity.GetComponent<TransformComponent>();
+        const auto &camera = cameraEntity.GetComponent<CameraComponent>();
+        renderer::View updatedView = *currentView;
+        updatedView.viewMatrix = glm::inverse(cameraTransform.GetTransform());
+        updatedView.projectionMatrix = camera.GetProjection(aspectRatio);
+        m_Renderer->updateView(m_ViewId, updatedView);
 
-        DrawCommandBuffer2D commandBuffer;
-
-        auto spriteView = scene.View<TransformComponent,
-        SpriteRendererComponent>(); spriteView.each([&](auto entity,
-        TransformComponent& transform, SpriteRendererComponent& spriteRenderer)
-        { (void)entity;
-
-            if (spriteRenderer.HasTexture()) {
-                commandBuffer.SubmitSprite(transform.GetTransform(),
-        spriteRenderer.SpriteData, spriteRenderer.Color); return;
-            }
-
-            commandBuffer.SubmitQuad(transform.GetTransform(),
-        spriteRenderer.Color);
+        int32_t zIndex = 0;
+        auto quadView = scene.View<TransformComponent, QuadRendererComponent>();
+        quadView.each([&](flecs::entity, TransformComponent &transform,
+                          QuadRendererComponent &quad) {
+            renderer::RenderItem item;
+            item.layer = 1u;
+            item.zIndex = zIndex++;
+            item.depth = transform.Translation.z;
+            item.transform = transform.GetTransform();
+            item.color = quad.Color;
+            m_Renderer->submitItem(std::move(item));
         });
-
-        auto circleView = scene.View<TransformComponent,
-        CircleRendererComponent>(); circleView.each([&](auto entity,
-        TransformComponent& transform, CircleRendererComponent& circleRenderer)
-        { (void)entity; commandBuffer.SubmitCircle(transform.GetTransform(),
-        circleRenderer.Thickness, circleRenderer.Color);
-        });
-
-        commandBuffer.Sort();
-        commandBuffer.Execute();
-        Renderer2D::EndScene();
-        Renderer::EndScene();*/
     }
 
 } // namespace axiom

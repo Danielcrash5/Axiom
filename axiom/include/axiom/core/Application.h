@@ -88,6 +88,7 @@ namespace axiom {
         }
 
         renderer::Renderer &GetRenderer() { return *m_Renderer; }
+        renderer::ViewID GetMainViewID() const { return m_MainViewId; }
 
       protected:
         virtual void OnInit() {}

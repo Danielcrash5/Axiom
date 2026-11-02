@@ -2,6 +2,7 @@
 
 #include <axiom/renderer/rendergraph/RenderPass.h>
 #include <axiom/renderer/rhi/IRHIBackend.h>
+#include <cstddef>
 
 namespace axiom::renderer {
 
@@ -24,12 +25,19 @@ public:
     void setup(rendergraph::RenderGraphBuilder& builder) override;
     void execute(rendergraph::RenderContext& ctx, rhi::CommandList& cmd) override;
     [[nodiscard]] const char* name() const override { return "QuadRenderPass"; }
+    [[nodiscard]] bool usesRenderQueue() const override { return true; }
+    [[nodiscard]] RenderQueueDescriptor queueDescriptor() const override {
+        return {.acceptedLayers = ~RenderLayerMask{0},
+                .sortMode = SortMode::None};
+    }
 
 private:
+    [[nodiscard]] rhi::RHIResult<void> ensureVertexCapacity(size_t vertexCount);
+
     rhi::IRHIBackend* m_backend = nullptr;
     rhi::SurfaceHandle m_surface;
     rhi::BufferHandle m_vertexBuffer;
-    rhi::BufferHandle m_indexBuffer;
+    size_t m_vertexCapacity = 0;
     rhi::PipelineHandle m_pipeline;
     rendergraph::ResourceHandle m_target;
 };

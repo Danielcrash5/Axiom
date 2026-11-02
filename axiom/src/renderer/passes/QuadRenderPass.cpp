@@ -4,31 +4,30 @@
 #include <axiom/renderer/Renderer.h>
 #include <axiom/renderer/ShaderRegistry.h>
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
+#include <limits>
 #include <span>
+#include <vector>
 
 namespace axiom::renderer::passes {
 namespace {
 
 struct QuadVertex {
-    float position[2];
+    float position[4];
     float color[4];
 };
 
-constexpr std::array<QuadVertex, 4> kVertices{{
-    {{-0.65f, -0.45f}, {0.10f, 0.75f, 0.95f, 1.0f}},
-    {{ 0.65f, -0.45f}, {0.10f, 0.75f, 0.95f, 1.0f}},
-    {{ 0.65f,  0.45f}, {0.10f, 0.75f, 0.95f, 1.0f}},
-    {{-0.65f,  0.45f}, {0.10f, 0.75f, 0.95f, 1.0f}},
+constexpr std::array<glm::vec3, 6> kUnitQuad{{
+    {-0.5f, -0.5f, 0.0f},
+    { 0.5f, -0.5f, 0.0f},
+    { 0.5f,  0.5f, 0.0f},
+    { 0.5f,  0.5f, 0.0f},
+    {-0.5f,  0.5f, 0.0f},
+    {-0.5f, -0.5f, 0.0f},
 }};
-
-constexpr std::array<uint16_t, 6> kIndices{{0, 1, 2, 2, 3, 0}};
-
-template <typename T>
-std::span<const std::byte> AsBytes(const T& value) {
-    return std::as_bytes(std::span{&value, size_t{1}});
-}
 
 } // namespace
 
@@ -39,12 +38,44 @@ QuadRenderPass::~QuadRenderPass() {
     if (m_pipeline.valid()) {
         m_backend->destroyPipeline(m_pipeline);
     }
-    if (m_indexBuffer.valid()) {
-        m_backend->destroyBuffer(m_indexBuffer);
-    }
     if (m_vertexBuffer.valid()) {
         m_backend->destroyBuffer(m_vertexBuffer);
     }
+}
+
+rhi::RHIResult<void> QuadRenderPass::ensureVertexCapacity(size_t vertexCount) {
+    if (vertexCount <= m_vertexCapacity) {
+        return {};
+    }
+
+    size_t newCapacity = std::max<size_t>(m_vertexCapacity, kUnitQuad.size());
+    while (newCapacity < vertexCount) {
+        if (newCapacity > std::numeric_limits<size_t>::max() / 2) {
+            return std::unexpected(rhi::RHIError::OutOfMemory);
+        }
+        newCapacity *= 2;
+    }
+    if (newCapacity > std::numeric_limits<uint64_t>::max() /
+                          sizeof(QuadVertex)) {
+        return std::unexpected(rhi::RHIError::OutOfMemory);
+    }
+
+    auto buffer = m_backend->createBuffer({
+        .sizeBytes = newCapacity * sizeof(QuadVertex),
+        .usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst,
+        .debugName = "SceneQuadVertices",
+    });
+    if (!buffer) {
+        return std::unexpected(buffer.error());
+    }
+
+    const rhi::BufferHandle previousBuffer = m_vertexBuffer;
+    m_vertexBuffer = *buffer;
+    m_vertexCapacity = newCapacity;
+    if (previousBuffer.valid()) {
+        m_backend->destroyBuffer(previousBuffer);
+    }
+    return {};
 }
 
 rhi::RHIResult<void> QuadRenderPass::initialize(
@@ -57,33 +88,7 @@ rhi::RHIResult<void> QuadRenderPass::initialize(
     m_backend = &renderer.backend();
     m_surface = surface;
 
-    auto vertexBuffer = m_backend->createBuffer({
-        .sizeBytes = sizeof(kVertices),
-        .usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst,
-        .debugName = "VisibleQuadVertices",
-    });
-    if (!vertexBuffer) {
-        return std::unexpected(vertexBuffer.error());
-    }
-    m_vertexBuffer = *vertexBuffer;
-
-    if (auto result = m_backend->uploadBufferData(
-            m_vertexBuffer, 0, AsBytes(kVertices)); !result) {
-        return std::unexpected(result.error());
-    }
-
-    auto indexBuffer = m_backend->createBuffer({
-        .sizeBytes = sizeof(kIndices),
-        .usage = rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst,
-        .debugName = "VisibleQuadIndices",
-    });
-    if (!indexBuffer) {
-        return std::unexpected(indexBuffer.error());
-    }
-    m_indexBuffer = *indexBuffer;
-
-    if (auto result = m_backend->uploadBufferData(
-            m_indexBuffer, 0, AsBytes(kIndices)); !result) {
+    if (auto result = ensureVertexCapacity(kUnitQuad.size()); !result) {
         return std::unexpected(result.error());
     }
 
@@ -91,7 +96,7 @@ rhi::RHIResult<void> QuadRenderPass::initialize(
         .stride = sizeof(QuadVertex),
         .attributes = {
             {.semantic = "POSITION", .location = 0,
-             .format = rhi::VertexFormat::Float32x2,
+             .format = rhi::VertexFormat::Float32x4,
              .offset = offsetof(QuadVertex, position)},
             {.semantic = "COLOR", .location = 1,
              .format = rhi::VertexFormat::Float32x4,
@@ -116,7 +121,7 @@ rhi::RHIResult<void> QuadRenderPass::initialize(
     rhi::PipelineDesc pipelineDesc{
         .shader = *shader,
         .state = {
-            .blend = rhi::BlendMode::None,
+            .blend = rhi::BlendMode::AlphaBlend,
             .depthTest = false,
             .depthWrite = false,
             .cull = rhi::CullMode::None,
@@ -147,9 +152,57 @@ void QuadRenderPass::setup(rendergraph::RenderGraphBuilder& builder) {
 
 void QuadRenderPass::execute(rendergraph::RenderContext& ctx,
                              rhi::CommandList& cmd) {
-    if (!m_target.valid() || !m_pipeline.valid() ||
-        !m_vertexBuffer.valid() || !m_indexBuffer.valid()) {
+    if (!m_target.valid() || !m_pipeline.valid() || !m_vertexBuffer.valid()) {
         return;
+    }
+
+    const auto items = ctx.items();
+    std::vector<QuadVertex> vertices;
+    vertices.reserve(items.size() * kUnitQuad.size());
+    const View *view = ctx.currentView();
+    const glm::mat4 viewProjection =
+        view ? view->projectionMatrix * view->viewMatrix : glm::mat4(1.0f);
+
+    for (const RenderItem &item : items) {
+        const glm::mat4 transform = viewProjection * item.transform;
+        std::array<QuadVertex, kUnitQuad.size()> quadVertices{};
+        bool validQuad = true;
+        for (size_t i = 0; i < kUnitQuad.size(); ++i) {
+            const glm::vec4 clipPosition =
+                transform * glm::vec4(kUnitQuad[i], 1.0f);
+            if (std::abs(clipPosition.w) <= 1.0e-6f) {
+                validQuad = false;
+                break;
+            }
+
+            const glm::vec3 ndc =
+                glm::vec3(clipPosition) / clipPosition.w;
+            quadVertices[i] = {
+                {ndc.x, ndc.y, ndc.z, 1.0f},
+                {item.color.r, item.color.g, item.color.b, item.color.a},
+            };
+        }
+        if (validQuad) {
+            vertices.insert(vertices.end(), quadVertices.begin(),
+                            quadVertices.end());
+        }
+    }
+
+    if (vertices.size() > std::numeric_limits<uint32_t>::max()) {
+        AXIOM_ERROR("QuadRenderPass: Zu viele Quad-Vertices fuer einen Draw-Aufruf");
+        vertices.clear();
+    }
+
+    if (!vertices.empty()) {
+        if (auto result = ensureVertexCapacity(vertices.size()); !result) {
+            AXIOM_ERROR("QuadRenderPass: Vertex-Buffer konnte nicht erweitert werden");
+            vertices.clear();
+        } else if (auto result = m_backend->uploadBufferData(
+                       m_vertexBuffer, 0, std::as_bytes(std::span{vertices}));
+                   !result) {
+            AXIOM_ERROR("QuadRenderPass: Scene-Vertices konnten nicht hochgeladen werden");
+            vertices.clear();
+        }
     }
 
     std::optional<rhi::ClearColor> clear;
@@ -158,10 +211,11 @@ void QuadRenderPass::execute(rendergraph::RenderContext& ctx,
     }
 
     cmd.beginRendering(ctx.resolveTexture(m_target), std::nullopt, clear);
-    cmd.bindPipeline(m_pipeline);
-    cmd.bindVertexBuffer(0, m_vertexBuffer);
-    cmd.bindIndexBuffer(m_indexBuffer, true);
-    cmd.drawIndexed(static_cast<uint32_t>(kIndices.size()), 1, 0);
+    if (!vertices.empty()) {
+        cmd.bindPipeline(m_pipeline);
+        cmd.bindVertexBuffer(0, m_vertexBuffer);
+        cmd.draw(static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+    }
     cmd.endRendering();
 }
 

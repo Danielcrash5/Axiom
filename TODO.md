@@ -13,7 +13,7 @@ Die Prefab-Arbeiten aus den Asset-System-Anforderungen sind bewusst zurückgeste
 
 ## Nächste Schritte
 
-1. Erster sichtbarer Quad (Phase 4): Vulkan-GLSL-Shader, Einheits-Quad-Mesh, Entity-`RenderPass`, System `TransformComponent` → `RenderItem`, `CameraComponent` → View-Matrizen.
+1. [x] Erster sichtbarer Quad (Phase 4): Vulkan-GLSL-Shader, Einheits-Quad-Mesh, Entity-`RenderPass`, System `TransformComponent` → `RenderItem`, `CameraComponent` → View-Matrizen.
 2. Phase 9 vor Phase 7: Luau-Kern-Wrapper, danach Reflection-Integration. Actor/Future/Scheduler erst später.
 3. Reflection-Code aus dem Testprojekt (C++26, GCC 16.1) ins Haupt-Repo übernehmen.
 

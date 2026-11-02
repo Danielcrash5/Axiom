@@ -46,6 +46,13 @@ namespace axiom {
         }
     };
 
+    struct QuadRendererComponent {
+        glm::vec4 Color{1.0f};
+
+        QuadRendererComponent() = default;
+        explicit QuadRendererComponent(const glm::vec4 &color) : Color(color) {}
+    };
+
     /*struct SpriteRendererComponent {
         glm::vec4 Color{1.0f, 1.0f, 1.0f, 1.0f};
         Sprite SpriteData{};
