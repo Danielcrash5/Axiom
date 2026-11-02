@@ -1,0 +1,51 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "x64-Debug",
+      "displayName": "Axiom x64 Debug (WinLibs GCC)",
+      "description": "Debug-Build mit WinLibs GCC und Ninja aus AXIOM_WINLIBS_BIN",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/x64-Debug",
+      "environment": {
+        "PATH": "$env{AXIOM_WINLIBS_BIN};$penv{PATH}"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "x64-Release",
+      "displayName": "Axiom x64 Release (WinLibs GCC)",
+      "description": "Release-Build mit DebInfo, WinLibs GCC und Ninja aus AXIOM_WINLIBS_BIN",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/x64-Release",
+      "environment": {
+        "PATH": "$env{AXIOM_WINLIBS_BIN};$penv{PATH}"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "AXIOM_ENABLE_CONSOLE_LOG": {
+          "type": "BOOL",
+          "value": "False"
+        }
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "x64-Debug-Build",
+      "displayName": "Build x64 Debug (Ressourcenschonend)",
+      "configurePreset": "x64-Debug"
+    },
+    {
+      "name": "x64-Release-Build",
+      "displayName": "Build x64 Release (Ressourcenschonend)",
+      "configurePreset": "x64-Release"
+    }
+  ]
+}

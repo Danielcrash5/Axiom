@@ -31,6 +31,8 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 
 ---
 
+> **Hinweis zur Arbeitsreihenfolge:** Phase 9 (Skripting) wird **vor** Phase 7 (Minimaler Editor) bearbeitet, weil der Editor für Tool-Scripting eine eigene Luau-VM bekommt und den Luau-Wrapper daher als Abhängigkeit braucht. Die Nummerierung bleibt unverändert. Davor steht weiterhin der erste sichtbare Entity-Render-Pfad (Phase 4).
+
 ## Kernsysteme (bereits implementiert)
 - [x] Anwendungssystem (Main Loop, Lebenszyklus, Init/Shutdown)  
 - [x] Logger (Level, Ausgabe, Formatierung)  
@@ -39,6 +41,29 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 - [x] Eingabesystem (Tastatur, Maus, Joystick)  
 
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
+
+---
+
+## Windows-Setup
+
+WinLibs (MinGW-w64 UCRT GCC) muss installiert und dessen `mingw64\bin`-Verzeichnis
+in `PATH` eingetragen sein. Das Verzeichnis muss `cmake`, `ninja`, `gcc` und `g++`
+bereitstellen. Das Setup-Skript merkt den WinLibs-Pfad für die Presets, installiert
+bei Bedarf Python und das Vulkan-SDK über winget und prüft die erforderlichen
+Werkzeuge:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-windows-dependencies.ps1
+```
+
+Danach ein neues Terminal öffnen und konfigurieren und bauen:
+
+```powershell
+& "$env:AXIOM_WINLIBS_BIN\cmake.exe" --preset x64-Debug
+& "$env:AXIOM_WINLIBS_BIN\cmake.exe" --build --preset x64-Debug-Build
+```
+
+Für einen Release-Build `x64-Release` und `x64-Release-Build` verwenden.
 
 ---
 
@@ -105,6 +130,7 @@ Eine moderne Spiele-Engine mit Fokus auf Plattformunabhängigkeit.
 - [x] Interface (Bind(), Unbind())  
 - [x] Fehler-Logging  
 - [x] Laufzeit-Uniform- und Textur-Binding   
+- [x] Shader-Kompilierung zur Laufzeit: GLSL → SPIR-V über vendortes shaderc (`ShaderCompiler`, `ShaderRegistry::compileFromSource`)  
 
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
 
@@ -123,19 +149,21 @@ Abgeschlossen
 ---
 
 ## Phase 4 — Renderer-Integration
-- [x] ECS → DrawCommandBuffer  
-- [x] DrawCommand-Struktur (Mesh + Material + Transform)  
-- [x] Sortierung (nach Material/Textur)  
-- [x] Batching  
-- [x] Kamera-Handling (View/Projection)  
+- [x] `RenderItem`-Struktur (Material + Vertex-/Index-Buffer + Transform)  
+- [x] Sortierung (nach Material/Textur) und Batching (`RenderQueue`, `BatchBuilder`)  
+- [x] RenderGraph: Present-Target wird pro Frame einmal zentral importiert, das Layout hängt am Zugriff, ein zweiter Schreiber auf ein geteiltes Ziel lädt statt zu clearen  
+- [ ] ECS → RenderQueue: `Render2DSystem` ist Totcode (alte Renderer2D-/DrawCommandBuffer-API, referenziert nicht mehr existierende Komponenten), Neubau nötig  
+- [ ] Erster sichtbarer Quad: Vulkan-GLSL-Shader, Einheits-Quad-Mesh, Entity-`RenderPass`  
+- [ ] Kamera-Handling: `CameraComponent` existiert, muss noch in die View-Matrizen verdrahtet werden  
 
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
 
 ---
 
 ## Phase 5 — Debug Tools / Editor-Basis
-- [x] ImGui-Integration  
-- [ ] ImGuizmo-Integration  (Erst mal auf Eisgelegt)
+- [x] ImGui-Integration (Vulkan- + SDL3-Backend, Multi-Viewport, VSync zur Laufzeit umschaltbar)  
+- [x] Vulkan-Validation-Meldungen laufen über den Engine-Logger (mit VUID)  
+- [ ] ImGuizmo-Integration  (Erst mal auf Eis gelegt; `add_subdirectory` und Linking in der CMake fehlen noch)
 - [x] Panels: Hierarchie, Inspektor, Statistiken  
 - [x] Transform-Bearbeitung + Gizmos (leider ohne Gizmos, nur über Inspector numerische Eingabe)
 - [x] Andockbare Benutzeroberfläche  
@@ -159,6 +187,7 @@ Nur finaler Platformer
 - [ ] Szenen-Serialisierung/-Deserialisierung  
 - [ ] Entitäts-/Komponentenbearbeitung  
 - [ ] Play/Stop-Modus  
+- [ ] Eigene Luau-VM im Editor für Tool-Scripting (eigener State, ohne Threading-Library; setzt Phase 9 voraus)  
 
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
 
@@ -176,9 +205,17 @@ Nur finaler Platformer
 ---
 
 ## Phase 9 — Skripting (Luau + C++)
-- [ ] Lua-Integration
-- [ ] dynamisches laden von C++ Webassembly modulen
-- [ ] Skript-Komponente für Luau und C++
+> Wird vor Phase 7 bearbeitet (siehe Hinweis oben).
+
+**Luau-Wrapper** (generische, von Axiom unabhängige Bibliothek, Design-Dokument: `LuauWrapper_Design.md`):  
+- [ ] Kern-Wrapper (State, Table, Function, Userdata, Fehlerbehandlung, Compiler/Bytecode, Module)  
+- [ ] Reflection-Integration (Reflection → Luau-Bindings) und `.d.luau`-Typdefinitionen  
+- [ ] `SharedTable` + `SharedTableRegistry` als eigene Library (trennbar von `Actor`/`Future` über `openlibraries`)  
+- [ ] Actor, Future, Scheduler (nach der Reflection-Integration, der Editor braucht sie nicht)  
+
+**In der Engine:**  
+- [ ] Skript-Komponente für Luau und C++  
+- [ ] Dynamisches Laden von C++-Gameplay-/Plugin-DLLs (DLL entladen und neu laden) mit State-Erhaltung über den Reload: nur Werte, keine Pointer; Typ-ID = Hash aus Plugin-Name + Typname (Assert bei Kollision, Prüfung auf doppelte Plugin-Namen); Callbacks (EventBus, ImGuiPanelManager, Renderer) pro Plugin-/Luau-State-ID getaggt und vor dem Entladen entfernt  
 
 [⬆ Zurück zum Anfang](#📚-inhaltsverzeichnis)
 
@@ -281,9 +318,12 @@ Nur finaler Platformer
 ---
 
 ## Reflection
-- [ ] Reflection für C++ Klassen (einfachere einbindung in Luau und Inspector im Editor)
-- [ ] RTTR ähnliche builder API
-- [ ] auch nutzbar in Webassembly modulen, Plugins und Modifikationen (auch wenn Mods hauptsächlich in Luau sind)
+- [ ] Reflection für C++ Klassen (einfachere Einbindung in Luau und Inspector im Editor, Klassen/Systeme aus Gamecode-/Plugin-DLLs in der Engine sichtbar machen, State-Erhaltung über den DLL-Reload)
+- [ ] Umsetzung über C++26-Reflection (P2996) mit Annotationen (P3394), GCC 16.1: `-std=c++26 -freflection`. In einem Testprojekt verifiziert: Namen, Annotationen, selektive Exponierung einzelner Member/Funktionen, Splice zu Pointer-to-Member, Vererbung (`bases_of`), Zugriffsrechte (`access_context`). Noch nicht ins Haupt-Repo übernommen
+- [ ] RTTR ähnliche builder API (Alternative zu C++26-Reflection, falls diese nicht reicht)
+- [ ] Custom-Attribut-System über Annotationen (Regel: keine Zeiger in Annotation-Structs, Text als `char[N]` by value)
+- [ ] Laufzeit-Registry für die zur Compile-Zeit erzeugten Typbeschreibungen (pro DLL beim Laden eintragen, vor `FreeLibrary` austragen, keine STL-Container über die DLL-Grenze)
+- [ ] auch nutzbar in Plugins und Modifikationen (auch wenn Mods hauptsächlich in Luau sind)
 
 ---
 
@@ -297,6 +337,8 @@ Nur finaler Platformer
 ---
 
 ## Multithreading
+> Aktuell zurückgestellt: kein konkreter Treiber (Bottleneck oder Feature). Ein einfacher `WorkerPool` existiert bereits als Interimslösung für asynchrones Asset-Laden im `AssetManager` (soll später durch das Fiber-Job-System ersetzt werden). Luaus Actor-/Scheduler-Modell (Phase 9) ist die wahrscheinlichere Heimat für weitere Concurrency-Primitive; erst angehen, wenn ein echter Bedarf besteht.
+
 **Vorbereitung:**  
 - [ ] Keine globalen Renderer-Zustände  
 - [ ] Thread-sicheres CommandBuffer-Design  
