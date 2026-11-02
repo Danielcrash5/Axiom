@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <axiom/renderer/passes/QuadRenderPass.h>
 #include <string>
 
 class Testbed : public axiom::Application {
@@ -17,11 +18,26 @@ class Testbed : public axiom::Application {
     void OnInit() override {
         axiom::VFS::MountPath("game://", AXIOM_GAME_ASSET_PATH);
 
-        /* m_Render2DSystem = RegisterSystem<axiom::Render2DSystem>(GetWidth(),
-         GetHeigth());
+        auto& renderer = GetRenderer();
+        const auto format = renderer.surfaceFormat(
+            renderer.mainSurface(), GetWidth(), GetHeigth());
+        if (!format) {
+            AXIOM_ERROR("Testbed: Swapchain-Format fuer den Quad nicht verfuegbar");
+            return;
+        }
 
-         BuildControllerScene(GetScene());
-         BuildOverlayScene(CreateScene());*/
+        auto quadPass =
+            std::make_unique<axiom::renderer::passes::QuadRenderPass>();
+        if (auto result = quadPass->initialize(
+                renderer, renderer.mainSurface(), *format); !result) {
+            AXIOM_ERROR("Testbed: Quad-Renderpass konnte nicht initialisiert werden");
+            return;
+        }
+        if (m_ImGuiLayer) {
+            renderer.addPassFirst(std::move(quadPass));
+        } else {
+            renderer.addPass(std::move(quadPass));
+        }
 
         /*std::shared_ptr<testbed::InspectorPanel> inspectorPanel =
         std::make_shared<testbed::InspectorPanel>();

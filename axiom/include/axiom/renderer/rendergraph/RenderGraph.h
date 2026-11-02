@@ -14,6 +14,7 @@ namespace axiom::renderer::rendergraph {
         ~RenderGraph();
 
         void addPass(std::unique_ptr<RenderPass> pass);
+        void addPassFirst(std::unique_ptr<RenderPass> pass);
         void clear();
 
         [[nodiscard]] uint32_t passCount() const {

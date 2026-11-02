@@ -4,7 +4,9 @@
 
 #include <vulkan/vulkan.h>
 
+#include <cstdint>
 #include <memory>
+#include <vector>
 
 namespace axiom {
 
@@ -41,6 +43,9 @@ namespace axiom {
         // Muss so lange leben wie das Backend: imgui_impl_vulkan haelt den
         // Pointer aus PipelineRenderingCreateInfo::pColorAttachmentFormats.
         VkFormat m_ColorFormat = VK_FORMAT_UNDEFINED;
+        std::vector<uint8_t> m_interBoldFontData;
+        std::vector<uint8_t> m_interRegularFontData;
+        std::vector<uint8_t> m_jetBrainsMonoFontData;
 
         bool m_ContextCreated = false;
         bool m_SDLBackendReady = false;

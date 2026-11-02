@@ -128,6 +128,13 @@ void Renderer::addPass(std::unique_ptr<rendergraph::RenderPass> pass) {
     m_renderGraph->addPass(std::move(pass));
 }
 
+void Renderer::addPassFirst(std::unique_ptr<rendergraph::RenderPass> pass) {
+    if (!m_renderGraph) {
+        return;
+    }
+    m_renderGraph->addPassFirst(std::move(pass));
+}
+
 void Renderer::clearPasses() {
     if (!m_renderGraph) {
         return;

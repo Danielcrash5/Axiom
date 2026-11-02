@@ -1,6 +1,8 @@
 #include <axiom/renderer/Renderer.h>
 #include <axiom/renderer/Renderer2D.h>
 #include <axiom/renderer/passes/ClearScreenPass.h>
+#include <axiom/renderer/passes/QuadRenderPass.h>
+#include <axiom/assets/VFS.h>
 #include <gtest/gtest.h>
 
 #include <memory>
@@ -21,7 +23,9 @@ struct CmdEvent {
 
 class NullCommandList final : public CommandList {
 public:
-    explicit NullCommandList(std::vector<CmdEvent>* log = nullptr) : m_log(log) {}
+    explicit NullCommandList(std::vector<CmdEvent>* log = nullptr,
+                             int* indexedDrawCalls = nullptr)
+        : m_log(log), m_indexedDrawCalls(indexedDrawCalls) {}
 
     void copyBufferToBuffer(BufferHandle, uint64_t, BufferHandle, uint64_t,
                             uint64_t) override {}
@@ -39,7 +43,11 @@ public:
     void bindIndexBuffer(BufferHandle, bool) override {}
     void bindGroup(uint32_t, BindGroupHandle) override {}
     void draw(uint32_t, uint32_t, uint32_t, uint32_t) override {}
-    void drawIndexed(uint32_t, uint32_t, uint32_t) override {}
+    void drawIndexed(uint32_t, uint32_t, uint32_t) override {
+        if (m_indexedDrawCalls) {
+            ++*m_indexedDrawCalls;
+        }
+    }
     void dispatch(uint32_t, uint32_t, uint32_t) override {}
     void beginRendering(TextureHandle, std::optional<TextureHandle>,
                         std::optional<ClearColor> clearColor) override {
@@ -52,6 +60,7 @@ public:
 
 private:
     std::vector<CmdEvent>* m_log;
+    int* m_indexedDrawCalls;
 };
 
 class NullBackend final : public IRHIBackend {
@@ -79,7 +88,7 @@ public:
     }
 
     std::unique_ptr<CommandList> createCommandList() override {
-        return std::make_unique<NullCommandList>(&events);
+        return std::make_unique<NullCommandList>(&events, &indexedDrawCalls);
     }
 
     void submit(CommandList&) override { ++submits; }
@@ -164,6 +173,7 @@ public:
     int destroyedBindGroups = 0;
     int destroyedSamplers = 0;
     int submits = 0;
+    int indexedDrawCalls = 0;
     std::vector<CmdEvent> events; // von allen CommandLists dieses Backends
 
 private:
@@ -553,4 +563,37 @@ TEST(RendererTest, RenderFrameRunsViewsInPriorityOrderAndQueuesVisibleItems) {
 
     EXPECT_TRUE(renderer.itemPool().empty());
     EXPECT_EQ(backendPtr->submits, 2);
+}
+
+TEST(QuadRenderPassTest, CompilesShaderAndDrawsIndexedQuad) {
+    axiom::VFS::Shutdown();
+    struct VfsCleanup {
+        ~VfsCleanup() { axiom::VFS::Shutdown(); }
+    } vfsCleanup;
+    ASSERT_TRUE(axiom::VFS::MountPath("engine://", AXIOM_ENGINE_ASSET_PATH));
+
+    auto backend = std::make_unique<NullBackend>();
+    NullBackend* backendProbe = backend.get();
+    Renderer renderer;
+    ASSERT_TRUE(renderer.init(
+        std::move(backend),
+        RendererServicesDesc{
+            .initializeAssetManager = false,
+            .assetWorkerThreadCount = 0,
+            .initializeBindlessTextureHeap = false,
+        }));
+
+    constexpr SurfaceHandle surface{1, 1};
+    auto pass = std::make_unique<passes::QuadRenderPass>();
+    ASSERT_TRUE(pass->initialize(renderer, surface, TextureFormat::BGRA8Unorm));
+    renderer.addPass(std::move(pass));
+
+    View view;
+    view.target.kind = RenderTargetKind::Swapchain;
+    view.target.surface = surface;
+    view.viewport = Viewport{0, 0, 640, 480};
+    (void)renderer.registerView(view);
+
+    ASSERT_TRUE(renderer.renderFrame());
+    EXPECT_EQ(backendProbe->indexedDrawCalls, 1);
 }

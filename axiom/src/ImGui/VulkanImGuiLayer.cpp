@@ -1,5 +1,6 @@
 #include "axiom/ImGui/VulkanImGuiLayer.h"
 
+#include "axiom/assets/VFS.h"
 #include "axiom/core/Logger.h"
 #include "axiom/platform/Window.h"
 #include "axiom/renderer/Renderer.h"
@@ -11,6 +12,7 @@
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_vulkan.h>
 
+#include <limits>
 #include <optional>
 
 namespace axiom {
@@ -19,6 +21,134 @@ namespace axiom {
 
         namespace rg = renderer::rendergraph;
         namespace rhi = renderer::rhi;
+
+        ImVec4 ThemeColor(uint32_t rgb, float alpha = 1.0f) {
+            return ImVec4(
+                static_cast<float>((rgb >> 16) & 0xFF) / 255.0f,
+                static_cast<float>((rgb >> 8) & 0xFF) / 255.0f,
+                static_cast<float>(rgb & 0xFF) / 255.0f, alpha);
+        }
+
+        void ApplyAxiomTheme() {
+            ImGui::StyleColorsDark();
+
+            ImGuiStyle &style = ImGui::GetStyle();
+            style.WindowPadding = ImVec2(10.0f, 8.0f);
+            style.FramePadding = ImVec2(7.0f, 4.0f);
+            style.CellPadding = ImVec2(7.0f, 5.0f);
+            style.ItemSpacing = ImVec2(8.0f, 6.0f);
+            style.ItemInnerSpacing = ImVec2(6.0f, 4.0f);
+            style.IndentSpacing = 16.0f;
+            style.ScrollbarSize = 12.0f;
+            style.GrabMinSize = 8.0f;
+
+            style.WindowRounding = 5.0f;
+            style.ChildRounding = 4.0f;
+            style.FrameRounding = 3.0f;
+            style.PopupRounding = 4.0f;
+            style.ScrollbarRounding = 8.0f;
+            style.GrabRounding = 3.0f;
+            style.TabRounding = 4.0f;
+
+            style.WindowBorderSize = 1.0f;
+            style.ChildBorderSize = 1.0f;
+            style.PopupBorderSize = 1.0f;
+            style.FrameBorderSize = 0.0f;
+            style.TabBorderSize = 0.0f;
+            style.WindowTitleAlign = ImVec2(0.0f, 0.5f);
+
+            const auto set = [&style](ImGuiCol color, uint32_t rgb,
+                                      float alpha = 1.0f) {
+                style.Colors[color] = ThemeColor(rgb, alpha);
+            };
+
+            set(ImGuiCol_Text, 0xE2E7EF);
+            set(ImGuiCol_TextDisabled, 0x858F9E);
+            set(ImGuiCol_WindowBg, 0x20242B);
+            set(ImGuiCol_ChildBg, 0x252A32);
+            set(ImGuiCol_PopupBg, 0x2B3039, 0.98f);
+            set(ImGuiCol_Border, 0x3B424D);
+            set(ImGuiCol_BorderShadow, 0x101216, 0.0f);
+            set(ImGuiCol_FrameBg, 0x2D333D);
+            set(ImGuiCol_FrameBgHovered, 0x3A4049);
+            set(ImGuiCol_FrameBgActive, 0x454C56);
+            set(ImGuiCol_TitleBg, 0x1B1F25);
+            set(ImGuiCol_TitleBgActive, 0x252B34);
+            set(ImGuiCol_TitleBgCollapsed, 0x1B1F25, 0.75f);
+            set(ImGuiCol_MenuBarBg, 0x252A32);
+            set(ImGuiCol_ScrollbarBg, 0x191C21, 0.55f);
+            set(ImGuiCol_ScrollbarGrab, 0x414A57);
+            set(ImGuiCol_ScrollbarGrabHovered, 0x626B78);
+            set(ImGuiCol_ScrollbarGrabActive, 0x7B8592);
+            set(ImGuiCol_CheckMark, 0xB7C0CC);
+            set(ImGuiCol_SliderGrab, 0x8B96A4);
+            set(ImGuiCol_SliderGrabActive, 0xB7C0CC);
+            set(ImGuiCol_Button, 0x343B46);
+            set(ImGuiCol_ButtonHovered, 0x424953);
+            set(ImGuiCol_ButtonActive, 0x505863);
+            set(ImGuiCol_Header, 0x363C45);
+            set(ImGuiCol_HeaderHovered, 0x424953);
+            set(ImGuiCol_HeaderActive, 0x505863);
+            set(ImGuiCol_Separator, 0x3B424D);
+            set(ImGuiCol_SeparatorHovered, 0x77818E);
+            set(ImGuiCol_SeparatorActive, 0xA1ABB8);
+            set(ImGuiCol_ResizeGrip, 0x8B96A4, 0.22f);
+            set(ImGuiCol_ResizeGripHovered, 0x8B96A4, 0.65f);
+            set(ImGuiCol_ResizeGripActive, 0xB7C0CC, 0.90f);
+            set(ImGuiCol_Tab, 0x292F38);
+            set(ImGuiCol_TabHovered, 0x424953);
+            set(ImGuiCol_TabSelected, 0x343B46);
+            set(ImGuiCol_TabSelectedOverline, 0xA1ABB8);
+            set(ImGuiCol_TabDimmed, 0x22272E);
+            set(ImGuiCol_TabDimmedSelected, 0x2D333D);
+            set(ImGuiCol_TabDimmedSelectedOverline, 0x727D8A);
+            set(ImGuiCol_DockingPreview, 0x8B96A4, 0.35f);
+            set(ImGuiCol_DockingEmptyBg, 0x191C21);
+            set(ImGuiCol_PlotLines, 0xA1ABB8);
+            set(ImGuiCol_PlotLinesHovered, 0xD0D6DE);
+            set(ImGuiCol_PlotHistogram, 0xA9A08E);
+            set(ImGuiCol_PlotHistogramHovered, 0xC5BBA8);
+            set(ImGuiCol_TableHeaderBg, 0x2D333D);
+            set(ImGuiCol_TableBorderStrong, 0x414955);
+            set(ImGuiCol_TableBorderLight, 0x343A44);
+            set(ImGuiCol_TableRowBg, 0xFFFFFF, 0.0f);
+            set(ImGuiCol_TableRowBgAlt, 0xFFFFFF, 0.035f);
+            set(ImGuiCol_TextSelectedBg, 0x8B96A4, 0.35f);
+            set(ImGuiCol_DragDropTarget, 0xD0D6DE);
+            set(ImGuiCol_NavHighlight, 0xB7C0CC);
+            set(ImGuiCol_NavWindowingHighlight, 0xB7C0CC, 0.70f);
+            set(ImGuiCol_NavWindowingDimBg, 0x101318, 0.20f);
+            set(ImGuiCol_ModalWindowDimBg, 0x101318, 0.55f);
+        }
+
+        ImFont *LoadFont(ImFontAtlas &atlas, const char *path, float sizePixels,
+                         std::vector<uint8_t> &fontData, bool required) {
+            if (!VFS::ReadFile(path, fontData) || fontData.empty()) {
+                if (required) {
+                    AXIOM_ERROR("ImGui-Font konnte nicht aus VFS geladen werden: {}", path);
+                } else {
+                    AXIOM_WARN("Optionaler ImGui-Font konnte nicht aus VFS geladen werden: {}", path);
+                }
+                return nullptr;
+            }
+
+            if (fontData.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+                AXIOM_ERROR("ImGui-Font ist zu gross: {}", path);
+                fontData.clear();
+                return nullptr;
+            }
+
+            ImFontConfig config;
+            config.FontDataOwnedByAtlas = false;
+            ImFont *font = atlas.AddFontFromMemoryTTF(
+                fontData.data(), static_cast<int>(fontData.size()), sizePixels,
+                &config, atlas.GetGlyphRangesDefault());
+            if (!font) {
+                AXIOM_ERROR("ImGui konnte Fontdatei nicht verarbeiten: {}", path);
+                fontData.clear();
+            }
+            return font;
+        }
 
         void CheckVkResult(VkResult result) {
             if (result != VK_SUCCESS)
@@ -133,7 +263,24 @@ namespace axiom {
         // in imgui_impl_vulkan.cpp) - hier ist nichts weiter noetig als das
         // Flag VOR den beiden Init-Aufrufen unten zu setzen.
         io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-        ImGui::StyleColorsDark();
+        ApplyAxiomTheme();
+
+        ImFont *interBold = LoadFont(
+            *io.Fonts, "engine://fonts/inter/static/Inter_18pt-Bold.ttf",
+            17.0f, layer->m_interBoldFontData, false);
+        ImFont *interRegular = LoadFont(
+            *io.Fonts, "engine://fonts/inter/static/Inter_18pt-Regular.ttf",
+            17.0f, layer->m_interRegularFontData, true);
+        LoadFont(*io.Fonts,
+                 "engine://fonts/JetBrains-Mono/static/JetBrainsMono-Regular.ttf",
+                 16.0f, layer->m_jetBrainsMonoFontData, false);
+        if (!interRegular) {
+            return nullptr;
+        }
+        io.FontDefault = interRegular;
+        if (!interBold) {
+            AXIOM_WARN("ImGui nutzt Inter Regular als Fallback fuer fette UI-Texte");
+        }
 
         if (!ImGui_ImplSDL3_InitForVulkan(window.GetNativeHandle())) {
             AXIOM_ERROR("ImGui_ImplSDL3_InitForVulkan fehlgeschlagen");

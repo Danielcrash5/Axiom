@@ -15,6 +15,14 @@ namespace axiom::renderer::rendergraph {
         m_compiled = false;
     }
 
+    void RenderGraph::addPassFirst(std::unique_ptr<RenderPass> pass) {
+        if (!pass) {
+            return;
+        }
+        m_passes.insert(m_passes.begin(), PassEntry{std::move(pass), {}});
+        m_compiled = false;
+    }
+
     void RenderGraph::clear() {
         releaseTransientResources();
         m_resources.clear();

@@ -107,6 +107,7 @@ public:
 
     // --- Passes / Views / Frame-Ausfuehrung ---
     void addPass(std::unique_ptr<rendergraph::RenderPass> pass);
+    void addPassFirst(std::unique_ptr<rendergraph::RenderPass> pass);
     void clearPasses();
 
     [[nodiscard]] ViewID registerView(const View& view);
