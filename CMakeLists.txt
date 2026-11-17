@@ -35,9 +35,7 @@ set(MZ_LIBCOMP OFF CACHE BOOL "" FORCE)
 set(MZ_PPMD OFF CACHE BOOL "" FORCE)
 set(MZ_FETCH_LIBS OFF CACHE BOOL "" FORCE)
 
-add_subdirectory(thirdparty/minizip-ng)
-
-add_subdirectory(tools/packtool)
+#add_subdirectory(tools/packtool)
 
 add_subdirectory(thirdparty/nlohmann_json)
 
@@ -86,16 +84,6 @@ function(axiom_add_asset_pack pack_target output_dir pack_name input_dir)
     )
 
     set(output_file "${output_dir}/${pack_name}")
-
-    add_custom_command(
-        OUTPUT "${output_file}"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${output_dir}"
-        COMMAND ${CMAKE_COMMAND} -E rm -f "${output_file}"
-        COMMAND $<TARGET_FILE:AxiomPackTool> "${output_file}" "${input_dir}"
-        DEPENDS AxiomPackTool ${pack_input_files}
-        COMMENT "Packing ${pack_name}"
-        VERBATIM
-    )
 
     add_custom_target(${pack_target} DEPENDS "${output_file}")
 endfunction()
