@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/profiling/Profiler.cpp
+ * @brief Implements the profiler module.
+ */
+
 #include "axiom/profiling/Profiler.h"
 #include "axiom/core/Logger.h"
 
@@ -9,42 +14,59 @@ namespace axiom::profiling {
 
     using Clock = std::chrono::steady_clock;
 
-    static constexpr uint32_t MaxFrames = 120;
+    static constexpr uint32_t maxFrames = 120;
 
+    /** @brief Stores the data for the thread state. */
     struct ThreadState {
+        /** @brief Stores the events. */
         std::vector<CPUEvent> Events;
+        /** @brief Stores the event stack. */
         std::vector<uint32_t> EventStack;
+        /** @brief Stores the depth. */
         uint32_t Depth = 0;
     };
 
-    static thread_local ThreadState g_ThreadState;
+    static thread_local ThreadState gThreadState;
 
+    /** @brief Stores the data for the profiler state. */
     struct ProfilerState {
-        std::array<FrameData, MaxFrames> Frames;
+        /** @brief Stores the frames. */
+        std::array<FrameData, maxFrames> Frames;
+        /** @brief Stores the frame index. */
         uint32_t FrameIndex = 0;
 
+        /** @brief Stores the frame start. */
         uint64_t FrameStart = 0;
 
+        /** @brief Stores the mutex. */
         std::mutex Mutex;
     };
 
-    static ProfilerState g_State;
+    static ProfilerState gState;
 
-    static uint64_t Now() {
+    /**
+     * @brief Returns the current time.
+     * @return The result of the operation.
+     */
+    static uint64_t now() {
         return std::chrono::duration_cast<std::chrono::nanoseconds>(
                    Clock::now().time_since_epoch())
             .count();
     }
 
-    double CPUEvent::DurationMs() const { return (End - Start) / 1000000.0; }
+    double CPUEvent::durationMs() const { return (End - Start) / 1000000.0; }
 
-    static uint32_t GetThreadID() {
+    /**
+     * @brief Returns the thread ID.
+     * @return The result of the operation.
+     */
+    static uint32_t getThreadId() {
         static std::hash<std::thread::id> hasher;
         return (uint32_t)hasher(std::this_thread::get_id());
     }
 
-    void Profiler::PrintLastFrame() {
-        const FrameData &frame = GetFrame(0);
+    void Profiler::printLastFrame() {
+        const FrameData &frame = getFrame(0);
 
         AXIOM_INFO("Frame Time: {} ms", frame.FrameTimeMs);
 
@@ -52,11 +74,11 @@ namespace axiom::profiling {
             std::string indent(event.Depth * 2, ' ');
 
             AXIOM_INFO("{}{} - {:.3f} ms", indent, event.Name,
-                       event.DurationMs());
+                       event.durationMs());
         }
     }
 
-    void Profiler::Initialize() {
+    void Profiler::initialize() {
         static bool initialized = false;
 
         if (!initialized) {
@@ -65,75 +87,75 @@ namespace axiom::profiling {
         }
     }
 
-    void Profiler::BeginFrame() {
-        Initialize();
+    void Profiler::beginFrame() {
+        initialize();
 
-        auto &frame = g_State.Frames[g_State.FrameIndex];
+        auto &frame = gState.Frames[gState.FrameIndex];
         frame.CPUEvents.clear();
 
-        g_State.FrameStart = Now();
+        gState.FrameStart = now();
     }
 
-    void Profiler::EndFrame() {
-        uint64_t frameEnd = Now();
+    void Profiler::endFrame() {
+        uint64_t frameEnd = now();
 
-        auto &frame = g_State.Frames[g_State.FrameIndex];
+        auto &frame = gState.Frames[gState.FrameIndex];
 
-        frame.FrameTimeMs = (frameEnd - g_State.FrameStart) / 1000000.0;
+        frame.FrameTimeMs = (frameEnd - gState.FrameStart) / 1000000.0;
 
         {
-            std::lock_guard lock(g_State.Mutex);
+            std::lock_guard lock(gState.Mutex);
 
             frame.CPUEvents.insert(frame.CPUEvents.end(),
-                                   g_ThreadState.Events.begin(),
-                                   g_ThreadState.Events.end());
+                                   gThreadState.Events.begin(),
+                                   gThreadState.Events.end());
         }
 
-        g_ThreadState.Events.clear();
+        gThreadState.Events.clear();
 
-        g_State.FrameIndex = (g_State.FrameIndex + 1) % MaxFrames;
+        gState.FrameIndex = (gState.FrameIndex + 1) % maxFrames;
 
-        if (!g_ThreadState.EventStack.empty()) {
+        if (!gThreadState.EventStack.empty()) {
             AXIOM_WARN("Profiler: Unclosed profiling scopes detected!");
-            g_ThreadState.EventStack.clear();
+            gThreadState.EventStack.clear();
         }
     }
 
-    void Profiler::PushEvent(std::string_view name) {
+    void Profiler::pushEvent(std::string_view name) {
         CPUEvent event{};
         event.Name = name.data();
-        event.Start = Now();
-        event.ThreadID = GetThreadID();
-        event.Depth = g_ThreadState.Depth++;
+        event.Start = now();
+        event.ThreadID = getThreadId();
+        event.Depth = gThreadState.Depth++;
 
-        g_ThreadState.Events.push_back(event);
+        gThreadState.Events.push_back(event);
 
-        g_ThreadState.EventStack.push_back(
-            static_cast<uint32_t>(g_ThreadState.Events.size() - 1));
+        gThreadState.EventStack.push_back(
+            static_cast<uint32_t>(gThreadState.Events.size() - 1));
     }
 
-    void Profiler::PopEvent() {
-        if (g_ThreadState.EventStack.empty())
+    void Profiler::popEvent() {
+        if (gThreadState.EventStack.empty())
             return;
 
-        uint64_t end = Now();
+        uint64_t end = now();
 
-        uint32_t index = g_ThreadState.EventStack.back();
-        g_ThreadState.EventStack.pop_back();
+        uint32_t index = gThreadState.EventStack.back();
+        gThreadState.EventStack.pop_back();
 
-        g_ThreadState.Events[index].End = end;
+        gThreadState.Events[index].End = end;
 
-        g_ThreadState.Depth--;
+        gThreadState.Depth--;
     }
 
-    const FrameData &Profiler::GetFrame(uint32_t index) {
-        uint32_t i = (g_State.FrameIndex + MaxFrames - index - 1) % MaxFrames;
+    const FrameData &Profiler::getFrame(uint32_t index) {
+        uint32_t i = (gState.FrameIndex + maxFrames - index - 1) % maxFrames;
 
-        return g_State.Frames[i];
+        return gState.Frames[i];
     }
 
-    CPUScope::CPUScope(std::string_view name) { Profiler::PushEvent(name); }
+    CPUScope::CPUScope(std::string_view name) { Profiler::pushEvent(name); }
 
-    CPUScope::~CPUScope() { Profiler::PopEvent(); }
+    CPUScope::~CPUScope() { Profiler::popEvent(); }
 
 } // namespace axiom::profiling

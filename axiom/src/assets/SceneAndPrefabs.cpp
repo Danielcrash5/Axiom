@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/assets/SceneAndPrefabs.cpp
+ * @brief Implements the scene and prefabs module.
+ */
+
 #include <axiom/assets/SceneAndPrefabs.h>
 #include <axiom/core/Logger.h>
 #include <iostream>
@@ -8,7 +13,7 @@ namespace axiom {
 
     // === SceneEntity ===
 
-    std::string SceneEntity::ToJson() const {
+    std::string SceneEntity::toJson() const {
         json j;
         j["id"] = id;
         j["name"] = name;
@@ -22,7 +27,7 @@ namespace axiom {
 
         if (prefabInstance) {
             j["isPrefabInstance"] = true;
-            j["prefabUUID"] = prefabInstance->prefabUUID.ToString();
+            j["prefabUUID"] = prefabInstance->prefabUUID.toString();
             json overridesArray = json::array();
             for (const auto &override : prefabInstance->overrides) {
                 json overrideObj;
@@ -41,7 +46,7 @@ namespace axiom {
         return j.dump();
     }
 
-    SceneEntity SceneEntity::FromJson(const std::string &jsonStr) {
+    SceneEntity SceneEntity::fromJson(const std::string &jsonStr) {
         SceneEntity entity;
         try {
             json j = json::parse(jsonStr);
@@ -58,7 +63,7 @@ namespace axiom {
                 entity.prefabInstance =
                     PrefabInstanceData{}; // statt: new PrefabInstanceData()
                 entity.prefabInstance->prefabUUID =
-                    TypedUUID::FromString(j["prefabUUID"].get<std::string>());
+                    TypedUUID::fromString(j["prefabUUID"].get<std::string>());
 
                 if (j.contains("overrides")) {
                     for (const auto &override : j["overrides"]) {
@@ -78,19 +83,19 @@ namespace axiom {
 
     // === SceneData ===
 
-    std::string SceneData::ToJson() const {
+    std::string SceneData::toJson() const {
         json j;
         j["name"] = name;
         j["nextEntityId"] = nextEntityId;
         json entitiesArray = json::array();
         for (const auto &entity : entities) {
-            entitiesArray.push_back(json::parse(entity.ToJson()));
+            entitiesArray.push_back(json::parse(entity.toJson()));
         }
         j["entities"] = entitiesArray;
         return j.dump();
     }
 
-    SceneData SceneData::FromJson(const std::string &jsonStr) {
+    SceneData SceneData::fromJson(const std::string &jsonStr) {
         SceneData scene;
         try {
             json j = json::parse(jsonStr);
@@ -102,7 +107,7 @@ namespace axiom {
             if (j.contains("entities")) {
                 for (const auto &entityJson : j["entities"]) {
                     scene.entities.push_back(
-                        SceneEntity::FromJson(entityJson.dump()));
+                        SceneEntity::fromJson(entityJson.dump()));
                 }
             }
         } catch (const std::exception &e) {
@@ -111,31 +116,31 @@ namespace axiom {
         return scene;
     }
 
-    SceneData SceneData::LoadFromJson(const std::string &jsonText) {
-        return FromJson(jsonText);
+    SceneData SceneData::loadFromJson(const std::string &jsonText) {
+        return fromJson(jsonText);
     }
 
-    std::string SceneData::SaveToJson(bool pretty) const {
+    std::string SceneData::saveToJson(bool pretty) const {
         try {
-            json j = json::parse(ToJson());
+            json j = json::parse(toJson());
             return pretty ? j.dump(2) : j.dump();
         } catch (...) {
-            return ToJson();
+            return toJson();
         }
     }
 
     // === PrefabData ===
 
-    std::string PrefabData::ToJson() const {
+    std::string PrefabData::toJson() const {
         json j;
         j["name"] = name;
-        j["baseEntityUUID"] = baseEntityUUID.ToString();
-        j["templateEntity"] = json::parse(templateEntity.ToJson());
+        j["baseEntityUUID"] = baseEntityUUID.toString();
+        j["templateEntity"] = json::parse(templateEntity.toJson());
 
         json depsArray = json::array();
         for (const auto &dep : componentDependencies) {
             json depObj;
-            depObj["target"] = dep.targetUUID.ToString();
+            depObj["target"] = dep.targetUUID.toString();
             depObj["type"] = static_cast<int>(dep.depType);
             depsArray.push_back(depObj);
         }
@@ -144,24 +149,24 @@ namespace axiom {
         return j.dump();
     }
 
-    PrefabData PrefabData::FromJson(const std::string &jsonStr) {
+    PrefabData PrefabData::fromJson(const std::string &jsonStr) {
         PrefabData prefab;
         try {
             json j = json::parse(jsonStr);
             if (j.contains("name"))
                 prefab.name = j["name"].get<std::string>();
             if (j.contains("baseEntityUUID"))
-                prefab.baseEntityUUID = TypedUUID::FromString(
+                prefab.baseEntityUUID = TypedUUID::fromString(
                     j["baseEntityUUID"].get<std::string>());
             if (j.contains("templateEntity"))
                 prefab.templateEntity =
-                    SceneEntity::FromJson(j["templateEntity"].dump());
+                    SceneEntity::fromJson(j["templateEntity"].dump());
 
             if (j.contains("componentDependencies")) {
                 for (const auto &dep : j["componentDependencies"]) {
                     AssetDependency dependency;
                     dependency.targetUUID =
-                        TypedUUID::FromString(dep["target"].get<std::string>());
+                        TypedUUID::fromString(dep["target"].get<std::string>());
                     dependency.depType = static_cast<AssetDependencyType>(
                         dep["type"].get<int>());
                     prefab.componentDependencies.push_back(dependency);
@@ -173,47 +178,47 @@ namespace axiom {
         return prefab;
     }
 
-    PrefabData PrefabData::LoadFromJson(const std::string &jsonText) {
-        return FromJson(jsonText);
+    PrefabData PrefabData::loadFromJson(const std::string &jsonText) {
+        return fromJson(jsonText);
     }
 
-    std::string PrefabData::SaveToJson(bool pretty) const {
+    std::string PrefabData::saveToJson(bool pretty) const {
         try {
-            json j = json::parse(ToJson());
+            json j = json::parse(toJson());
             return pretty ? j.dump(2) : j.dump();
         } catch (...) {
-            return ToJson();
+            return toJson();
         }
     }
 
     // === SceneManager ===
 
-    AssetHandle<SceneAsset> SceneManager::LoadScene(TypedUUID sceneId) {
+    AssetHandle<SceneAsset> SceneManager::loadScene(TypedUUID sceneId) {
         AXIOM_WARN("SceneManager::LoadScene is not implemented for scene {}",
-                   sceneId.ToString());
+                   sceneId.toString());
         return AssetHandle<SceneAsset>();
     }
 
-    uint32_t SceneManager::InstantiatePrefab(AssetHandle<PrefabAsset> prefab,
+    uint32_t SceneManager::instantiatePrefab(AssetHandle<PrefabAsset> prefab,
                                              uint32_t parentRegistryVersion) {
-        AXIOM_ASSERT(prefab.IsValid(), "SceneManager::InstantiatePrefab "
+        AXIOM_ASSERT(prefab.isValid(), "SceneManager::InstantiatePrefab "
                                        "received an invalid prefab handle");
         AXIOM_ERROR("SceneManager::InstantiatePrefab reached an unavailable "
                     "prefab implementation "
                     "for {} (parent registry version {})",
-                    prefab.GetID().ToString(), parentRegistryVersion);
+                    prefab.getId().toString(), parentRegistryVersion);
         AXIOM_ASSERT(false,
                      "SceneManager::InstantiatePrefab is not implemented");
         return 0;
     }
 
-    void SceneManager::ReloadPrefab(TypedUUID prefabId) {
+    void SceneManager::reloadPrefab(TypedUUID prefabId) {
         AXIOM_ASSERT(
-            prefabId.IsValid(),
+            prefabId.isValid(),
             "SceneManager::ReloadPrefab received an invalid prefab UUID");
         AXIOM_ERROR("SceneManager::ReloadPrefab reached an unavailable prefab "
                     "implementation for {}",
-                    prefabId.ToString());
+                    prefabId.toString());
         AXIOM_ASSERT(false, "SceneManager::ReloadPrefab is not implemented");
     }
 

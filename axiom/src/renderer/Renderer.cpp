@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/renderer/Renderer.cpp
+ * @brief Implements the renderer module.
+ */
+
 #include <axiom/renderer/Renderer.h>
 #include <axiom/assets/AssetManager.h>
 #include <axiom/renderer/rhi/Backends.h>
@@ -35,7 +40,7 @@ rhi::RHIResult<void> Renderer::init(std::unique_ptr<rhi::IRHIBackend> backend,
                                     const RendererServicesDesc& services) {
     shutdown();
     if (!backend) {
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
 
     m_backend = std::move(backend);
@@ -49,7 +54,7 @@ rhi::RHIResult<void> Renderer::init(std::unique_ptr<rhi::IRHIBackend> backend,
 
 void Renderer::shutdown() {
     if (m_ownsAssetManager) {
-        AssetManager::Shutdown();
+        AssetManager::shutdown();
         m_ownsAssetManager = false;
     }
 
@@ -82,7 +87,7 @@ void Renderer::shutdown() {
 rhi::RHIResult<void>
 Renderer::finishBackendInit(const RendererInitDesc& initDesc) {
     if (!m_backend) {
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
 
     if (initDesc.windowSurface.createSurface) {
@@ -104,8 +109,8 @@ Renderer::finishBackendInit(const RendererInitDesc& initDesc) {
 
 rhi::RHIResult<void>
 Renderer::initServices(const RendererServicesDesc& services) {
-    if (services.initializeAssetManager && !AssetManager::IsInitialized()) {
-        AssetManager::Init(services.assetWorkerThreadCount);
+    if (services.initializeAssetManager && !AssetManager::isInitialized()) {
+        AssetManager::init(services.assetWorkerThreadCount);
         m_ownsAssetManager = true;
     }
 
@@ -208,7 +213,7 @@ rhi::RHIResult<rhi::SwapchainHandle> Renderer::getOrCreateSwapchain(
 rhi::RHIResult<rhi::TextureFormat>
 Renderer::surfaceFormat(rhi::SurfaceHandle surface, uint32_t width, uint32_t height) {
     if (!m_backend) {
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
     auto swapchain = getOrCreateSwapchain(surface, width > 0 ? width : 1,
                                           height > 0 ? height : 1);
@@ -221,7 +226,7 @@ Renderer::surfaceFormat(rhi::SurfaceHandle surface, uint32_t width, uint32_t hei
 rhi::RHIResult<void> Renderer::setVsync(rhi::SurfaceHandle surface,
                                         bool enabled) {
     if (!m_backend) {
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
     for (auto &[existingSurface, existingSwapchain] : m_swapchains) {
         if (existingSurface == surface) {
@@ -231,12 +236,12 @@ rhi::RHIResult<void> Renderer::setVsync(rhi::SurfaceHandle surface,
     // Swapchain existiert noch nicht (z.B. vor dem ersten Frame) - nichts zu
     // tun, createSwapchain() greift beim ersten renderFrame() ohnehin auf
     // SwapchainDesc::vsync zurueck.
-    return std::unexpected(rhi::RHIError::InvalidDescriptor);
+    return std::unexpected(rhi::RHIError::invalidDescriptor);
 }
 
 rhi::RHIResult<void> Renderer::renderFrame() {
     if (!m_backend || !m_renderGraph) {
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
 
     auto renderOneView = [this](const View* view) -> rhi::RHIResult<void> {
@@ -250,7 +255,7 @@ rhi::RHIResult<void> Renderer::renderFrame() {
         std::optional<rhi::SwapchainHandle> swapchainToPresent;
         uint32_t presentImageIndex = 0;
 
-        if (view && view->target.kind == RenderTargetKind::Swapchain &&
+        if (view && view->target.kind == RenderTargetKind::swapchain &&
             view->target.surface.valid()) {
             uint32_t width = view->viewport.width > 0 ? view->viewport.width : 1;
             uint32_t height = view->viewport.height > 0 ? view->viewport.height : 1;

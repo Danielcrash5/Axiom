@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/Input/InputContext.h
+ * @brief Declares the public interface for the input context.
+ */
+
 #pragma once
 
 #include "ActionMap.h"
@@ -5,18 +10,40 @@
 
 namespace axiom {
 
+    /**
+     * @brief Provides the input context functionality.
+     * @tparam InputContext Template type used by this type.
+     */
     class InputContext {
       public:
-        explicit InputContext(const std::string &name) : m_Name(name) {}
+        /**
+         * @brief Creates an instance of input context.
+         * @param name The name used by this operation.
+         */
+        explicit InputContext(const std::string &name) : m_name(name) {}
 
-        const std::string &GetName() const { return m_Name; }
+        /**
+         * @brief Returns the name.
+         * @return The result of the operation.
+         */
+        const std::string &getName() const { return m_name; }
 
-        ActionMap &GetActionMap() { return m_ActionMap; }
-        const ActionMap &GetActionMap() const { return m_ActionMap; }
+        /**
+         * @brief Returns the action map.
+         * @return The result of the operation.
+         */
+        ActionMap &getActionMap() { return m_actionMap; }
+        /**
+         * @brief Returns the action map.
+         * @return The result of the operation.
+         */
+        const ActionMap &getActionMap() const { return m_actionMap; }
 
       private:
-        std::string m_Name;
-        ActionMap m_ActionMap;
+        /** @brief Stores the name. */
+        std::string m_name;
+        /** @brief Stores the action map. */
+        ActionMap m_actionMap;
     };
 
 } // namespace axiom

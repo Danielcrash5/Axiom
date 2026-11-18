@@ -1,3 +1,8 @@
+/**
+ * @file axiom/assets/shaders/Renderer2D/Line.vert.glsl
+ * @brief Transforms line vertices for 2D rendering.
+ */
+
 #version 460 core
 
 layout(location = 0) in vec3 a_Position;

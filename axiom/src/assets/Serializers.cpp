@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/assets/Serializers.cpp
+ * @brief Implements the serializers module.
+ */
+
 #include <axiom/serialization/Serializers.h>
 #include <nlohmann/json.hpp>
 #include <cereal/cereal.hpp>
@@ -9,30 +14,30 @@ namespace axiom {
 
     // === JsonSerializer ===
 
-    JsonSerializer::JsonSerializer() { m_Json = new json(); }
+    JsonSerializer::JsonSerializer() { m_json = new json(); }
 
-    JsonSerializer::~JsonSerializer() { delete static_cast<json *>(m_Json); }
+    JsonSerializer::~JsonSerializer() { delete static_cast<json *>(m_json); }
 
-    bool JsonSerializer::LoadFromString(const std::string &jsonText) {
+    bool JsonSerializer::loadFromString(const std::string &jsonText) {
         try {
-            *static_cast<json *>(m_Json) = json::parse(jsonText);
-            m_Mode = Mode::Reading;
+            *static_cast<json *>(m_json) = json::parse(jsonText);
+            m_mode = Mode::reading;
             return true;
         } catch (const std::exception &e) {
             return false;
         }
     }
 
-    std::string JsonSerializer::SaveToString(bool pretty) const {
-        auto j = static_cast<json *>(m_Json);
+    std::string JsonSerializer::saveToString(bool pretty) const {
+        auto j = static_cast<json *>(m_json);
         return pretty ? j->dump(2) : j->dump();
     }
 
-    JsonSerializer::Mode JsonSerializer::GetMode() const { return m_Mode; }
+    JsonSerializer::Mode JsonSerializer::getMode() const { return m_mode; }
 
-    bool JsonSerializer::Value(const char *key, bool &value) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsReading()) {
+    bool JsonSerializer::value(const char *key, bool &value) {
+        auto j = static_cast<json *>(m_json);
+        if (isReading()) {
             if (j->contains(key)) {
                 value = j->at(key).get<bool>();
                 return true;
@@ -44,9 +49,9 @@ namespace axiom {
         }
     }
 
-    bool JsonSerializer::Value(const char *key, int8_t &value) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsReading()) {
+    bool JsonSerializer::value(const char *key, int8_t &value) {
+        auto j = static_cast<json *>(m_json);
+        if (isReading()) {
             if (j->contains(key)) {
                 value = j->at(key).get<int8_t>();
                 return true;
@@ -58,9 +63,9 @@ namespace axiom {
         }
     }
 
-    bool JsonSerializer::Value(const char *key, uint8_t &value) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsReading()) {
+    bool JsonSerializer::value(const char *key, uint8_t &value) {
+        auto j = static_cast<json *>(m_json);
+        if (isReading()) {
             if (j->contains(key)) {
                 value = j->at(key).get<uint8_t>();
                 return true;
@@ -72,9 +77,9 @@ namespace axiom {
         }
     }
 
-    bool JsonSerializer::Value(const char *key, int16_t &value) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsReading()) {
+    bool JsonSerializer::value(const char *key, int16_t &value) {
+        auto j = static_cast<json *>(m_json);
+        if (isReading()) {
             if (j->contains(key)) {
                 value = j->at(key).get<int16_t>();
                 return true;
@@ -86,9 +91,9 @@ namespace axiom {
         }
     }
 
-    bool JsonSerializer::Value(const char *key, uint16_t &value) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsReading()) {
+    bool JsonSerializer::value(const char *key, uint16_t &value) {
+        auto j = static_cast<json *>(m_json);
+        if (isReading()) {
             if (j->contains(key)) {
                 value = j->at(key).get<uint16_t>();
                 return true;
@@ -100,9 +105,9 @@ namespace axiom {
         }
     }
 
-    bool JsonSerializer::Value(const char *key, int32_t &value) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsReading()) {
+    bool JsonSerializer::value(const char *key, int32_t &value) {
+        auto j = static_cast<json *>(m_json);
+        if (isReading()) {
             if (j->contains(key)) {
                 value = j->at(key).get<int32_t>();
                 return true;
@@ -114,9 +119,9 @@ namespace axiom {
         }
     }
 
-    bool JsonSerializer::Value(const char *key, uint32_t &value) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsReading()) {
+    bool JsonSerializer::value(const char *key, uint32_t &value) {
+        auto j = static_cast<json *>(m_json);
+        if (isReading()) {
             if (j->contains(key)) {
                 value = j->at(key).get<uint32_t>();
                 return true;
@@ -128,9 +133,9 @@ namespace axiom {
         }
     }
 
-    bool JsonSerializer::Value(const char *key, int64_t &value) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsReading()) {
+    bool JsonSerializer::value(const char *key, int64_t &value) {
+        auto j = static_cast<json *>(m_json);
+        if (isReading()) {
             if (j->contains(key)) {
                 value = j->at(key).get<int64_t>();
                 return true;
@@ -142,9 +147,9 @@ namespace axiom {
         }
     }
 
-    bool JsonSerializer::Value(const char *key, uint64_t &value) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsReading()) {
+    bool JsonSerializer::value(const char *key, uint64_t &value) {
+        auto j = static_cast<json *>(m_json);
+        if (isReading()) {
             if (j->contains(key)) {
                 value = j->at(key).get<uint64_t>();
                 return true;
@@ -156,9 +161,9 @@ namespace axiom {
         }
     }
 
-    bool JsonSerializer::Value(const char *key, float &value) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsReading()) {
+    bool JsonSerializer::value(const char *key, float &value) {
+        auto j = static_cast<json *>(m_json);
+        if (isReading()) {
             if (j->contains(key)) {
                 value = j->at(key).get<float>();
                 return true;
@@ -170,9 +175,9 @@ namespace axiom {
         }
     }
 
-    bool JsonSerializer::Value(const char *key, double &value) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsReading()) {
+    bool JsonSerializer::value(const char *key, double &value) {
+        auto j = static_cast<json *>(m_json);
+        if (isReading()) {
             if (j->contains(key)) {
                 value = j->at(key).get<double>();
                 return true;
@@ -184,9 +189,9 @@ namespace axiom {
         }
     }
 
-    bool JsonSerializer::Value(const char *key, std::string &value) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsReading()) {
+    bool JsonSerializer::value(const char *key, std::string &value) {
+        auto j = static_cast<json *>(m_json);
+        if (isReading()) {
             if (j->contains(key)) {
                 value = j->at(key).get<std::string>();
                 return true;
@@ -198,9 +203,9 @@ namespace axiom {
         }
     }
 
-    bool JsonSerializer::BeginArray(const char *key, uint32_t &count) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsReading()) {
+    bool JsonSerializer::beginArray(const char *key, uint32_t &count) {
+        auto j = static_cast<json *>(m_json);
+        if (isReading()) {
             if (j->contains(key) && j->at(key).is_array()) {
                 count = j->at(key).size();
                 // TODO: Array-Navigation
@@ -213,32 +218,32 @@ namespace axiom {
         }
     }
 
-    bool JsonSerializer::EndArray() {
+    bool JsonSerializer::endArray() {
         // TODO: Array-Navigation
         return true;
     }
 
-    bool JsonSerializer::BeginObject(const char *key) {
-        auto j = static_cast<json *>(m_Json);
-        if (IsWriting()) {
+    bool JsonSerializer::beginObject(const char *key) {
+        auto j = static_cast<json *>(m_json);
+        if (isWriting()) {
             (*j)[key] = json::object();
             // TODO: Object-Navigation
         }
         return true;
     }
 
-    bool JsonSerializer::EndObject() {
+    bool JsonSerializer::endObject() {
         // TODO: Object-Navigation
         return true;
     }
 
-    bool JsonSerializer::HasKey(const char *key) const {
-        auto j = static_cast<const json *>(m_Json);
+    bool JsonSerializer::hasKey(const char *key) const {
+        auto j = static_cast<const json *>(m_json);
         return j->contains(key);
     }
 
-    std::string JsonSerializer::GetDebugInfo() const {
-        auto j = static_cast<const json *>(m_Json);
+    std::string JsonSerializer::getDebugInfo() const {
+        auto j = static_cast<const json *>(m_json);
         return j->dump();
     }
 
@@ -248,38 +253,39 @@ namespace axiom {
 
     BinarySerializer::~BinarySerializer() {}
 
-    bool BinarySerializer::LoadFromBytes(const std::vector<uint8_t> &data) {
-        m_Buffer = data;
-        m_Position = 0;
-        m_Mode = Mode::Reading;
+    bool BinarySerializer::loadFromBytes(const std::vector<uint8_t> &data) {
+        m_buffer = data;
+        m_position = 0;
+        m_mode = Mode::reading;
         return true;
     }
 
-    std::vector<uint8_t> BinarySerializer::SaveToBytes() const { return m_Buffer; }
+    std::vector<uint8_t> BinarySerializer::saveToBytes() const { return m_buffer; }
 
-    BinarySerializer::Mode BinarySerializer::GetMode() const { return m_Mode; }
+    BinarySerializer::Mode BinarySerializer::getMode() const { return m_mode; }
 
-    void BinarySerializer::WriteBytes(const uint8_t *data, size_t size) {
-        if (IsWriting()) {
-            m_Buffer.insert(m_Buffer.end(), data, data + size);
+    void BinarySerializer::writeBytes(const uint8_t *data, size_t size) {
+        if (isWriting()) {
+            m_buffer.insert(m_buffer.end(), data, data + size);
         }
     }
 
-    bool BinarySerializer::ReadBytes(uint8_t *data, size_t size) {
-        if (m_Position + size > m_Buffer.size()) {
+    bool BinarySerializer::readBytes(uint8_t *data, size_t size) {
+        if (m_position + size > m_buffer.size()) {
             return false;
         }
-        std::copy(m_Buffer.begin() + m_Position, m_Buffer.begin() + m_Position + size, data);
-        m_Position += size;
+        std::copy(m_buffer.begin() + m_position, m_buffer.begin() + m_position + size, data);
+        m_position += size;
         return true;
     }
 
+/** @brief Provides the BINARY_VALUE_IMPL macro. */
 #define BINARY_VALUE_IMPL(type)                                                  \
-    bool BinarySerializer::Value(const char *key, type &value) {                 \
-        if (IsReading()) {                                                       \
-            return ReadBytes(reinterpret_cast<uint8_t *>(&value), sizeof(type)); \
+    bool BinarySerializer::value(const char *key, type &value) {                 \
+        if (isReading()) {                                                       \
+            return readBytes(reinterpret_cast<uint8_t *>(&value), sizeof(type)); \
         } else {                                                                 \
-            WriteBytes(reinterpret_cast<const uint8_t *>(&value), sizeof(type)); \
+            writeBytes(reinterpret_cast<const uint8_t *>(&value), sizeof(type)); \
             return true;                                                         \
         }                                                                        \
     }
@@ -298,42 +304,42 @@ namespace axiom {
 
 #undef BINARY_VALUE_IMPL
 
-    bool BinarySerializer::Value(const char *key, std::string &value) {
-        if (IsReading()) {
+    bool BinarySerializer::value(const char *key, std::string &value) {
+        if (isReading()) {
             uint32_t length = 0;
-            if (!ReadBytes(reinterpret_cast<uint8_t *>(&length), sizeof(uint32_t))) {
+            if (!readBytes(reinterpret_cast<uint8_t *>(&length), sizeof(uint32_t))) {
                 return false;
             }
             value.resize(length);
-            return ReadBytes(reinterpret_cast<uint8_t *>(value.data()), length);
+            return readBytes(reinterpret_cast<uint8_t *>(value.data()), length);
         } else {
             uint32_t length = value.length();
-            WriteBytes(reinterpret_cast<const uint8_t *>(&length), sizeof(uint32_t));
-            WriteBytes(reinterpret_cast<const uint8_t *>(value.data()), length);
+            writeBytes(reinterpret_cast<const uint8_t *>(&length), sizeof(uint32_t));
+            writeBytes(reinterpret_cast<const uint8_t *>(value.data()), length);
             return true;
         }
     }
 
-    bool BinarySerializer::BeginArray(const char *key, uint32_t &count) {
-        if (IsReading()) {
-            return ReadBytes(reinterpret_cast<uint8_t *>(&count), sizeof(uint32_t));
+    bool BinarySerializer::beginArray(const char *key, uint32_t &count) {
+        if (isReading()) {
+            return readBytes(reinterpret_cast<uint8_t *>(&count), sizeof(uint32_t));
         } else {
-            WriteBytes(reinterpret_cast<const uint8_t *>(&count), sizeof(uint32_t));
+            writeBytes(reinterpret_cast<const uint8_t *>(&count), sizeof(uint32_t));
             return true;
         }
     }
 
-    bool BinarySerializer::EndArray() { return true; }
+    bool BinarySerializer::endArray() { return true; }
 
-    bool BinarySerializer::BeginObject(const char *key) { return true; }
+    bool BinarySerializer::beginObject(const char *key) { return true; }
 
-    bool BinarySerializer::EndObject() { return true; }
+    bool BinarySerializer::endObject() { return true; }
 
-    bool BinarySerializer::HasKey(const char *key) const { return true; }
+    bool BinarySerializer::hasKey(const char *key) const { return true; }
 
-    std::string BinarySerializer::GetDebugInfo() const {
-        return "BinarySerializer (position: " + std::to_string(m_Position) +
-               ", size: " + std::to_string(m_Buffer.size()) + ")";
+    std::string BinarySerializer::getDebugInfo() const {
+        return "BinarySerializer (position: " + std::to_string(m_position) +
+               ", size: " + std::to_string(m_buffer.size()) + ")";
     }
 
 } // namespace axiom

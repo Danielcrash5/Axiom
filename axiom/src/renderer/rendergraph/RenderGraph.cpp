@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/renderer/rendergraph/RenderGraph.cpp
+ * @brief Implements the render graph module.
+ */
+
 #include <axiom/renderer/rendergraph/RenderGraph.h>
 
 namespace axiom::renderer::rendergraph {
@@ -47,10 +52,10 @@ namespace axiom::renderer::rendergraph {
     ResourceHandle
     RenderGraph::registerTransientTexture(const TextureResourceDesc &desc) {
         ResourceEntry entry;
-        entry.type = ResourceType::Texture;
+        entry.type = ResourceType::texture;
         entry.isImported = false;
         entry.desc = desc;
-        entry.currentLayout = rhi::TextureLayout::Undefined;
+        entry.currentLayout = rhi::TextureLayout::undefined;
         entry.generation = 1;
 
         uint32_t index = static_cast<uint32_t>(m_resources.size());
@@ -67,7 +72,7 @@ namespace axiom::renderer::rendergraph {
         if (handle.valid()) {
             for (uint32_t i = 0; i < m_resources.size(); ++i) {
                 ResourceEntry &existing = m_resources[i];
-                if (existing.isImported && existing.type == ResourceType::Texture &&
+                if (existing.isImported && existing.type == ResourceType::texture &&
                     existing.textureHandle == handle) {
                     existing.desc.usage = existing.desc.usage | desc.usage;
                     return ResourceHandle{i, existing.generation};
@@ -76,12 +81,12 @@ namespace axiom::renderer::rendergraph {
         }
 
         ResourceEntry entry;
-        entry.type = ResourceType::Texture;
+        entry.type = ResourceType::texture;
         entry.isImported = true;
         entry.textureHandle = handle;
         entry.desc = desc;
         entry.currentLayout =
-            rhi::TextureLayout::Undefined; // Annahme: Aufrufer garantiert das
+            rhi::TextureLayout::undefined; // Annahme: Aufrufer garantiert das
         entry.generation = 1;
 
         uint32_t index = static_cast<uint32_t>(m_resources.size());
@@ -113,15 +118,15 @@ namespace axiom::renderer::rendergraph {
     rhi::TextureLayout RenderGraph::requiredLayoutFor(
         const ResourceEntry &resource, AccessType access) const {
         switch (access) {
-        case AccessType::Write:
-            if (resource.desc.usage & rhi::TextureUsage::RenderTarget) {
-                return rhi::TextureLayout::ColorAttachment;
+        case AccessType::write:
+            if (resource.desc.usage & rhi::TextureUsage::renderTarget) {
+                return rhi::TextureLayout::colorAttachment;
             }
-            return rhi::TextureLayout::TransferDst;
-        case AccessType::Read:
-            return rhi::TextureLayout::ShaderReadOnly;
+            return rhi::TextureLayout::transferDst;
+        case AccessType::read:
+            return rhi::TextureLayout::shaderReadOnly;
         }
-        return rhi::TextureLayout::Undefined;
+        return rhi::TextureLayout::undefined;
     }
 
     rhi::RHIResult<void> RenderGraph::compile(const RenderExecutionDesc &execution) {
@@ -149,8 +154,8 @@ namespace axiom::renderer::rendergraph {
             TextureResourceDesc presentDesc{
                 .width = execution.view ? execution.view->viewport.width : 0,
                 .height = execution.view ? execution.view->viewport.height : 0,
-                .format = rhi::TextureFormat::BGRA8Unorm, // bei Imports unbenutzt
-                .usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::CopyDst,
+                .format = rhi::TextureFormat::bgrA8Unorm, // bei Imports unbenutzt
+                .usage = rhi::TextureUsage::renderTarget | rhi::TextureUsage::copyDst,
                 .debugName = "SwapchainPresentTarget",
             };
             m_presentResource =
@@ -239,12 +244,12 @@ namespace axiom::renderer::rendergraph {
 
     rhi::RHIResult<void> RenderGraph::execute(const RenderExecutionDesc &execution) {
         if (!m_compiled) {
-            return std::unexpected(rhi::RHIError::InvalidDescriptor);
+            return std::unexpected(rhi::RHIError::invalidDescriptor);
         }
 
         auto cmdList = m_backend.createCommandList();
         if (!cmdList) {
-            return std::unexpected(rhi::RHIError::Unknown);
+            return std::unexpected(rhi::RHIError::unknown);
         }
 
         RenderContext ctx(*this, execution);
@@ -259,7 +264,7 @@ namespace axiom::renderer::rendergraph {
 
             for (auto &access : passEntry.accesses) {
                 auto &resource = m_resources[access.handle.index];
-                if (resource.type != ResourceType::Texture)
+                if (resource.type != ResourceType::texture)
                     continue;
 
                 const rhi::TextureLayout required =
@@ -278,7 +283,7 @@ namespace axiom::renderer::rendergraph {
             // Erst NACH execute() markieren: der Pass selbst muss waehrend
             // seiner Ausfuehrung noch "erster Schreiber" sein koennen.
             for (auto &access : passEntry.accesses) {
-                if (access.access == AccessType::Write) {
+                if (access.access == AccessType::write) {
                     m_resources[access.handle.index].writtenThisExecute = true;
                 }
             }
@@ -292,13 +297,13 @@ namespace axiom::renderer::rendergraph {
         // im letzten CommandList vor dem Submit, gesetzt werden.
         if (execution.presentTarget.valid()) {
             for (auto &resource : m_resources) {
-                if (resource.type == ResourceType::Texture &&
+                if (resource.type == ResourceType::texture &&
                     resource.textureHandle == execution.presentTarget) {
-                    if (resource.currentLayout != rhi::TextureLayout::Present) {
+                    if (resource.currentLayout != rhi::TextureLayout::present) {
                         cmdList->transitionTexture(resource.textureHandle,
                                                    resource.currentLayout,
-                                                   rhi::TextureLayout::Present);
-                        resource.currentLayout = rhi::TextureLayout::Present;
+                                                   rhi::TextureLayout::present);
+                        resource.currentLayout = rhi::TextureLayout::present;
                     }
                     break;
                 }
@@ -314,7 +319,7 @@ namespace axiom::renderer::rendergraph {
             if (!resource.isImported && resource.textureHandle.valid()) {
                 m_backend.destroyTexture(resource.textureHandle);
                 resource.textureHandle = {};
-                resource.currentLayout = rhi::TextureLayout::Undefined;
+                resource.currentLayout = rhi::TextureLayout::undefined;
             }
         }
     }
@@ -333,18 +338,18 @@ namespace axiom::renderer::rendergraph {
     }
 
     ResourceHandle RenderGraphBuilder::read(ResourceHandle handle) {
-        m_graph.recordAccess(m_passIndex, handle, AccessType::Read);
+        m_graph.recordAccess(m_passIndex, handle, AccessType::read);
         return handle;
     }
 
     ResourceHandle RenderGraphBuilder::write(ResourceHandle handle) {
-        m_graph.recordAccess(m_passIndex, handle, AccessType::Write);
+        m_graph.recordAccess(m_passIndex, handle, AccessType::write);
         return handle;
     }
 
     ResourceHandle RenderGraphBuilder::write(ResourceHandle handle,
                                              rhi::TextureLayout layout) {
-        m_graph.recordAccess(m_passIndex, handle, AccessType::Write, layout);
+        m_graph.recordAccess(m_passIndex, handle, AccessType::write, layout);
         return handle;
     }
 

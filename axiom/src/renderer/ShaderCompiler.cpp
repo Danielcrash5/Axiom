@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/renderer/ShaderCompiler.cpp
+ * @brief Implements the shader compiler module.
+ */
+
 #include <axiom/renderer/ShaderCompiler.h>
 
 #include <axiom/assets/VFS.h>
@@ -13,21 +18,31 @@
 namespace axiom::renderer {
 
     namespace {
-        shaderc_shader_kind ToShadercKind(ShaderStageKind stage) {
+        /**
+         * @brief Converts this value to shaderc kind.
+         * @param stage The stage used by this operation.
+         * @return The result of the operation.
+         */
+        shaderc_shader_kind toShadercKind(ShaderStageKind stage) {
             switch (stage) {
-            case ShaderStageKind::Vertex:
+            case ShaderStageKind::vertex:
                 return shaderc_glsl_vertex_shader;
-            case ShaderStageKind::Fragment:
+            case ShaderStageKind::fragment:
                 return shaderc_glsl_fragment_shader;
-            case ShaderStageKind::Compute:
+            case ShaderStageKind::compute:
                 return shaderc_glsl_compute_shader;
             }
             return shaderc_glsl_vertex_shader;
         }
 
-        std::string ResolvePhysicalPathOrOriginal(const std::string& path) {
+        /**
+         * @brief Resolves physical path or original.
+         * @param path The path used by this operation.
+         * @return The result of the operation.
+         */
+        std::string resolvePhysicalPathOrOriginal(const std::string& path) {
             if (path.find("://") != std::string::npos) {
-                if (const auto resolved = axiom::VFS::ResolvePhysicalPath(path);
+                if (const auto resolved = axiom::VFS::resolvePhysicalPath(path);
                     !resolved.empty()) {
                     return resolved;
                 }
@@ -35,8 +50,14 @@ namespace axiom::renderer {
             return path;
         }
 
+        /**
+         * @brief Resolves include candidate.
+         * @param requestedSource The requested source used by this operation.
+         * @param requestingSource The requesting source used by this operation.
+         * @return The result of the operation.
+         */
         std::optional<std::filesystem::path>
-        ResolveIncludeCandidate(const std::string& requestedSource,
+        resolveIncludeCandidate(const std::string& requestedSource,
                                 const std::string& requestingSource) {
             const std::string normalized = std::string(requestedSource);
             if (normalized.empty()) {
@@ -46,7 +67,7 @@ namespace axiom::renderer {
             std::vector<std::filesystem::path> searchDirs;
 
             const auto requestPath = std::filesystem::path(
-                ResolvePhysicalPathOrOriginal(requestingSource));
+                resolvePhysicalPathOrOriginal(requestingSource));
             if (!requestPath.empty()) {
                 const auto parent = requestPath.parent_path();
                 if (!parent.empty()) {
@@ -55,7 +76,7 @@ namespace axiom::renderer {
             }
 
             const auto requestedPath = std::filesystem::path(
-                ResolvePhysicalPathOrOriginal(requestedSource));
+                resolvePhysicalPathOrOriginal(requestedSource));
             if (requestedPath.is_absolute()) {
                 searchDirs.push_back(requestedPath);
             }
@@ -70,7 +91,7 @@ namespace axiom::renderer {
                 candidates.push_back(dir / requestedSource);
             }
             candidates.push_back(std::filesystem::path(requestedSource));
-            candidates.push_back(std::filesystem::path(ResolvePhysicalPathOrOriginal(
+            candidates.push_back(std::filesystem::path(resolvePhysicalPathOrOriginal(
                 requestedSource)));
 
             for (const auto& candidate : candidates) {
@@ -86,27 +107,34 @@ namespace axiom::renderer {
             return std::nullopt;
         }
 
+        /** @brief Stores the data for the included file. */
         struct IncludedFile {
+            /** @brief Stores the resolved path. */
             std::string resolvedPath;
+            /** @brief Stores the text. */
             std::string text;
         };
 
+        /**
+         * @brief Provides the VFS include resolver functionality.
+         * @tparam VfsIncludeResolver Template type used by this type.
+         */
         class VfsIncludeResolver final
             : public shaderc::CompileOptions::IncluderInterface {
         public:
             explicit VfsIncludeResolver(std::string rootPath)
                 : m_rootPath(std::move(rootPath)) {}
 
-            shaderc_include_result* GetInclude(const char* requested_source,
+            shaderc_include_result* GetInclude(const char* requestedSource,
                                                shaderc_include_type type,
-                                               const char* requesting_source,
-                                               size_t include_depth) override {
+                                               const char* requestingSource,
+                                               size_t includeDepth) override {
                 (void)type;
-                (void)include_depth;
+                (void)includeDepth;
 
-                const std::string requested = requested_source ? requested_source : "";
-                const std::string requesting = requesting_source ? requesting_source : "";
-                const auto lookup = ResolveIncludeCandidate(requested, requesting);
+                const std::string requested = requestedSource ? requestedSource : "";
+                const std::string requesting = requestingSource ? requestingSource : "";
+                const auto lookup = resolveIncludeCandidate(requested, requesting);
                 if (!lookup) {
                     const std::string message = "Cannot find or open include file: " + requested;
                     auto* error = new shaderc_include_result{"", 0, message.data(),
@@ -146,7 +174,7 @@ namespace axiom::renderer {
     } // namespace
 
     ShaderCompiler::Result
-    ShaderCompiler::Compile(const std::string &source,
+    ShaderCompiler::compile(const std::string &source,
                             const std::string &sourceName,
                             ShaderStageKind stage) const {
         shaderc::Compiler compiler;
@@ -161,7 +189,7 @@ namespace axiom::renderer {
         options.SetIncluder(std::make_unique<VfsIncludeResolver>(sourceName));
 
         shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(
-            source, ToShadercKind(stage), sourceName.c_str(), options);
+            source, toShadercKind(stage), sourceName.c_str(), options);
 
         Result result;
         if (module.GetCompilationStatus() != shaderc_compilation_status_success) {

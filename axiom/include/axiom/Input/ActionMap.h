@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/Input/ActionMap.h
+ * @brief Declares the public interface for the action map.
+ */
+
 #pragma once
 
 #include "Input.h"
@@ -8,28 +13,47 @@
 
 namespace axiom {
 
+    /**
+     * @brief Defines the available input type values.
+     * @tparam InputType Template type used by this type.
+     */
     enum class InputType {
-        Key,
-        MouseButton,
-        GamepadButton,
-        GamepadAxis,
-        JoystickButton,
-        JoystickAxis,
-        JoystickHat,
-        CustomButton,
-        CustomAxis,
-        CustomHat,
-        MouseAxis
+        /** @brief Represents the key value. */
+        key,
+        /** @brief Represents the mouse button value. */
+        mouseButton,
+        /** @brief Represents the gamepad button value. */
+        gamepadButton,
+        /** @brief Represents the gamepad axis value. */
+        gamepadAxis,
+        /** @brief Represents the joystick button value. */
+        joystickButton,
+        /** @brief Represents the joystick axis value. */
+        joystickAxis,
+        /** @brief Represents the joystick hat value. */
+        joystickHat,
+        /** @brief Represents the custom button value. */
+        customButton,
+        /** @brief Represents the custom axis value. */
+        customAxis,
+        /** @brief Represents the custom hat value. */
+        customHat,
+        mouseAxis
     };
 
     // ======================
     // Button Binding
     // ======================
 
+    /** @brief Stores the data for the button binding. */
     struct ButtonBinding {
+        /** @brief Stores the type. */
         InputType type;
+        /** @brief Stores the code. */
         int code;
+        /** @brief Stores the device ID. */
         int deviceId = 0;
+        /** @brief Stores the index. */
         int index = 0;
     };
 
@@ -37,14 +61,21 @@ namespace axiom {
     // Axis Binding
     // ======================
 
+    /** @brief Stores the data for the axis binding. */
     struct AxisBinding {
+        /** @brief Stores the type. */
         InputType type;
+        /** @brief Stores the code. */
         int code;
+        /** @brief Stores the device ID. */
         int deviceId = 0;
 
+        /** @brief Stores the scale. */
         float scale = 1.0f;
+        /** @brief Stores the deadzone. */
         float deadzone = 0.0f;
 
+        /** @brief Stores the invert. */
         bool invert = false;
     };
 
@@ -52,46 +83,123 @@ namespace axiom {
     // ActionMap
     // ======================
 
+    /**
+     * @brief Maps named actions and axes to physical input bindings.
+     * @tparam ActionMap Template type used by this type.
+     */
     class ActionMap {
       public:
         // ---- Buttons ----
-        void BindButton(const std::string &action, InputType type, int code,
+        /**
+         * @brief Binds button.
+         * @param action The action used by this operation.
+         * @param type The type used by this operation.
+         * @param code The code used by this operation.
+         * @param deviceId The device ID used by this operation.
+         */
+        void bindButton(const std::string &action, InputType type, int code,
                         int deviceId = 0);
-        void BindHat(const std::string &action, InputType type,
+        /**
+         * @brief Binds hat.
+         * @param action The action used by this operation.
+         * @param type The type used by this operation.
+         * @param mask The mask used by this operation.
+         * @param hat The hat used by this operation.
+         * @param deviceId The device ID used by this operation.
+         */
+        void bindHat(const std::string &action, InputType type,
                      JoystickHat mask, int hat = 0, int deviceId = 0);
-        void BindJoystickHat(const std::string &action, JoystickHat mask,
+        /**
+         * @brief Binds joystick hat.
+         * @param action The action used by this operation.
+         * @param mask The mask used by this operation.
+         * @param hat The hat used by this operation.
+         * @param deviceId The device ID used by this operation.
+         */
+        void bindJoystickHat(const std::string &action, JoystickHat mask,
                              int hat = 0, int deviceId = 0);
-        bool IsActionPressed(const std::string &action) const;
-        bool IsActionJustPressed(const std::string &action) const;
+        /**
+         * @brief Reports whether action pressed.
+         * @param action The action used by this operation.
+         * @return The result of the operation.
+         */
+        bool isActionPressed(const std::string &action) const;
+        /**
+         * @brief Reports whether action just pressed.
+         * @param action The action used by this operation.
+         * @return The result of the operation.
+         */
+        bool isActionJustPressed(const std::string &action) const;
 
-        void RebindButton(const std::string &action, size_t index,
+        /**
+         * @brief Performs the rebind button operation.
+         * @param action The action used by this operation.
+         * @param index The index used by this operation.
+         * @param type The type used by this operation.
+         * @param code The code used by this operation.
+         * @param deviceId The device ID used by this operation.
+         */
+        void rebindButton(const std::string &action, size_t index,
                           InputType type, int code, int deviceId = 0);
 
         // ---- Axis 1D ----
-        void BindAxis(const std::string &axis, const AxisBinding &binding);
-        float GetAxis(const std::string &axis) const;
+        /**
+         * @brief Binds axis.
+         * @param axis The axis used by this operation.
+         * @param binding The binding used by this operation.
+         */
+        void bindAxis(const std::string &axis, const AxisBinding &binding);
+        /**
+         * @brief Returns the axis.
+         * @param axis The axis used by this operation.
+         * @return The result of the operation.
+         */
+        float getAxis(const std::string &axis) const;
 
-        void RebindAxis(const std::string &axis, size_t index,
+        /**
+         * @brief Performs the rebind axis operation.
+         * @param axis The axis used by this operation.
+         * @param index The index used by this operation.
+         * @param binding The binding used by this operation.
+         */
+        void rebindAxis(const std::string &axis, size_t index,
                         const AxisBinding &binding);
 
         // ---- Axis 2D ----
-        void BindAxis2D(const std::string &axis, const std::string &xAxis,
+        /**
+         * @brief Binds axis2 d.
+         * @param axis The axis used by this operation.
+         * @param xAxis The x axis used by this operation.
+         * @param yAxis The y axis used by this operation.
+         */
+        void bindAxis2D(const std::string &axis, const std::string &xAxis,
                         const std::string &yAxis);
 
-        glm::vec2 GetAxis2D(const std::string &axis) const;
+        /**
+         * @brief Returns the axis2 d.
+         * @param axis The axis used by this operation.
+         * @return The result of the operation.
+         */
+        glm::vec2 getAxis2D(const std::string &axis) const;
 
       private:
         std::unordered_map<std::string, std::vector<ButtonBinding>>
-            m_ButtonBindings;
+            /** @brief Stores the button bindings. */
+            m_buttonBindings;
         std::unordered_map<std::string, std::vector<AxisBinding>>
-            m_AxisBindings;
+            /** @brief Stores the axis bindings. */
+            m_axisBindings;
 
+        /** @brief Stores the data for the axis2 d. */
         struct Axis2D {
+            /** @brief Stores the x axis. */
             std::string xAxis;
+            /** @brief Stores the y axis. */
             std::string yAxis;
         };
 
-        std::unordered_map<std::string, Axis2D> m_Axis2DBindings;
+        /** @brief Stores the axis2 d bindings. */
+        std::unordered_map<std::string, Axis2D> m_axis2DBindings;
     };
 
 } // namespace axiom

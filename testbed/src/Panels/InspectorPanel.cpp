@@ -1,3 +1,8 @@
+/**
+ * @file testbed/src/Panels/InspectorPanel.cpp
+ * @brief Implements the inspector panel module.
+ */
+
 #include "Panels/InspectorPanel.h"
 
 #include <axiom/Axiom.h>
@@ -6,7 +11,14 @@
 #include <glm/gtc/type_ptr.hpp>
 
 namespace testbed {
-	static void DrawVec3Control(const std::string& label, glm::vec3& values, float resetValue = 0.0f, float columnWidth = 100.0f) {
+	/**
+	 * @brief Draws vec3 control.
+	 * @param label The label used by this operation.
+	 * @param values The values used by this operation.
+	 * @param resetValue The reset value used by this operation.
+	 * @param columnWidth The column width used by this operation.
+	 */
+	static void drawVec3Control(const std::string& label, glm::vec3& values, float resetValue = 0.0f, float columnWidth = 100.0f) {
 		ImGuiIO& io = ImGui::GetIO();
 		auto boldFont = io.Fonts->Fonts[0];
 
@@ -71,19 +83,19 @@ namespace testbed {
 		ImGui::PopID();
 	}
 
-	void InspectorPanel::OnImGuiRender() {
-		if (!m_SelectedEntity)
+	void InspectorPanel::onImGuiRender() {
+		if (!m_selectedEntity)
 			return;
-		auto& entity = *m_SelectedEntity;
-		DrawComponent<axiom::TagComponent>("Tag", entity.GetComponent<axiom::TagComponent>(), [](auto& tag) {
+		auto& entity = *m_selectedEntity;
+		drawComponent<axiom::TagComponent>("Tag", entity.getComponent<axiom::TagComponent>(), [](auto& tag) {
 			char buffer[256];
 			std::strncpy(buffer, tag.Tag.c_str(), sizeof(buffer));
 			if (ImGui::InputText("##Tag", buffer, sizeof(buffer))) {
 				tag.Tag = std::string(buffer);
 			}
 									});
-		DrawComponent<axiom::TransformComponent>("Transform", entity.GetComponent<axiom::TransformComponent>(), [](auto& transform) {
-			DrawVec3Control("Translation", transform.Translation);
+		drawComponent<axiom::TransformComponent>("Transform", entity.getComponent<axiom::TransformComponent>(), [](auto& transform) {
+			drawVec3Control("Translation", transform.Translation);
 			// TODO Platzhalter: rechnet JEDEN Frame Quaternion<->Euler um, ohne
 			// die zuletzt editierten Winkel zu cachen. Das fuehrt bei kleinen
 			// Edits zu Winkel-Spruengen (z.B. 90 -> -270), weil die Quat->Euler-
@@ -92,9 +104,9 @@ namespace testbed {
 			// IDComponent::ID) im Panel-State cachen, nur bei Fremdaenderung des
 			// Quaternions (Gizmo/Animation/Physik) neu aus dem Quat ableiten.
 			glm::vec3 eulerDegrees = glm::degrees(glm::eulerAngles(transform.Rotation));
-			DrawVec3Control("Rotation", eulerDegrees);
+			drawVec3Control("Rotation", eulerDegrees);
 			transform.Rotation = glm::quat(glm::radians(eulerDegrees));
-			DrawVec3Control("Scale", transform.Scale, 1.0f);
+			drawVec3Control("Scale", transform.Scale, 1.0f);
 					  });
 /*		if (entity.HasComponent<axiom::SpriteRendererComponent>()) {
 			DrawComponent<axiom::SpriteRendererComponent>("Sprite Renderer", entity.GetComponent<axiom::SpriteRendererComponent>(), [](auto& spriteRenderer) {
@@ -102,16 +114,16 @@ namespace testbed {
 				ImGui::DragFloat("Tiling Factor", &spriteRenderer.TilingFactor, 0.1f, 0.0f, 100.0f);
 						  });
 		} */
-		if (entity.HasComponent<axiom::CameraComponent>()) {
-			DrawComponent<axiom::CameraComponent>("Camera", entity.GetComponent<axiom::CameraComponent>(), [](auto& camera) {
+		if (entity.hasComponent<axiom::CameraComponent>()) {
+			drawComponent<axiom::CameraComponent>("Camera", entity.getComponent<axiom::CameraComponent>(), [](auto& camera) {
 				ImGui::Checkbox("Primary", &camera.Primary);
 				ImGui::DragFloat("Orthographic Size", &camera.OrthographicSize, 0.1f, 0.0f, 1000.0f);
 				ImGui::DragFloat("Near Clip", &camera.NearClip, 0.1f, -1000.0f, 1000.0f);
 				ImGui::DragFloat("Far Clip", &camera.FarClip, 0.1f, -1000.0f, 1000.0f);
 												  });
 		}
-		if (entity.HasComponent<axiom::CircleRendererComponent>()) {
-			DrawComponent<axiom::CircleRendererComponent>("Circle Renderer", entity.GetComponent<axiom::CircleRendererComponent>(), [](auto& circleRenderer) {
+		if (entity.hasComponent<axiom::CircleRendererComponent>()) {
+			drawComponent<axiom::CircleRendererComponent>("Circle Renderer", entity.getComponent<axiom::CircleRendererComponent>(), [](auto& circleRenderer) {
 				ImGui::ColorEdit4("Color", glm::value_ptr(circleRenderer.Color));
 				ImGui::DragFloat("Thickness", &circleRenderer.Thickness, 0.1f, 0.0f, 100.0f);
 														  });

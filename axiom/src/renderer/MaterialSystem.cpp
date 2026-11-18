@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/renderer/MaterialSystem.cpp
+ * @brief Implements the material system module.
+ */
+
 #include <axiom/renderer/MaterialSystem.h>
 
 namespace axiom::renderer {
@@ -10,7 +15,7 @@ rhi::RHIResult<void> MaterialSystem::build(
 
     const rhi::ShaderDesc* shaderDesc = m_shaders.find(material.shaderId);
     if (!shaderDesc) {
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
 
     auto layoutResult = m_backend.createBindGroupLayout(bindGroupLayoutDesc);
@@ -34,7 +39,7 @@ rhi::RHIResult<void> MaterialSystem::build(
     rhi::BindGroupDesc bindGroupDesc;
     bindGroupDesc.layout = *layoutResult;
     for (auto& [name, binding] : material.params) {
-        if (binding.kind != ResourceBinding::Kind::Direct) {
+        if (binding.kind != ResourceBinding::Kind::direct) {
             // Bindless-Parameter laufen ueber ein separates Set
             // (BindlessTextureHeap::bindGroup()), nicht ueber diese BindGroup.
             continue;

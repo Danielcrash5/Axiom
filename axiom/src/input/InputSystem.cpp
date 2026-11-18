@@ -1,67 +1,72 @@
+/**
+ * @file axiom/src/Input/InputSystem.cpp
+ * @brief Implements the input system module.
+ */
+
 #include "axiom/input/InputSystem.h"
 #include "axiom/input/Input.h"
 
 namespace axiom {
 
     std::unordered_map<std::string, std::shared_ptr<InputContext>>
-        InputSystem::s_RegisteredContexts;
-    std::vector<std::shared_ptr<InputContext>> InputSystem::s_ContextStack;
+        InputSystem::sRegisteredContexts;
+    std::vector<std::shared_ptr<InputContext>> InputSystem::sContextStack;
 
-    void InputSystem::Init() {}
+    void InputSystem::init() {}
 
-    void InputSystem::Update() { Input::Update(); }
+    void InputSystem::update() { Input::update(); }
 
     void
-    InputSystem::RegisterContext(const std::shared_ptr<InputContext> &context) {
-        s_RegisteredContexts[context->GetName()] = context;
+    InputSystem::registerContext(const std::shared_ptr<InputContext> &context) {
+        sRegisteredContexts[context->getName()] = context;
     }
 
-    void InputSystem::PushContext(const std::string &name) {
-        auto it = s_RegisteredContexts.find(name);
-        if (it != s_RegisteredContexts.end())
-            s_ContextStack.push_back(it->second);
+    void InputSystem::pushContext(const std::string &name) {
+        auto it = sRegisteredContexts.find(name);
+        if (it != sRegisteredContexts.end())
+            sContextStack.push_back(it->second);
     }
 
-    void InputSystem::PopContext() {
-        if (!s_ContextStack.empty())
-            s_ContextStack.pop_back();
+    void InputSystem::popContext() {
+        if (!sContextStack.empty())
+            sContextStack.pop_back();
     }
 
-    void InputSystem::ClearContexts() { s_ContextStack.clear(); }
+    void InputSystem::clearContexts() { sContextStack.clear(); }
 
-    InputContext *InputSystem::GetActiveContext() {
-        if (s_ContextStack.empty())
+    InputContext *InputSystem::getActiveContext() {
+        if (sContextStack.empty())
             return nullptr;
 
-        return s_ContextStack.back().get();
+        return sContextStack.back().get();
     }
 
     // ==================== Wrappers ====================
 
-    bool InputSystem::IsActionPressed(const std::string &action) {
-        if (auto *ctx = GetActiveContext())
-            return ctx->GetActionMap().IsActionPressed(action);
+    bool InputSystem::isActionPressed(const std::string &action) {
+        if (auto *ctx = getActiveContext())
+            return ctx->getActionMap().isActionPressed(action);
 
         return false;
     }
 
-    bool InputSystem::IsActionJustPressed(const std::string &action) {
-        if (auto *ctx = GetActiveContext())
-            return ctx->GetActionMap().IsActionJustPressed(action);
+    bool InputSystem::isActionJustPressed(const std::string &action) {
+        if (auto *ctx = getActiveContext())
+            return ctx->getActionMap().isActionJustPressed(action);
 
         return false;
     }
 
-    float InputSystem::GetAxis(const std::string &axis) {
-        if (auto *ctx = GetActiveContext())
-            return ctx->GetActionMap().GetAxis(axis);
+    float InputSystem::getAxis(const std::string &axis) {
+        if (auto *ctx = getActiveContext())
+            return ctx->getActionMap().getAxis(axis);
 
         return 0.0f;
     }
 
-    glm::vec2 InputSystem::GetAxis2D(const std::string &axis) {
-        if (auto *ctx = GetActiveContext())
-            return ctx->GetActionMap().GetAxis2D(axis);
+    glm::vec2 InputSystem::getAxis2D(const std::string &axis) {
+        if (auto *ctx = getActiveContext())
+            return ctx->getActionMap().getAxis2D(axis);
 
         return glm::vec2(0.0f);
     }

@@ -1,3 +1,8 @@
+/**
+ * @file axiom/assets/shaders/Renderer2D/Circle.frag.glsl
+ * @brief Applies fill and edge shading to 2D circles.
+ */
+
 #version 460 core
 
 #extension GL_GOOGLE_include_directive : require

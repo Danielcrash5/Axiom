@@ -1,3 +1,8 @@
+/**
+ * @file axiom/assets/shaders/Renderer2D/Circle.vert.glsl
+ * @brief Transforms circle vertices for 2D rendering.
+ */
+
 #version 460 core
 
 layout(location = 0) in vec3 a_Position;

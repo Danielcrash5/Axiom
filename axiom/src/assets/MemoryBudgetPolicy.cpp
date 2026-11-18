@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/assets/MemoryBudgetPolicy.cpp
+ * @brief Implements the memory budget policy module.
+ */
+
 #include <axiom/assets/MemoryBudgetPolicy.h>
 #include <algorithm>
 #include <chrono>
@@ -6,23 +11,23 @@ namespace axiom {
 
     // === LRUMemoryPolicy ===
 
-    LRUMemoryPolicy::LRUMemoryPolicy(size_t budgetBytes) : m_BudgetBytes(budgetBytes) {}
+    LRUMemoryPolicy::LRUMemoryPolicy(size_t budgetBytes) : m_budgetBytes(budgetBytes) {}
 
-    size_t LRUMemoryPolicy::GetCurrentUsage() const { return m_CurrentUsage; }
+    size_t LRUMemoryPolicy::getCurrentUsage() const { return m_currentUsage; }
 
-    size_t LRUMemoryPolicy::GetBudget() const { return m_BudgetBytes; }
+    size_t LRUMemoryPolicy::getBudget() const { return m_budgetBytes; }
 
-    std::vector<TypedUUID> LRUMemoryPolicy::SelectEvictionCandidates(size_t bytesNeeded) {
+    std::vector<TypedUUID> LRUMemoryPolicy::selectEvictionCandidates(size_t bytesNeeded) {
         std::vector<TypedUUID> candidates;
         size_t freedBytes = 0;
 
         // Sortiere nach LRU (ältester Zugriff zuerst)
-        std::sort(m_LoadedAssets.begin(), m_LoadedAssets.end(),
+        std::sort(m_loadedAssets.begin(), m_loadedAssets.end(),
                   [](const AssetInfo &a, const AssetInfo &b) {
                       return a.lastAccessTime < b.lastAccessTime;
                   });
 
-        for (const auto &asset : m_LoadedAssets) {
+        for (const auto &asset : m_loadedAssets) {
             if (freedBytes >= bytesNeeded) {
                 break;
             }
@@ -33,27 +38,27 @@ namespace axiom {
         return candidates;
     }
 
-    void LRUMemoryPolicy::OnAssetLoaded(TypedUUID uuid, size_t sizeBytes) {
+    void LRUMemoryPolicy::onAssetLoaded(TypedUUID uuid, size_t sizeBytes) {
         AssetInfo info{uuid, sizeBytes,
-                       std::chrono::high_resolution_clock::now().time_since_epoch().count()};
-        m_LoadedAssets.push_back(info);
-        m_CurrentUsage += sizeBytes;
+                       static_cast<uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count())};
+        m_loadedAssets.push_back(info);
+        m_currentUsage += sizeBytes;
 
-        if (m_CurrentUsage > m_BudgetBytes) {
-            OnBudgetExceeded(m_CurrentUsage, m_BudgetBytes);
+        if (m_currentUsage > m_budgetBytes) {
+            onBudgetExceeded(m_currentUsage, m_budgetBytes);
         }
     }
 
-    void LRUMemoryPolicy::OnAssetUnloaded(TypedUUID uuid, size_t sizeBytes) {
-        auto it = std::find_if(m_LoadedAssets.begin(), m_LoadedAssets.end(),
+    void LRUMemoryPolicy::onAssetUnloaded(TypedUUID uuid, size_t sizeBytes) {
+        auto it = std::find_if(m_loadedAssets.begin(), m_loadedAssets.end(),
                                [uuid](const AssetInfo &a) { return a.uuid == uuid; });
-        if (it != m_LoadedAssets.end()) {
-            m_CurrentUsage -= it->sizeBytes;
-            m_LoadedAssets.erase(it);
+        if (it != m_loadedAssets.end()) {
+            m_currentUsage -= it->sizeBytes;
+            m_loadedAssets.erase(it);
         }
     }
 
-    void LRUMemoryPolicy::OnBudgetExceeded(size_t currentUsage, size_t budget) {
+    void LRUMemoryPolicy::onBudgetExceeded(size_t currentUsage, size_t budget) {
         // Log nur für jetzt
         if (currentUsage > budget) {
             // TODO: Benachrichtige AssetManager zur Eviction
@@ -62,18 +67,18 @@ namespace axiom {
 
     // === PriorityMemoryPolicy ===
 
-    PriorityMemoryPolicy::PriorityMemoryPolicy(size_t budgetBytes) : m_BudgetBytes(budgetBytes) {}
+    PriorityMemoryPolicy::PriorityMemoryPolicy(size_t budgetBytes) : m_budgetBytes(budgetBytes) {}
 
-    size_t PriorityMemoryPolicy::GetCurrentUsage() const { return m_CurrentUsage; }
+    size_t PriorityMemoryPolicy::getCurrentUsage() const { return m_currentUsage; }
 
-    size_t PriorityMemoryPolicy::GetBudget() const { return m_BudgetBytes; }
+    size_t PriorityMemoryPolicy::getBudget() const { return m_budgetBytes; }
 
-    std::vector<TypedUUID> PriorityMemoryPolicy::SelectEvictionCandidates(size_t bytesNeeded) {
+    std::vector<TypedUUID> PriorityMemoryPolicy::selectEvictionCandidates(size_t bytesNeeded) {
         std::vector<TypedUUID> candidates;
         size_t freedBytes = 0;
 
         // Sortiere nach Priorität (niedrigere zuerst) dann nach Größe (größere zuerst)
-        std::sort(m_LoadedAssets.begin(), m_LoadedAssets.end(),
+        std::sort(m_loadedAssets.begin(), m_loadedAssets.end(),
                   [](const AssetInfo &a, const AssetInfo &b) {
                       if (a.priority != b.priority) {
                           return a.priority < b.priority;
@@ -81,7 +86,7 @@ namespace axiom {
                       return a.sizeBytes > b.sizeBytes;
                   });
 
-        for (const auto &asset : m_LoadedAssets) {
+        for (const auto &asset : m_loadedAssets) {
             if (freedBytes >= bytesNeeded) {
                 break;
             }
@@ -92,25 +97,25 @@ namespace axiom {
         return candidates;
     }
 
-    void PriorityMemoryPolicy::OnAssetLoaded(TypedUUID uuid, size_t sizeBytes) {
+    void PriorityMemoryPolicy::onAssetLoaded(TypedUUID uuid, size_t sizeBytes) {
         AssetInfo info{uuid, sizeBytes, 0}; // Standard-Priorität: 0
-        m_LoadedAssets.push_back(info);
-        m_CurrentUsage += sizeBytes;
+        m_loadedAssets.push_back(info);
+        m_currentUsage += sizeBytes;
     }
 
-    void PriorityMemoryPolicy::OnAssetUnloaded(TypedUUID uuid, size_t sizeBytes) {
-        auto it = std::find_if(m_LoadedAssets.begin(), m_LoadedAssets.end(),
+    void PriorityMemoryPolicy::onAssetUnloaded(TypedUUID uuid, size_t sizeBytes) {
+        auto it = std::find_if(m_loadedAssets.begin(), m_loadedAssets.end(),
                                [uuid](const AssetInfo &a) { return a.uuid == uuid; });
-        if (it != m_LoadedAssets.end()) {
-            m_CurrentUsage -= it->sizeBytes;
-            m_LoadedAssets.erase(it);
+        if (it != m_loadedAssets.end()) {
+            m_currentUsage -= it->sizeBytes;
+            m_loadedAssets.erase(it);
         }
     }
 
-    void PriorityMemoryPolicy::SetAssetPriority(TypedUUID uuid, int priority) {
-        auto it = std::find_if(m_LoadedAssets.begin(), m_LoadedAssets.end(),
+    void PriorityMemoryPolicy::setAssetPriority(TypedUUID uuid, int priority) {
+        auto it = std::find_if(m_loadedAssets.begin(), m_loadedAssets.end(),
                                [uuid](const AssetInfo &a) { return a.uuid == uuid; });
-        if (it != m_LoadedAssets.end()) {
+        if (it != m_loadedAssets.end()) {
             it->priority = priority;
         }
     }

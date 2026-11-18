@@ -6,10 +6,10 @@ PROJECT_NAME           = "Axiom"
 PROJECT_BRIEF          = "A C++23 Game Engine"
 OUTPUT_DIRECTORY       = build-docs
 
-# What is documented: the public headers only.
-INPUT                  = include
+# Document the engine API, implementation files, testbed, tests, and tools.
+INPUT                  = axiom/include axiom/src testbed/include testbed/src tests tools
 RECURSIVE              = YES
-FILE_PATTERNS          = *.h
+FILE_PATTERNS          = *.h *.hpp *.hh *.cpp *.cc *.cxx *.c
 EXCLUDE_SYMBOLS        = axiom::detail axiom::detail::*
 
 # Undocumented public symbols are reported instead of silently skipped.

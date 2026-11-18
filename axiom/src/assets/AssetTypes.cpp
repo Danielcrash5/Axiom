@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/assets/AssetTypes.cpp
+ * @brief Implements the asset types module.
+ */
+
 #include <axiom/assets/AssetTypes.h>
 #include <cstring>
 
@@ -5,22 +10,22 @@ namespace axiom {
 
     // === TextureLoader ===
 
-    void *TextureLoader::Load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
+    void *TextureLoader::load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
         if (data.size() < sizeof(uint32_t) * 3) {
             return nullptr;
         }
 
         auto *texture = new TextureAsset();
         BinarySerializer ser;
-        ser.LoadFromBytes(data);
+        ser.loadFromBytes(data);
 
         // Lese Metadaten
-        ser.Value("width", texture->width);
-        ser.Value("height", texture->height);
-        ser.Value("channels", texture->channels);
+        ser.value("width", texture->width);
+        ser.value("height", texture->height);
+        ser.value("channels", texture->channels);
 
         uint32_t dataSize = 0;
-        ser.Value("dataSize", dataSize);
+        ser.value("dataSize", dataSize);
 
         texture->pixelData.resize(dataSize);
         // TODO: Lese Pixel-Daten
@@ -29,27 +34,27 @@ namespace axiom {
         return texture;
     }
 
-    void *TextureLoader::Reload(void *existing, const std::vector<uint8_t> &newData,
+    void *TextureLoader::reload(void *existing, const std::vector<uint8_t> &newData,
                                  size_t &outSizeBytes) {
-        void *replacement = Load(newData, outSizeBytes);
-        if (replacement && existing) Unload(existing);
+        void *replacement = load(newData, outSizeBytes);
+        if (replacement && existing) unload(existing);
         return replacement;
     }
 
-    void TextureLoader::Unload(void *data) { delete static_cast<TextureAsset *>(data); }
+    void TextureLoader::unload(void *data) { delete static_cast<TextureAsset *>(data); }
 
     // === MeshLoader ===
 
-    void *MeshLoader::Load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
+    void *MeshLoader::load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
         auto *mesh = new MeshAsset();
         BinarySerializer ser;
-        ser.LoadFromBytes(data);
+        ser.loadFromBytes(data);
 
         uint32_t vertexCount = 0;
-        ser.Value("vertexCount", vertexCount);
+        ser.value("vertexCount", vertexCount);
 
         uint32_t indexCount = 0;
-        ser.Value("indexCount", indexCount);
+        ser.value("indexCount", indexCount);
 
         mesh->vertices.resize(vertexCount);
         mesh->indices.resize(indexCount);
@@ -60,51 +65,51 @@ namespace axiom {
         return mesh;
     }
 
-    void *MeshLoader::Reload(void *existing, const std::vector<uint8_t> &newData,
+    void *MeshLoader::reload(void *existing, const std::vector<uint8_t> &newData,
                               size_t &outSizeBytes) {
-        void *replacement = Load(newData, outSizeBytes);
-        if (replacement && existing) Unload(existing);
+        void *replacement = load(newData, outSizeBytes);
+        if (replacement && existing) unload(existing);
         return replacement;
     }
 
-    void MeshLoader::Unload(void *data) { delete static_cast<MeshAsset *>(data); }
+    void MeshLoader::unload(void *data) { delete static_cast<MeshAsset *>(data); }
 
     // === MaterialLoader ===
 
-    void *MaterialLoader::Load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
+    void *MaterialLoader::load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
         auto *material = new MaterialAsset();
         BinarySerializer ser;
-        ser.LoadFromBytes(data);
+        ser.loadFromBytes(data);
 
-        ser.Value("name", material->name);
-        ser.Value("metallic", material->metallic);
-        ser.Value("roughness", material->roughness);
+        ser.value("name", material->name);
+        ser.value("metallic", material->metallic);
+        ser.value("roughness", material->roughness);
         // TODO: Lese Farben und Texture-UUIDs
 
         outSizeBytes = sizeof(MaterialAsset) + material->name.size();
         return material;
     }
 
-    void *MaterialLoader::Reload(void *existing, const std::vector<uint8_t> &newData,
+    void *MaterialLoader::reload(void *existing, const std::vector<uint8_t> &newData,
                                   size_t &outSizeBytes) {
-        void *replacement = Load(newData, outSizeBytes);
-        if (replacement && existing) Unload(existing);
+        void *replacement = load(newData, outSizeBytes);
+        if (replacement && existing) unload(existing);
         return replacement;
     }
 
-    void MaterialLoader::Unload(void *data) { delete static_cast<MaterialAsset *>(data); }
+    void MaterialLoader::unload(void *data) { delete static_cast<MaterialAsset *>(data); }
 
     // === SceneLoader ===
 
-    void *SceneLoader::Load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
+    void *SceneLoader::load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
         auto *scene = new SceneAsset();
         BinarySerializer ser;
-        ser.LoadFromBytes(data);
+        ser.loadFromBytes(data);
 
-        ser.Value("name", scene->name);
+        ser.value("name", scene->name);
 
         uint32_t dumpSize = 0;
-        ser.Value("registryDumpSize", dumpSize);
+        ser.value("registryDumpSize", dumpSize);
         scene->registryDump.resize(dumpSize);
         // TODO: Lese Registry-Dump
 
@@ -112,26 +117,26 @@ namespace axiom {
         return scene;
     }
 
-    void *SceneLoader::Reload(void *existing, const std::vector<uint8_t> &newData,
+    void *SceneLoader::reload(void *existing, const std::vector<uint8_t> &newData,
                                size_t &outSizeBytes) {
-        void *replacement = Load(newData, outSizeBytes);
-        if (replacement && existing) Unload(existing);
+        void *replacement = load(newData, outSizeBytes);
+        if (replacement && existing) unload(existing);
         return replacement;
     }
 
-    void SceneLoader::Unload(void *data) { delete static_cast<SceneAsset *>(data); }
+    void SceneLoader::unload(void *data) { delete static_cast<SceneAsset *>(data); }
 
     // === PrefabLoader ===
 
-    void *PrefabLoader::Load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
+    void *PrefabLoader::load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
         auto *prefab = new PrefabAsset();
         BinarySerializer ser;
-        ser.LoadFromBytes(data);
+        ser.loadFromBytes(data);
 
-        ser.Value("name", prefab->name);
+        ser.value("name", prefab->name);
 
         uint32_t dumpSize = 0;
-        ser.Value("entityDumpSize", dumpSize);
+        ser.value("entityDumpSize", dumpSize);
         prefab->entityDump.resize(dumpSize);
         // TODO: Lese Entity-Dump
 
@@ -139,27 +144,27 @@ namespace axiom {
         return prefab;
     }
 
-    void *PrefabLoader::Reload(void *existing, const std::vector<uint8_t> &newData,
+    void *PrefabLoader::reload(void *existing, const std::vector<uint8_t> &newData,
                                 size_t &outSizeBytes) {
-        void *replacement = Load(newData, outSizeBytes);
-        if (replacement && existing) Unload(existing);
+        void *replacement = load(newData, outSizeBytes);
+        if (replacement && existing) unload(existing);
         return replacement;
     }
 
-    void PrefabLoader::Unload(void *data) { delete static_cast<PrefabAsset *>(data); }
+    void PrefabLoader::unload(void *data) { delete static_cast<PrefabAsset *>(data); }
 
     // === SoundEffectLoader ===
 
-    void *SoundEffectLoader::Load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
+    void *SoundEffectLoader::load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
         auto *sound = new SoundEffectAsset();
         BinarySerializer ser;
-        ser.LoadFromBytes(data);
+        ser.loadFromBytes(data);
 
-        ser.Value("sampleRate", sound->sampleRate);
-        ser.Value("channels", sound->channels);
+        ser.value("sampleRate", sound->sampleRate);
+        ser.value("channels", sound->channels);
 
         uint32_t sampleCount = 0;
-        ser.Value("sampleCount", sampleCount);
+        ser.value("sampleCount", sampleCount);
         sound->samples.resize(sampleCount);
         // TODO: Lese Sample-Daten
 
@@ -167,13 +172,13 @@ namespace axiom {
         return sound;
     }
 
-    void *SoundEffectLoader::Reload(void *existing, const std::vector<uint8_t> &newData,
+    void *SoundEffectLoader::reload(void *existing, const std::vector<uint8_t> &newData,
                                      size_t &outSizeBytes) {
-        void *replacement = Load(newData, outSizeBytes);
-        if (replacement && existing) Unload(existing);
+        void *replacement = load(newData, outSizeBytes);
+        if (replacement && existing) unload(existing);
         return replacement;
     }
 
-    void SoundEffectLoader::Unload(void *data) { delete static_cast<SoundEffectAsset *>(data); }
+    void SoundEffectLoader::unload(void *data) { delete static_cast<SoundEffectAsset *>(data); }
 
 } // namespace axiom

@@ -1,9 +1,14 @@
+/**
+ * @file axiom/src/renderer/RenderLayerRegistry.cpp
+ * @brief Implements the render layer registry module.
+ */
+
 #include <axiom/renderer/RenderLayerRegistry.h>
 #include <sstream>
 
 namespace axiom::renderer {
 
-const std::string RenderLayerRegistry::s_emptyName;
+const std::string RenderLayerRegistry::sEmptyName;
 
 RenderLayerRegistry::RenderLayerRegistry() {
     m_used[0] = true;
@@ -52,7 +57,7 @@ std::optional<uint8_t> RenderLayerRegistry::bitFor(const std::string& name) cons
 }
 
 const std::string& RenderLayerRegistry::nameOf(uint8_t bit) const {
-    if (bit >= kMaxLayers || !m_used[bit]) return s_emptyName;
+    if (bit >= kMaxLayers || !m_used[bit]) return sEmptyName;
     return m_names[bit];
 }
 

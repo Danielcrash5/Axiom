@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/renderer/rhi/Backends.cpp
+ * @brief Implements the backends module.
+ */
+
 #include <axiom/renderer/rhi/Backends.h>
 #include <axiom/renderer/vulkan/VulkanBackend.h>
 

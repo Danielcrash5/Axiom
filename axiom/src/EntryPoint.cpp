@@ -1,19 +1,30 @@
+/**
+ * @file axiom/src/EntryPoint.cpp
+ * @brief Implements the entry point module.
+ */
+
 #include "axiom/Axiom.h"
 #include <cstdlib>
 
 namespace axiom {
-    Application *CreateApplication();
+    Application *createApplication();
 }
 
 // WEG A: Konsole ist aktiviert ODER wir sind NICHT auf Windows -> Standard main
 #if defined(AXIOM_ENABLE_CONSOLE_LOG) || !defined(_WIN32)
 
+/**
+ * @brief Starts the program and returns its exit status.
+ * @param argc The argc used by this operation.
+ * @param argv The argv used by this operation.
+ * @return The result of the operation.
+ */
 int main(int argc, char **argv) {
-    axiom::Application *app = axiom::CreateApplication();
+    axiom::Application *app = axiom::createApplication();
     if (!app)
         return EXIT_FAILURE;
 
-    app->Run(argc, argv);
+    app->run(argc, argv);
     delete app;
     return EXIT_SUCCESS;
 }
@@ -22,6 +33,7 @@ int main(int argc, char **argv) {
 #else
 
 #ifndef WIN32_LEAN_AND_MEAN
+/** @brief Provides the WIN32_LEAN_AND_MEAN macro. */
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>

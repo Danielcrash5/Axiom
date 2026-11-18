@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/core/Application.cpp
+ * @brief Implements the application module.
+ */
+
 // ===== axiom/src/core/Application.cpp =====
 #include "axiom/core/Application.h"
 #include "axiom/core/Logger.h"
@@ -11,21 +16,21 @@
 
 namespace axiom {
 
-    Application *Application::s_Instance = nullptr;
+    Application *Application::sInstance = nullptr;
 
-    static double m_LastFixedUpdate = 0.0f;
-    static double m_FixedUpdateInterval = 1.0 / 75.0;
+    static double mLastFixedUpdate = 0.0f;
+    static double mFixedUpdateInterval = 1.0 / 75.0;
 
-    Application::Application(std::string AppName, uint32_t width,
+    Application::Application(std::string appName, uint32_t width,
                              uint32_t height) {
-        AXIOM_ASSERT(!s_Instance, "Application already exists!");
-        s_Instance = this;
-        m_AppName = AppName;
-        m_Height = height;
-        m_Width = width;
+        AXIOM_ASSERT(!sInstance, "Application already exists!");
+        sInstance = this;
+        m_appName = appName;
+        m_height = height;
+        m_width = width;
     }
 
-    void Application::Run(int argc, char **argv) {
+    void Application::run(int argc, char **argv) {
         m_CommandLineArgs.clear();
         if (argc > 0 && argv) {
             m_CommandLineArgs.reserve(static_cast<size_t>(argc));
@@ -33,43 +38,43 @@ namespace axiom {
                 m_CommandLineArgs.emplace_back(argv[i]);
         }
 
-        Init();
-        MainLoop();
-        Shutdown();
+        init();
+        mainLoop();
+        shutdown();
     }
 
-    void Application::Run() { Run(0, nullptr); }
+    void Application::run() { run(0, nullptr); }
 
-    void Application::Init() {
+    void Application::init() {
         AXIOM_PROFILE_SCOPE("Application::Init");
         Window::Props props;
-        props.height = m_Height;
-        props.width = m_Width;
-        props.title = m_AppName;
-        m_Window = std::make_shared<Window>(props, m_EventBus);
+        props.height = m_height;
+        props.width = m_width;
+        props.title = m_appName;
+        m_window = std::make_shared<Window>(props, m_eventBus);
 
         std::shared_ptr<ImGuiPanelLogsink> logsink =
             std::make_shared<ImGuiPanelLogsink>();
 
-        AddImGuiPanel(std::make_shared<LogPanel>(logsink));
+        addImGuiPanel(std::make_shared<LogPanel>(logsink));
 
 #ifdef AXIOM_ENABLE_CONSOLE_LOG
-        Logger::Get().AddSink(std::make_shared<ConsoleSink>());
+        Logger::get().addSink(std::make_shared<ConsoleSink>());
 #endif
-        Logger::Get().AddSink(logsink);
+        Logger::get().addSink(logsink);
 
-        m_EventBus.Subscribe<WindowCloseEvent>(
-            [this](WindowCloseEvent &e) { return OnWindowClose(e); });
+        m_eventBus.subscribe<WindowCloseEvent>(
+            [this](WindowCloseEvent &e) { return onWindowClose(e); });
 
-        m_EventBus.Subscribe<WindowResizeEvent>(
-            [this](WindowResizeEvent &e) { return OnWindowResize(e); });
+        m_eventBus.subscribe<WindowResizeEvent>(
+            [this](WindowResizeEvent &e) { return onWindowResize(e); });
 
-        m_Input.Init(m_Window->GetNativeHandle());
-        m_InputSystem.Init();
+        m_input.init(m_window->getNativeHandle());
+        m_inputSystem.init();
 
-        VFS::Init();
+        VFS::init();
         bool engineAssetPathUsedFallback = false;
-        const std::string engineAssetPath = VFS::ResolvePhysicalMountPath(
+        const std::string engineAssetPath = VFS::resolvePhysicalMountPath(
             AXIOM_ENGINE_ASSET_PATH,
             {"./axiom/assets", "../axiom/assets", "../../axiom/assets",
              "../../../axiom/assets", "../../../../axiom/assets"},
@@ -79,215 +84,215 @@ namespace axiom {
             AXIOM_WARN("Engine asset path fallback is used: {}",
                        engineAssetPath);
 
-        if (!VFS::MountPath("engine://", engineAssetPath))
+        if (!VFS::mountPath("engine://", engineAssetPath))
             AXIOM_WARN("Failed to mount engine asset path: {}",
                        engineAssetPath);
 
         {
             auto windowSurfaceDesc = renderer::adapters::makeSDL3WindowSurfaceDesc(
-                m_Window->GetNativeHandle());
-            m_Renderer = std::make_unique<renderer::Renderer>();
-            if (auto result = m_Renderer->init(windowSurfaceDesc); !result) {
+                m_window->getNativeHandle());
+            m_renderer = std::make_unique<renderer::Renderer>();
+            if (auto result = m_renderer->init(windowSurfaceDesc); !result) {
                 AXIOM_FATAL("Renderer-Initialisierung fehlgeschlagen");
-                m_Running = false;
+                m_running = false;
                 return;
             }
 
             renderer::View mainView;
-            mainView.target.kind = renderer::RenderTargetKind::Swapchain;
-            mainView.target.surface = m_Renderer->mainSurface();
-            mainView.viewport = renderer::Viewport{0, 0, m_Width, m_Height};
+            mainView.target.kind = renderer::RenderTargetKind::swapchain;
+            mainView.target.surface = m_renderer->mainSurface();
+            mainView.viewport = renderer::Viewport{0, 0, m_width, m_height};
             mainView.priority = 0;
-            m_MainViewId = m_Renderer->registerView(mainView);
+            m_mainViewId = m_renderer->registerView(mainView);
 
             // ImGui registriert seinen eigenen Pass (cleart per loadOp).
-            m_ImGuiLayer = IImGuiLayer::Create(*m_Window, *m_Renderer);
+            m_ImGuiLayer = IImGuiLayer::create(*m_window, *m_renderer);
             if (m_ImGuiLayer) {
-                m_Window->SetNativeEventHook(
+                m_window->setNativeEventHook(
                     [layer = m_ImGuiLayer.get()](const SDL_Event &event) {
-                        return layer->ProcessEvent(event);
+                        return layer->processEvent(event);
                     });
             } else {
                 // Platzhalter-Pass, bis echte 2D-Passes existieren (Phase 6) -
                 // zeigt zumindest, dass die komplette Pipeline (Acquire ->
                 // Clear -> Present) tatsaechlich funktioniert.
-                m_Renderer->addPass(
+                m_renderer->addPass(
                     std::make_unique<renderer::passes::ClearScreenPass>());
             }
         }
 
-        OnInit();
+        onInit();
     }
 
-    void Application::MainLoop() {
+    void Application::mainLoop() {
         double printTimer = 0.0f;
 
-        while (m_Running) {
-            Time::Update();
-            axiom::profiling::Profiler::BeginFrame();
+        while (m_running) {
+            Time::update();
+            axiom::profiling::Profiler::beginFrame();
 
             {
                 AXIOM_PROFILE_FRAME();
 
-                MainUpdate();
-                double alpha = (Time::GetTime() - m_LastFixedUpdate) /
-                               m_FixedUpdateInterval;
+                mainUpdate();
+                double alpha = (Time::getTime() - mLastFixedUpdate) /
+                               mFixedUpdateInterval;
                 // ImGui::Render() (nur CPU) MUSS vor renderFrame() laufen:
                 // der ImGuiPass liest die DrawData waehrend execute().
-                ImGuiRender();
-                Render(alpha);
+                imGuiRender();
+                render(alpha);
 
                 // Sekundaere ImGui-Fenster (ausgedockt) erst NACH dem
                 // Praesentieren des Hauptfensters - siehe RenderAdditionalViewports().
                 if (m_ImGuiLayer)
-                    m_ImGuiLayer->RenderAdditionalViewports();
+                    m_ImGuiLayer->renderAdditionalViewports();
             }
 
-            axiom::profiling::Profiler::EndFrame();
+            axiom::profiling::Profiler::endFrame();
 
-            printTimer += Time::GetDeltaTime();
+            printTimer += Time::getDeltaTime();
 
             if (printTimer > 1.0f) {
-                axiom::profiling::Profiler::PrintLastFrame();
+                axiom::profiling::Profiler::printLastFrame();
                 printTimer = 0.0f;
             }
         }
     }
 
-    void Application::Render(double alpha) {
+    void Application::render(double alpha) {
         AXIOM_PROFILE_SCOPE("Render");
-        if (!m_Renderer) {
+        if (!m_renderer) {
             return;
         }
 
-        m_Renderer->beginFrame();
+        m_renderer->beginFrame();
 
-        OnRender(alpha);
+        onRender(alpha);
 
-        m_SystemManager.BeginRenderFrame();
+        m_systemManager.beginRenderFrame();
         for (auto &scene : m_Scenes) {
             if (scene) {
-                m_SystemManager.Render(*scene, alpha);
+                m_systemManager.render(*scene, alpha);
             }
         }
 
-        for (auto &layer : m_LayerStack) {
-            AXIOM_PROFILE_SCOPE(layer->GetName());
-            layer->OnRender(alpha);
+        for (auto &layer : m_layerStack) {
+            AXIOM_PROFILE_SCOPE(layer->getName());
+            layer->onRender(alpha);
         }
 
-        if (auto result = m_Renderer->renderFrame(); !result) {
+        if (auto result = m_renderer->renderFrame(); !result) {
             AXIOM_ERROR("renderFrame() fehlgeschlagen");
         }
     }
 
-    void Application::ImGuiRender() {
+    void Application::imGuiRender() {
         if (!m_ImGuiLayer)
             return;
 
         AXIOM_PROFILE_SCOPE("ImGuiRender");
-        m_ImGuiLayer->Begin();
-        OnImGuiRender();
-        m_ImGuiPanelManager.ImGuiRender();
-        for (auto &layer : m_LayerStack) {
-            AXIOM_PROFILE_SCOPE(layer->GetName());
-            layer->OnImGuiRender();
+        m_ImGuiLayer->begin();
+        onImGuiRender();
+        m_imGuiPanelManager.imGuiRender();
+        for (auto &layer : m_layerStack) {
+            AXIOM_PROFILE_SCOPE(layer->getName());
+            layer->onImGuiRender();
         }
-        m_ImGuiLayer->End();
+        m_ImGuiLayer->end();
     }
 
-    void Application::PreUpdate(double dt) {
+    void Application::preUpdate(double dt) {
         AXIOM_PROFILE_SCOPE("PreUpdate");
 
         for (auto &scene : m_Scenes) {
             if (scene)
-                m_SystemManager.PreUpdate(*scene, dt);
+                m_systemManager.preUpdate(*scene, dt);
         }
-        OnPreUpdate(dt);
-        for (auto &layer : m_LayerStack) {
-            AXIOM_PROFILE_SCOPE(layer->GetName());
-            layer->OnPreUpdate(dt);
+        onPreUpdate(dt);
+        for (auto &layer : m_layerStack) {
+            AXIOM_PROFILE_SCOPE(layer->getName());
+            layer->onPreUpdate(dt);
         }
     }
 
-    void Application::PostUpdate(double dt) {
+    void Application::postUpdate(double dt) {
         AXIOM_PROFILE_SCOPE("PostUpdate");
-        OnPostUpdate(dt);
-        for (auto &layer : m_LayerStack) {
-            AXIOM_PROFILE_SCOPE(layer->GetName());
-            layer->OnPostUpdate(dt);
+        onPostUpdate(dt);
+        for (auto &layer : m_layerStack) {
+            AXIOM_PROFILE_SCOPE(layer->getName());
+            layer->onPostUpdate(dt);
         }
         for (auto &scene : m_Scenes) {
             if (scene)
-                m_SystemManager.PostUpdate(*scene, dt);
+                m_systemManager.postUpdate(*scene, dt);
         }
     }
 
-    void Application::FixedUpdate(double dt) {
+    void Application::fixedUpdate(double dt) {
         AXIOM_PROFILE_SCOPE("FixedUpdate");
         for (auto &scene : m_Scenes) {
             if (scene)
-                m_SystemManager.FixedUpdate(*scene, dt);
+                m_systemManager.fixedUpdate(*scene, dt);
         }
-        OnFixedUpdate(dt);
-        for (auto &layer : m_LayerStack) {
-            AXIOM_PROFILE_SCOPE(layer->GetName());
-            layer->OnFixedUpdate(dt);
+        onFixedUpdate(dt);
+        for (auto &layer : m_layerStack) {
+            AXIOM_PROFILE_SCOPE(layer->getName());
+            layer->onFixedUpdate(dt);
         }
     }
 
-    void Application::Update(double dt) {
+    void Application::update(double dt) {
         AXIOM_PROFILE_SCOPE("Update");
-        OnUpdate(dt);
-        for (auto &layer : m_LayerStack) {
-            AXIOM_PROFILE_SCOPE(layer->GetName());
-            layer->OnUpdate(dt);
+        onUpdate(dt);
+        for (auto &layer : m_layerStack) {
+            AXIOM_PROFILE_SCOPE(layer->getName());
+            layer->onUpdate(dt);
         }
         for (auto &scene : m_Scenes) {
             if (scene)
-                m_SystemManager.Update(*scene, dt);
+                m_systemManager.update(*scene, dt);
         }
-        m_ImGuiPanelManager.Update(dt);
+        m_imGuiPanelManager.update(dt);
     }
 
-    void Application::MainUpdate() {
+    void Application::mainUpdate() {
         AXIOM_PROFILE_SCOPE("Application::MainUpdate");
 
-        m_Window->PollEvents();
-        m_EventBus.DispatchQueued();
+        m_window->pollEvents();
+        m_eventBus.dispatchQueued();
 
-        m_InputSystem.Update();
+        m_inputSystem.update();
 
-        double dt = Time::GetDeltaTime();
+        double dt = Time::getDeltaTime();
 
-        PreUpdate(dt);
-        Update(dt);
+        preUpdate(dt);
+        update(dt);
 
         int maxSteps = 5;
         int steps = 0;
 
-        while (Time::GetTime() - m_LastFixedUpdate >= m_FixedUpdateInterval &&
+        while (Time::getTime() - mLastFixedUpdate >= mFixedUpdateInterval &&
                steps < maxSteps) {
-            FixedUpdate(m_FixedUpdateInterval);
-            m_LastFixedUpdate += m_FixedUpdateInterval;
+            fixedUpdate(mFixedUpdateInterval);
+            mLastFixedUpdate += mFixedUpdateInterval;
             steps++;
         }
 
-        PostUpdate(dt);
+        postUpdate(dt);
     }
 
-    void Application::Shutdown() {
+    void Application::shutdown() {
         AXIOM_PROFILE_SCOPE("Application::Shutdown");
-        OnShutdown();
-        m_LayerStack.Shutdown();
+        onShutdown();
+        m_layerStack.shutdown();
 
         // ImGui haengt am Vulkan-Device: VOR dem Renderer abbauen. Als Member
         // (public, weit oben deklariert) wuerde es sonst erst NACH m_Renderer
         // zerstoert.
-        m_Window->SetNativeEventHook(nullptr);
+        m_window->setNativeEventHook(nullptr);
         m_ImGuiLayer.reset();
 
-        VFS::Shutdown();
+        VFS::shutdown();
     }
 
 } // namespace axiom

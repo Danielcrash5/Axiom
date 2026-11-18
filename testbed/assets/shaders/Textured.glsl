@@ -1,3 +1,8 @@
+/**
+ * @file testbed/assets/shaders/Textured.glsl
+ * @brief Renders textured testbed geometry through its shader stages.
+ */
+
 #type vertex
 #version 460 core
 

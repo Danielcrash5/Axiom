@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/ImGui/Panels/LogPanel.h
+ * @brief Declares the public interface for the log panel.
+ */
+
 #pragma once
 
 #include "axiom/ImGui/IImGuiPanel.h"
@@ -16,32 +21,53 @@
 #include <iomanip>
 
 namespace axiom {
+    /**
+     * @brief Provides the ImGui panel logsink functionality.
+     * @tparam ImGuiPanelLogsink Template type used by this type.
+     */
     class ImGuiPanelLogsink : public LogSink {
       public:
+        /** @brief Stores the data for the log entry. */
         struct LogEntry {
+            /** @brief Stores the level. */
             LogLevel Level;
+            /** @brief Stores the timestamp. */
             std::string Timestamp;
+            /** @brief Stores the message. */
             std::string Message;
         };
 
       public:
-        void Write(LogLevel level, const std::string &message) override {
-            std::lock_guard<std::mutex> lock(m_Mutex);
+        /**
+         * @brief Writes data to the destination.
+         * @param level The level used by this operation.
+         * @param message The message used by this operation.
+         */
+        void write(LogLevel level, const std::string &message) override {
+            std::lock_guard<std::mutex> lock(m_mutex);
 
-            m_PendingLogs.push_back({level, CreateTimestamp(), message});
+            m_pendingLogs.push_back({level, createTimestamp(), message});
         }
 
-        std::vector<LogEntry> ConsumeLogs() {
-            std::lock_guard<std::mutex> lock(m_Mutex);
+        /**
+         * @brief Performs the consume logs operation.
+         * @return The result of the operation.
+         */
+        std::vector<LogEntry> consumeLogs() {
+            std::lock_guard<std::mutex> lock(m_mutex);
 
             std::vector<LogEntry> result;
-            result.swap(m_PendingLogs);
+            result.swap(m_pendingLogs);
 
             return result;
         }
 
       private:
-        static std::string CreateTimestamp() {
+        /**
+         * @brief Creates timestamp.
+         * @return The result of the operation.
+         */
+        static std::string createTimestamp() {
             auto now = std::chrono::system_clock::now();
             auto tt = std::chrono::system_clock::to_time_t(now);
 
@@ -62,126 +88,150 @@ namespace axiom {
         }
 
       private:
-        std::mutex m_Mutex;
-        std::vector<LogEntry> m_PendingLogs;
+        /** @brief Stores the mutex. */
+        std::mutex m_mutex;
+        /** @brief Stores the pending logs. */
+        std::vector<LogEntry> m_pendingLogs;
     };
 
+    /**
+     * @brief Provides the log panel functionality.
+     * @tparam LogPanel Template type used by this type.
+     */
     class LogPanel : public IImGuiPanel {
       public:
+        /**
+         * @brief Creates an instance of log panel.
+         * @param logSink The log sink used by this operation.
+         */
         explicit LogPanel(std::shared_ptr<ImGuiPanelLogsink> logSink)
-            : IImGuiPanel("Log"), m_LogSink(std::move(logSink)) {}
+            : IImGuiPanel("Log"), m_logSink(std::move(logSink)) {}
 
       public:
-        void OnUpdate(double deltaTime) override {
-            auto newLogs = m_LogSink->ConsumeLogs();
+        /**
+         * @brief Handles the update callback.
+         * @param deltaTime The delta time used by this operation.
+         */
+        void onUpdate(double deltaTime) override {
+            auto newLogs = m_logSink->consumeLogs();
 
             if (!newLogs.empty()) {
                 for (auto &log : newLogs)
-                    m_Logs.emplace_back(std::move(log));
+                    m_logs.emplace_back(std::move(log));
 
-                m_ScrollToBottom = true;
+                m_scrollToBottom = true;
             }
 
-            while (m_Logs.size() > MaxLogs)
-                m_Logs.pop_front();
+            while (m_logs.size() > maxLogs)
+                m_logs.pop_front();
         }
 
-        void OnImGuiRender() override {
-            DrawToolbar();
+        /**
+         * @brief Handles the ImGui render callback.
+         */
+        void onImGuiRender() override {
+            drawToolbar();
 
             ImGui::Separator();
 
             ImGui::BeginChild("LogRegion", ImVec2(0, 0), true,
                               ImGuiWindowFlags_HorizontalScrollbar);
 
-            if (m_CopyRequested)
-                m_CopyBuffer.clear();
+            if (m_copyRequested)
+                m_copyBuffer.clear();
 
-            for (const auto &log : m_Logs) {
-                if (!ShouldShow(log.Level))
+            for (const auto &log : m_logs) {
+                if (!shouldShow(log.Level))
                     continue;
 
-                const char *levelStr = GetLevelString(log.Level);
+                const char *levelStr = getLevelString(log.Level);
 
                 std::string searchable =
                     std::string(levelStr) + " " + log.Message;
 
-                if (!m_Filter.PassFilter(searchable.c_str()))
+                if (!m_filter.PassFilter(searchable.c_str()))
                     continue;
 
-                DrawLogEntry(log);
+                drawLogEntry(log);
 
-                if (m_CopyRequested) {
-                    m_CopyBuffer += "[";
-                    m_CopyBuffer += log.Timestamp;
-                    m_CopyBuffer += "] ";
+                if (m_copyRequested) {
+                    m_copyBuffer += "[";
+                    m_copyBuffer += log.Timestamp;
+                    m_copyBuffer += "] ";
 
-                    m_CopyBuffer += "[";
-                    m_CopyBuffer += levelStr;
-                    m_CopyBuffer += "] ";
+                    m_copyBuffer += "[";
+                    m_copyBuffer += levelStr;
+                    m_copyBuffer += "] ";
 
-                    m_CopyBuffer += log.Message;
-                    m_CopyBuffer += "\n";
+                    m_copyBuffer += log.Message;
+                    m_copyBuffer += "\n";
                 }
             }
 
-            if (m_CopyRequested) {
-                ImGui::SetClipboardText(m_CopyBuffer.c_str());
-                m_CopyRequested = false;
+            if (m_copyRequested) {
+                ImGui::SetClipboardText(m_copyBuffer.c_str());
+                m_copyRequested = false;
             }
 
-            if (m_AutoScroll && m_ScrollToBottom) {
+            if (m_autoScroll && m_scrollToBottom) {
                 ImGui::SetScrollHereY(1.0f);
-                m_ScrollToBottom = false;
+                m_scrollToBottom = false;
             }
 
             ImGui::EndChild();
         }
 
       private:
-        void DrawToolbar() {
+        /**
+         * @brief Draws toolbar.
+         */
+        void drawToolbar() {
             if (ImGui::Button("Clear"))
-                m_Logs.clear();
+                m_logs.clear();
 
             ImGui::SameLine();
 
             if (ImGui::Button("Copy"))
-                m_CopyRequested = true;
+                m_copyRequested = true;
 
             ImGui::SameLine();
 
-            ImGui::Checkbox("Auto Scroll", &m_AutoScroll);
+            ImGui::Checkbox("Auto Scroll", &m_autoScroll);
 
             ImGui::Separator();
 
-            m_Filter.Draw("Search", 250.0f);
+            m_filter.Draw("Search", 250.0f);
 
             ImGui::Separator();
 
-            ImGui::Checkbox("Trace", &m_ShowTrace);
+            ImGui::Checkbox("Trace", &m_showTrace);
             ImGui::SameLine();
 
-            ImGui::Checkbox("Info", &m_ShowInfo);
+            ImGui::Checkbox("Info", &m_showInfo);
             ImGui::SameLine();
 
-            ImGui::Checkbox("Warn", &m_ShowWarn);
+            ImGui::Checkbox("Warn", &m_showWarn);
             ImGui::SameLine();
 
-            ImGui::Checkbox("Error", &m_ShowError);
+            ImGui::Checkbox("Error", &m_showError);
             ImGui::SameLine();
 
-            ImGui::Checkbox("Fatal", &m_ShowFatal);
+            ImGui::Checkbox("Fatal", &m_showFatal);
         }
 
-        void DrawLogEntry(const ImGuiPanelLogsink::LogEntry &log) {
+        /**
+         * @brief Draws log entry.
+         * @param log The log used by this operation.
+         */
+        void drawLogEntry(const ImGuiPanelLogsink::LogEntry &log) {
             ImGui::PushID(&log);
 
             ImGui::TextDisabled("[%s]", log.Timestamp.c_str());
 
             ImGui::SameLine();
 
-            ImGui::TextColored(GetLevelColor(log.Level), "[%s]",
-                               GetLevelString(log.Level));
+            ImGui::TextColored(getLevelColor(log.Level), "[%s]",
+                               getLevelString(log.Level));
 
             ImGui::SameLine();
 
@@ -190,38 +240,48 @@ namespace axiom {
             ImGui::PopID();
         }
 
-        static const char *GetLevelString(LogLevel level) {
+        /**
+         * @brief Returns the level string.
+         * @param level The level used by this operation.
+         * @return The result of the operation.
+         */
+        static const char *getLevelString(LogLevel level) {
             switch (level) {
-            case LogLevel::Trace:
+            case LogLevel::trace:
                 return "TRACE";
-            case LogLevel::Info:
+            case LogLevel::info:
                 return "INFO";
-            case LogLevel::Warn:
+            case LogLevel::warn:
                 return "WARN";
-            case LogLevel::Error:
+            case LogLevel::error:
                 return "ERROR";
-            case LogLevel::Fatal:
+            case LogLevel::fatal:
                 return "FATAL";
             default:
                 return "UNKNOWN";
             }
         }
 
-        static ImVec4 GetLevelColor(LogLevel level) {
+        /**
+         * @brief Returns the level color.
+         * @param level The level used by this operation.
+         * @return The result of the operation.
+         */
+        static ImVec4 getLevelColor(LogLevel level) {
             switch (level) {
-            case LogLevel::Trace:
+            case LogLevel::trace:
                 return ImVec4(0.60f, 0.60f, 0.60f, 1.0f);
 
-            case LogLevel::Info:
+            case LogLevel::info:
                 return ImVec4(0.35f, 0.75f, 1.00f, 1.0f);
 
-            case LogLevel::Warn:
+            case LogLevel::warn:
                 return ImVec4(1.00f, 0.85f, 0.20f, 1.0f);
 
-            case LogLevel::Error:
+            case LogLevel::error:
                 return ImVec4(1.00f, 0.45f, 0.45f, 1.0f);
 
-            case LogLevel::Fatal:
+            case LogLevel::fatal:
                 return ImVec4(1.00f, 0.10f, 0.10f, 1.0f);
 
             default:
@@ -229,43 +289,61 @@ namespace axiom {
             }
         }
 
-        bool ShouldShow(LogLevel level) const {
+        /**
+         * @brief Reports whether show.
+         * @param level The level used by this operation.
+         * @return The result of the operation.
+         */
+        bool shouldShow(LogLevel level) const {
             switch (level) {
-            case LogLevel::Trace:
-                return m_ShowTrace;
-            case LogLevel::Info:
-                return m_ShowInfo;
-            case LogLevel::Warn:
-                return m_ShowWarn;
-            case LogLevel::Error:
-                return m_ShowError;
-            case LogLevel::Fatal:
-                return m_ShowFatal;
+            case LogLevel::trace:
+                return m_showTrace;
+            case LogLevel::info:
+                return m_showInfo;
+            case LogLevel::warn:
+                return m_showWarn;
+            case LogLevel::error:
+                return m_showError;
+            case LogLevel::fatal:
+                return m_showFatal;
             default:
                 return true;
             }
         }
 
       private:
-        static constexpr size_t MaxLogs = 10000;
+        /** @brief Stores the max logs. */
+        static constexpr size_t maxLogs = 10000;
 
       private:
-        std::shared_ptr<ImGuiPanelLogsink> m_LogSink;
+        /** @brief Stores the log sink. */
+        std::shared_ptr<ImGuiPanelLogsink> m_logSink;
 
-        std::deque<ImGuiPanelLogsink::LogEntry> m_Logs;
+        /** @brief Stores the logs. */
+        std::deque<ImGuiPanelLogsink::LogEntry> m_logs;
 
-        ImGuiTextFilter m_Filter;
+        /** @brief Stores the filter. */
+        ImGuiTextFilter m_filter;
 
-        bool m_ShowTrace = true;
-        bool m_ShowInfo = true;
-        bool m_ShowWarn = true;
-        bool m_ShowError = true;
-        bool m_ShowFatal = true;
+        /** @brief Stores the show trace. */
+        bool m_showTrace = true;
+        /** @brief Stores the show info. */
+        bool m_showInfo = true;
+        /** @brief Stores the show warn. */
+        bool m_showWarn = true;
+        /** @brief Stores the show error. */
+        bool m_showError = true;
+        /** @brief Stores the show fatal. */
+        bool m_showFatal = true;
 
-        bool m_AutoScroll = true;
-        bool m_ScrollToBottom = false;
+        /** @brief Stores the auto scroll. */
+        bool m_autoScroll = true;
+        /** @brief Stores the scroll to bottom. */
+        bool m_scrollToBottom = false;
 
-        bool m_CopyRequested = false;
-        std::string m_CopyBuffer;
+        /** @brief Stores the copy requested. */
+        bool m_copyRequested = false;
+        /** @brief Stores the copy buffer. */
+        std::string m_copyBuffer;
     };
 } // namespace axiom

@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/ImGui/VulkanImGuiLayer.h
+ * @brief Declares the public interface for the vulkan ImGui layer.
+ */
+
 #pragma once
 
 #include "axiom/ImGui/IImGuiLayer.h"
@@ -24,32 +29,70 @@ namespace axiom {
     //   Renderer::renderFrame()               // ImGuiPass::execute() zeichnet
     //
     // Lebensdauer: MUSS vor dem Renderer/Device zerstoert werden.
+    /**
+     * @brief Provides the vulkan ImGui layer functionality.
+     * @tparam VulkanImGuiLayer Template type used by this type.
+     */
     class VulkanImGuiLayer final : public IImGuiLayer {
       public:
+        /**
+         * @brief Creates the requested resource.
+         * @param window The window used by this operation.
+         * @param renderer The renderer used by this operation.
+         * @return The result of the operation.
+         */
         [[nodiscard]] static std::unique_ptr<VulkanImGuiLayer>
-        Create(Window &window, renderer::Renderer &renderer);
+        create(Window &window, renderer::Renderer &renderer);
 
+        /**
+         * @brief Releases resources owned by VulkanImGuiLayer.
+         */
         ~VulkanImGuiLayer() override;
 
-        void Begin() override;
-        void End() override;
-        bool ProcessEvent(const SDL_Event &event) override;
-        void RenderAdditionalViewports() override;
+        /**
+         * @brief Begins the operation.
+         */
+        void begin() override;
+        /**
+         * @brief Ends the operation.
+         */
+        void end() override;
+        /**
+         * @brief Processes event.
+         * @param event The event used by this operation.
+         * @return The result of the operation.
+         */
+        bool processEvent(const SDL_Event &event) override;
+        /**
+         * @brief Renders additional viewports.
+         */
+        void renderAdditionalViewports() override;
 
       private:
+        /**
+         * @brief Creates an instance of vulkan ImGui layer.
+         */
         VulkanImGuiLayer() = default;
 
-        VkDevice m_Device = VK_NULL_HANDLE;
+        /** @brief Stores the device. */
+        VkDevice m_device = VK_NULL_HANDLE;
         // Muss so lange leben wie das Backend: imgui_impl_vulkan haelt den
         // Pointer aus PipelineRenderingCreateInfo::pColorAttachmentFormats.
-        VkFormat m_ColorFormat = VK_FORMAT_UNDEFINED;
+        /** @brief Stores the color format. */
+        VkFormat m_colorFormat = VK_FORMAT_UNDEFINED;
+        /** @brief Stores the inter bold font data. */
         std::vector<uint8_t> m_interBoldFontData;
+        /** @brief Stores the inter regular font data. */
         std::vector<uint8_t> m_interRegularFontData;
+        /** @brief Stores the jet brains mono font data. */
         std::vector<uint8_t> m_jetBrainsMonoFontData;
 
-        bool m_ContextCreated = false;
-        bool m_SDLBackendReady = false;
-        bool m_VulkanBackendReady = false;
+        /** @brief Stores the context created. */
+        bool m_contextCreated = false;
+        /** @brief Stores the sdl backend ready. */
+        bool m_sdlBackendReady = false;
+        /** @brief Stores the vulkan backend ready. */
+        bool m_vulkanBackendReady = false;
     };
 
 } // namespace axiom

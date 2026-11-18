@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/renderer/vulkan/VulkanCommandlist.cpp
+ * @brief Implements the vulkan commandlist module.
+ */
+
 #include <axiom/renderer/vulkan/VulkanCommandlist.h>
 #include <axiom/renderer/vulkan/VulkanBackend.h>
 
@@ -5,20 +10,31 @@ namespace axiom::renderer::rhi::vulkan {
 
 namespace {
 
+/**
+ * @brief Converts this value to vk image layout.
+ * @param layout The layout used by this operation.
+ * @return The result of the operation.
+ */
 VkImageLayout toVkImageLayout(TextureLayout layout) {
     switch (layout) {
-        case TextureLayout::Undefined:       return VK_IMAGE_LAYOUT_UNDEFINED;
-        case TextureLayout::TransferSrc:     return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        case TextureLayout::TransferDst:     return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        case TextureLayout::ColorAttachment: return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        case TextureLayout::ShaderReadOnly:  return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        case TextureLayout::Present:         return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        case TextureLayout::undefined:       return VK_IMAGE_LAYOUT_UNDEFINED;
+        case TextureLayout::transferSrc:     return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        case TextureLayout::transferDst:     return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        case TextureLayout::colorAttachment: return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        case TextureLayout::shaderReadOnly:  return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        case TextureLayout::present:         return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     }
     return VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
 // Grobe, konservative Stage/Access-Masken pro Layout - reicht fuer Phase 2/3.
 // Feinere, pass-spezifische Barriers sind eine spaetere Optimierung.
+/**
+ * @brief Determines the pipeline stage and access mask for a texture layout.
+ * @param layout The layout used by this operation.
+ * @param stage The stage used by this operation.
+ * @param access The access used by this operation.
+ */
 void stageAccessForLayout(VkImageLayout layout, VkPipelineStageFlags2& stage, VkAccessFlags2& access) {
     switch (layout) {
         case VK_IMAGE_LAYOUT_UNDEFINED:

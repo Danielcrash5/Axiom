@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/pch.h
+ * @brief Declares the public interface for the pch.
+ */
+
 #pragma once
 // Precompiled Header - NUR stabile, schwere Drittanbieter-Header. NIE
 // axiom-eigene Header hier rein (auch nicht transitiv ueber einen

@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/assets/LoaderRegistry.cpp
+ * @brief Implements the loader registry module.
+ */
+
 #include <axiom/assets/LoaderRegistry.h>
 #include <axiom/assets/VFS.h>
 #include <nlohmann/json.hpp>
@@ -9,7 +14,7 @@ namespace axiom {
 
     // === ModManifest ===
 
-    ModManifest ModManifest::LoadFromJson(const std::string &jsonText) {
+    ModManifest ModManifest::loadFromJson(const std::string &jsonText) {
         try {
             json j = json::parse(jsonText);
             ModManifest manifest;
@@ -38,7 +43,7 @@ namespace axiom {
         }
     }
 
-    std::string ModManifest::SaveToJson(bool pretty) const {
+    std::string ModManifest::saveToJson(bool pretty) const {
         json j;
         j["mod_name"] = mod_name;
         j["version"] = version;
@@ -59,20 +64,20 @@ namespace axiom {
 
     // === ModSystem ===
 
-    static inline std::unordered_map<std::string, ModManifest> g_LoadedModManifests;
-    static inline std::vector<std::string> g_LoadedMods;
+    static inline std::unordered_map<std::string, ModManifest> gLoadedModManifests;
+    static inline std::vector<std::string> gLoadedMods;
 
-    void ModSystem::RegisterMod(const std::string &modName, const std::string &modPath) {
+    void ModSystem::registerMod(const std::string &modName, const std::string &modPath) {
         // Mount den Mod
-        VFS::Mount(modName, modPath, VFS::MountType::Directory, true, 50);
+        VFS::mount(modName, modPath, VFS::MountType::directory, true, 50);
 
         // Lade das Manifest
         std::string manifestPath = modName + "://manifest.json";
         std::string manifestText;
-        if (VFS::ReadTextFile(manifestPath, manifestText)) {
-            auto manifest = ModManifest::LoadFromJson(manifestText);
-            g_LoadedModManifests[modName] = manifest;
-            g_LoadedMods.push_back(modName);
+        if (VFS::readTextFile(manifestPath, manifestText)) {
+            auto manifest = ModManifest::loadFromJson(manifestText);
+            gLoadedModManifests[modName] = manifest;
+            gLoadedMods.push_back(modName);
 
             std::cout << "Mod registriert: " << modName << "\n";
         } else {
@@ -80,35 +85,35 @@ namespace axiom {
         }
     }
 
-    ModManifest ModSystem::GetModManifest(const std::string &modName) {
-        auto it = g_LoadedModManifests.find(modName);
-        if (it != g_LoadedModManifests.end()) {
+    ModManifest ModSystem::getModManifest(const std::string &modName) {
+        auto it = gLoadedModManifests.find(modName);
+        if (it != gLoadedModManifests.end()) {
             return it->second;
         }
         return ModManifest();
     }
 
-    void ModSystem::ApplyModOverrides(const std::string &modName) {
-        auto manifest = GetModManifest(modName);
+    void ModSystem::applyModOverrides(const std::string &modName) {
+        auto manifest = getModManifest(modName);
         if (manifest.mod_name.empty()) {
             return;
         }
 
-        auto registry = AssetManager::GetRegistry();
+        auto registry = AssetManager::getRegistry();
         for (const auto &override : manifest.overrides) {
-            TypedUUID targetUUID = TypedUUID::FromString(override.target_uuid);
-            registry->RegisterOverride(targetUUID, override.replacement_path);
+            TypedUUID targetUUID = TypedUUID::fromString(override.target_uuid);
+            registry->registerOverride(targetUUID, override.replacement_path);
 
             std::cout << "Override angewendet: " << override.target_uuid << " → "
                       << override.replacement_path << "\n";
         }
     }
 
-    void ModSystem::RemoveModOverrides(const std::string &modName) {
+    void ModSystem::removeModOverrides(const std::string &modName) {
         // TODO: Implementiere Override-Entfernung
         // Das erfordert ein Tracking der Überrides pro Mod
     }
 
-    std::vector<std::string> ModSystem::GetLoadedMods() { return g_LoadedMods; }
+    std::vector<std::string> ModSystem::getLoadedMods() { return gLoadedMods; }
 
 } // namespace axiom

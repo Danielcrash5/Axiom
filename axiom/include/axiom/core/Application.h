@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/core/Application.h
+ * @brief Declares the public interface for the application.
+ */
+
 // ===== axiom/include/axiom/core/Application.h =====
 #pragma once
 #include "axiom/core/LayerStack.h"
@@ -19,156 +24,364 @@
 
 namespace axiom {
 
+    /**
+     * @brief Owns the application lifecycle and coordinates the engine systems.
+     * @tparam Application Template type used by this type.
+     */
     class Application {
       public:
-        Application(std::string AppName = "Axiom Engine", uint32_t width = 1280,
+        /**
+         * @brief Creates an instance of application.
+         * @param appName The app name used by this operation.
+         * @param width The width used by this operation.
+         * @param height The height used by this operation.
+         */
+        Application(std::string appName = "Axiom Engine", uint32_t width = 1280,
                     uint32_t height = 720);
+        /**
+         * @brief Releases resources owned by Application.
+         */
         virtual ~Application() = default;
 
-        void Run();
+        /**
+         * @brief Runs the main application loop.
+         */
+        void run();
 
-        void PushLayer(std::unique_ptr<Layer> layer) {
-            m_LayerStack.PushLayer(std::move(layer), m_EventBus);
+        /**
+         * @brief Adds layer.
+         * @param layer The layer used by this operation.
+         */
+        void pushLayer(std::unique_ptr<Layer> layer) {
+            m_layerStack.pushLayer(std::move(layer), m_eventBus);
         }
 
-        void PushOverlay(std::unique_ptr<Layer> overlay) {
-            m_LayerStack.PushOverlay(std::move(overlay), m_EventBus);
+        /**
+         * @brief Adds overlay.
+         * @param overlay The overlay used by this operation.
+         */
+        void pushOverlay(std::unique_ptr<Layer> overlay) {
+            m_layerStack.pushOverlay(std::move(overlay), m_eventBus);
         }
 
-        void PopLayer(Layer *layer) { m_LayerStack.PopLayer(layer); }
+        /**
+         * @brief Removes layer.
+         * @param layer The layer used by this operation.
+         */
+        void popLayer(Layer *layer) { m_layerStack.popLayer(layer); }
 
-        void PopOverlay(Layer *overlay) { m_LayerStack.PopOverlay(overlay); }
+        /**
+         * @brief Removes overlay.
+         * @param overlay The overlay used by this operation.
+         */
+        void popOverlay(Layer *overlay) { m_layerStack.popOverlay(overlay); }
 
-        void AddImGuiPanel(const std::shared_ptr<IImGuiPanel> &panel) {
-            m_ImGuiPanelManager.AddPanel(panel);
+        /**
+         * @brief Adds ImGui panel.
+         * @param panel The panel used by this operation.
+         */
+        void addImGuiPanel(const std::shared_ptr<IImGuiPanel> &panel) {
+            m_imGuiPanelManager.addPanel(panel);
         }
 
-        void RemoveImGuiPanel(const std::string &name) {
-            m_ImGuiPanelManager.RemovePanel(name);
+        /**
+         * @brief Removes ImGui panel.
+         * @param name The name used by this operation.
+         */
+        void removeImGuiPanel(const std::string &name) {
+            m_imGuiPanelManager.removePanel(name);
         }
 
-        static Application &Get() { return *s_Instance; }
+        /**
+         * @brief Returns the requested value.
+         * @return The result of the operation.
+         */
+        static Application &get() { return *sInstance; }
 
-        void Run(int argc, char **argv);
+        /**
+         * @brief Runs the main application loop.
+         * @param argc The argc used by this operation.
+         * @param argv The argv used by this operation.
+         */
+        void run(int argc, char **argv);
 
-        const std::vector<std::string> &GetCommandLineArgs() const {
+        /**
+         * @brief Returns the command line args.
+         * @return The result of the operation.
+         */
+        const std::vector<std::string> &getCommandLineArgs() const {
             return m_CommandLineArgs;
         }
 
-        EventBus &GetEventBus() { return m_EventBus; }
+        /**
+         * @brief Returns the event bus.
+         * @return The result of the operation.
+         */
+        EventBus &getEventBus() { return m_eventBus; }
 
-        std::shared_ptr<Window> GetWindow() { return m_Window; }
+        /**
+         * @brief Returns the window.
+         * @return The result of the operation.
+         */
+        std::shared_ptr<Window> getWindow() { return m_window; }
 
-        uint32_t GetWidth() const { return m_Width; }
+        /**
+         * @brief Returns the width.
+         * @return The result of the operation.
+         */
+        uint32_t getWidth() const { return m_width; }
 
-        uint32_t GetHeigth() const { return m_Height; }
+        /**
+         * @brief Returns the heigth.
+         * @return The result of the operation.
+         */
+        uint32_t getHeigth() const { return m_height; }
 
-        Input &GetInput() { return m_Input; }
+        /**
+         * @brief Returns the input.
+         * @return The result of the operation.
+         */
+        Input &getInput() { return m_input; }
 
-        InputSystem &GetInputSystem() { return m_InputSystem; }
+        /**
+         * @brief Returns the input system.
+         * @return The result of the operation.
+         */
+        InputSystem &getInputSystem() { return m_inputSystem; }
 
-        Scene &GetScene() { return *m_Scenes.front(); }
+        /**
+         * @brief Returns the scene.
+         * @return The result of the operation.
+         */
+        Scene &getScene() { return *m_Scenes.front(); }
 
-        Scene &CreateScene() {
+        /**
+         * @brief Creates scene.
+         * @return The result of the operation.
+         */
+        Scene &createScene() {
             m_Scenes.push_back(std::make_unique<Scene>());
             return *m_Scenes.back();
         }
 
-        std::vector<std::unique_ptr<Scene>> &GetScenes() { return m_Scenes; }
+        /**
+         * @brief Returns the scenes.
+         * @return The result of the operation.
+         */
+        std::vector<std::unique_ptr<Scene>> &getScenes() { return m_Scenes; }
 
+        /**
+         * @brief Registers system.
+         * @tparam T Template type used by this operation.
+         * @param args The args used by this operation.
+         * @return The result of the operation.
+         */
         template <typename T, typename... Args>
-        std::shared_ptr<T> RegisterSystem(Args &&...args) {
-            return m_SystemManager.AddSystem<T>(std::forward<Args>(args)...);
+        std::shared_ptr<T> registerSystem(Args &&...args) {
+            return m_systemManager.addSystem<T>(std::forward<Args>(args)...);
         }
 
-        SystemManager &GetSystemManager() { return m_SystemManager; }
+        /**
+         * @brief Returns the system manager.
+         * @return The result of the operation.
+         */
+        SystemManager &getSystemManager() { return m_systemManager; }
 
-        const SystemManager &GetSystemManager() const {
-            return m_SystemManager;
+        /**
+         * @brief Returns the system manager.
+         * @return The result of the operation.
+         */
+        const SystemManager &getSystemManager() const {
+            return m_systemManager;
         }
 
-        renderer::Renderer &GetRenderer() { return *m_Renderer; }
-        renderer::ViewID GetMainViewID() const { return m_MainViewId; }
+        /**
+         * @brief Returns the renderer.
+         * @return The result of the operation.
+         */
+        renderer::Renderer &getRenderer() { return *m_renderer; }
+        /**
+         * @brief Returns the main view ID.
+         * @return The result of the operation.
+         */
+        renderer::ViewID getMainViewId() const { return m_mainViewId; }
 
       protected:
-        virtual void OnInit() {}
-        virtual void OnShutdown() {}
+        /**
+         * @brief Handles the init callback.
+         */
+        virtual void onInit() {}
+        /**
+         * @brief Handles the shutdown callback.
+         */
+        virtual void onShutdown() {}
 
-        virtual void OnPreUpdate(double dt) {}
-        virtual void OnPostUpdate(double dt) {}
-        virtual void OnFixedUpdate(double dt) {}
-        virtual void OnUpdate(double dt) {}
+        /**
+         * @brief Handles the pre update callback.
+         * @param dt The dt used by this operation.
+         */
+        virtual void onPreUpdate(double dt) {}
+        /**
+         * @brief Handles the post update callback.
+         * @param dt The dt used by this operation.
+         */
+        virtual void onPostUpdate(double dt) {}
+        /**
+         * @brief Handles the fixed update callback.
+         * @param dt The dt used by this operation.
+         */
+        virtual void onFixedUpdate(double dt) {}
+        /**
+         * @brief Handles the update callback.
+         * @param dt The dt used by this operation.
+         */
+        virtual void onUpdate(double dt) {}
 
-        virtual void OnRender(double alpha) {}
-        virtual void OnImGuiRender() {}
+        /**
+         * @brief Handles the render callback.
+         * @param alpha The alpha used by this operation.
+         */
+        virtual void onRender(double alpha) {}
+        /**
+         * @brief Handles the ImGui render callback.
+         */
+        virtual void onImGuiRender() {}
 
-        void Close() { m_Running = false; }
+        /**
+         * @brief Closes the resource and releases its handles.
+         */
+        void close() { m_running = false; }
 
+        /** @brief Stores the ImGui layer. */
         std::unique_ptr<IImGuiLayer> m_ImGuiLayer;
 
+        /** @brief Stores the scenes. */
         std::vector<std::unique_ptr<Scene>> m_Scenes;
+        /** @brief Stores the command line args. */
         std::vector<std::string> m_CommandLineArgs;
 
       private:
-        void MainLoop();
-        void Init();
-        void Shutdown();
+        /**
+         * @brief Runs the application's main loop.
+         */
+        void mainLoop();
+        /**
+         * @brief Initializes the subsystem.
+         */
+        void init();
+        /**
+         * @brief Shuts down the subsystem.
+         */
+        void shutdown();
 
-        void MainUpdate();
-        void PreUpdate(double dt);
-        void PostUpdate(double dt);
-        void FixedUpdate(double dt);
-        void Update(double dt);
+        /**
+         * @brief Updates the application systems for the current frame.
+         */
+        void mainUpdate();
+        /**
+         * @brief Updates state before the main update step.
+         * @param dt The dt used by this operation.
+         */
+        void preUpdate(double dt);
+        /**
+         * @brief Performs work after the main update step.
+         * @param dt The dt used by this operation.
+         */
+        void postUpdate(double dt);
+        /**
+         * @brief Updates state at a fixed time interval.
+         * @param dt The dt used by this operation.
+         */
+        void fixedUpdate(double dt);
+        /**
+         * @brief Updates the object state.
+         * @param dt The dt used by this operation.
+         */
+        void update(double dt);
 
-        void Render(double alpha);
-        void ImGuiRender();
+        /**
+         * @brief Renders the current frame.
+         * @param alpha The alpha used by this operation.
+         */
+        void render(double alpha);
+        /**
+         * @brief Performs the ImGui render operation.
+         */
+        void imGuiRender();
 
-        bool OnWindowClose(WindowCloseEvent &e) {
-            Close();
+        /**
+         * @brief Handles the window close callback.
+         * @param e The e used by this operation.
+         * @return The result of the operation.
+         */
+        bool onWindowClose(WindowCloseEvent &e) {
+            close();
             return true;
         }
 
-        bool OnWindowResize(WindowResizeEvent &e) {
-            m_Width = e.width;
-            m_Height = e.height;
-            if (m_Renderer && m_MainViewId != renderer::kInvalidViewID) {
-                if (const renderer::View *current = m_Renderer->view(m_MainViewId)) {
+        /**
+         * @brief Handles the window resize callback.
+         * @param e The e used by this operation.
+         * @return The result of the operation.
+         */
+        bool onWindowResize(WindowResizeEvent &e) {
+            m_width = e.width;
+            m_height = e.height;
+            if (m_renderer && m_mainViewId != renderer::kInvalidViewID) {
+                if (const renderer::View *current = m_renderer->view(m_mainViewId)) {
                     renderer::View updated = *current;
                     updated.viewport.width = e.width;
                     updated.viewport.height = e.height;
-                    m_Renderer->updateView(m_MainViewId, updated);
+                    m_renderer->updateView(m_mainViewId, updated);
                 }
             }
-            m_SystemManager.OnViewportResize(e.width, e.height);
+            m_systemManager.onViewportResize(e.width, e.height);
             return false;
         }
 
       private:
-        bool m_Running = true;
-        std::shared_ptr<Window> m_Window;
-        std::string m_AppName;
+        /** @brief Stores the running. */
+        bool m_running = true;
+        /** @brief Stores the window. */
+        std::shared_ptr<Window> m_window;
+        /** @brief Stores the app name. */
+        std::string m_appName;
 
-        std::unique_ptr<renderer::Renderer> m_Renderer;
-        renderer::ViewID m_MainViewId = renderer::kInvalidViewID;
+        /** @brief Stores the renderer. */
+        std::unique_ptr<renderer::Renderer> m_renderer;
+        /** @brief Stores the main view ID. */
+        renderer::ViewID m_mainViewId = renderer::kInvalidViewID;
 
-        uint32_t m_Width, m_Height;
+        /** @brief Stores the height. */
+        uint32_t m_width, m_height;
 
-        static Application *s_Instance;
+        /** @brief Stores the singleton application instance. */
+        static Application *sInstance;
 
-        InputSystem m_InputSystem;
-        Input m_Input;
+        /** @brief Stores the input system. */
+        InputSystem m_inputSystem;
+        /** @brief Stores the input. */
+        Input m_input;
 
-        ImGuiPanelManager m_ImGuiPanelManager;
+        /** @brief Stores the ImGui panel manager. */
+        ImGuiPanelManager m_imGuiPanelManager;
 
-        LayerStack m_LayerStack;
-        EventBus m_EventBus;
+        /** @brief Stores the layer stack. */
+        LayerStack m_layerStack;
+        /** @brief Stores the event bus. */
+        EventBus m_eventBus;
 
-        SystemManager m_SystemManager;
+        /** @brief Stores the system manager. */
+        SystemManager m_systemManager;
     };
 
 } // namespace axiom
 
-#define GetMainEventBus() axiom::Application::Get().GetEventBus()
-#define GetMainWindow() axiom::Application::Get().GetWindow()
-#define GetMainInput() axiom::Application::Get().GetInput()
-#define GetMainInputSystem() axiom::Application::Get().GetInputSystem()
+/** @brief Provides the GetMainEventBus macro. */
+#define GetMainEventBus() axiom::Application::get().getEventBus()
+/** @brief Provides the GetMainWindow macro. */
+#define GetMainWindow() axiom::Application::get().getWindow()
+/** @brief Provides the GetMainInput macro. */
+#define GetMainInput() axiom::Application::get().getInput()
+/** @brief Provides the GetMainInputSystem macro. */
+#define GetMainInputSystem() axiom::Application::get().getInputSystem()

@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/core/UUID.cpp
+ * @brief Implements the UUID module.
+ */
+
 #include "axiom/core/UUID.h"
 #include <array>
 #include <iomanip>
@@ -16,7 +21,11 @@ namespace axiom {
         // vier Aufrufe zu einem std::seed_seq kombiniert geben dem
         // Generator einen vollen 128-Bit-Startzustand statt eines
         // Seeds mit nur 32 Bit echter Zufaelligkeit.
-        std::mt19937_64 &LocalEngine() {
+        /**
+         * @brief Returns the local engine.
+         * @return The result of the operation.
+         */
+        std::mt19937_64 &localEngine() {
             thread_local std::mt19937_64 engine = [] {
                 std::random_device rd;
                 std::array<uint32_t, 4> seedData{rd(), rd(), rd(), rd()};
@@ -26,10 +35,10 @@ namespace axiom {
             return engine;
         }
 
-        thread_local std::uniform_int_distribution<uint64_t> s_Dist;
+        thread_local std::uniform_int_distribution<uint64_t> sDist;
     } // namespace
 
-    UUID::UUID() : m_hi(s_Dist(LocalEngine())), m_lo(s_Dist(LocalEngine())) {}
+    UUID::UUID() : m_hi(sDist(localEngine())), m_lo(sDist(localEngine())) {}
 
     UUID::UUID(uint64_t hi, uint64_t lo) : m_hi(hi), m_lo(lo) {}
 
@@ -41,7 +50,7 @@ namespace axiom {
         m_lo = std::stoull(hex32.substr(16, 16), nullptr, 16);
     }
 
-    std::string UUID::ToHexString() const {
+    std::string UUID::toHexString() const {
         std::ostringstream oss;
         oss << std::hex << std::setfill('0') << std::setw(16) << m_hi
             << std::setw(16) << m_lo;

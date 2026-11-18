@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/assets/VFS.cpp
+ * @brief Implements the VFS module.
+ */
+
 #include <axiom/assets/VFS.h>
 
 #include <algorithm>
@@ -13,7 +18,12 @@ namespace axiom {
 
     // === Helper Functions ===
 
-    static std::string NormalizePath(std::string path) {
+    /**
+     * @brief Normalizes a virtual path.
+     * @param path The path used by this operation.
+     * @return The result of the operation.
+     */
+    static std::string normalizePath(std::string path) {
         std::replace(path.begin(), path.end(), '\\', '/');
 
         size_t pos = 0;
@@ -28,7 +38,12 @@ namespace axiom {
         return path;
     }
 
-    static std::string ToLowerCase(const std::string &str) {
+    /**
+     * @brief Converts this value to lower case.
+     * @param str The str used by this operation.
+     * @return The result of the operation.
+     */
+    static std::string toLowerCase(const std::string &str) {
         std::string result = str;
         std::transform(result.begin(), result.end(), result.begin(),
                        [](unsigned char c) { return std::tolower(c); });
@@ -37,38 +52,38 @@ namespace axiom {
 
     // === Implementation ===
 
-    void VFS::Init() {
+    void VFS::init() {
         // Initialisiere Standard-Mounts
-        Mount("engine", "./axiom/assets", MountType::Directory, true, 0);
-        Mount("game", "./assets", MountType::Directory, true, 10);
-        Mount("temp", "./temp", MountType::Directory, false, 20);
-        Mount("data", "./data", MountType::Directory, false, 20);
+        mount("engine", "./axiom/assets", MountType::directory, true, 0);
+        mount("game", "./assets", MountType::directory, true, 10);
+        mount("temp", "./temp", MountType::directory, false, 20);
+        mount("data", "./data", MountType::directory, false, 20);
     }
 
-    void VFS::Shutdown() {
+    void VFS::shutdown() {
         // Unmount alle Mounts (in reverse order)
         std::vector<std::string> mounts;
-        for (const auto &[name, _] : s_mounts) {
+        for (const auto &[name, _] : sMounts) {
             mounts.push_back(name);
         }
         for (auto it = mounts.rbegin(); it != mounts.rend(); ++it) {
-            Unmount(*it);
+            unmount(*it);
         }
-        s_fileWatchers.clear();
+        sFileWatchers.clear();
     }
 
-    bool VFS::Mount(const std::string &mountName,
+    bool VFS::mount(const std::string &mountName,
                     const std::string &physicalPath, MountType type,
                     bool readOnly, int priority) {
-        if (IsMounted(mountName)) {
+        if (isMounted(mountName)) {
             std::cerr << "VFS: Mount '" << mountName
                       << "' bereits vorhanden!\n";
             return false;
         }
 
-        std::string normalized = NormalizePath(physicalPath);
+        std::string normalized = normalizePath(physicalPath);
 
-        if (type == MountType::Directory) {
+        if (type == MountType::directory) {
             if (!fs::exists(normalized)) {
                 std::cerr << "VFS: Verzeichnis nicht gefunden: " << normalized
                           << "\n";
@@ -82,12 +97,12 @@ namespace axiom {
         }
         // TODO: ZIP-Support in AssetPack-Phase
 
-        s_mounts[mountName] = {type,     normalized, readOnly,
+        sMounts[mountName] = {type,     normalized, readOnly,
                                priority, nullptr,    0};
         return true;
     }
 
-    bool VFS::MountPath(const std::string &mountName,
+    bool VFS::mountPath(const std::string &mountName,
                         const std::string &physicalPath, bool readOnly,
                         int priority, MountType type) {
         std::string normalizedRoot = mountName;
@@ -100,25 +115,25 @@ namespace axiom {
             return false;
         }
 
-        std::string normalizedPhysical = NormalizePath(physicalPath);
-        if (type == MountType::Directory && !fs::exists(normalizedPhysical)) {
+        std::string normalizedPhysical = normalizePath(physicalPath);
+        if (type == MountType::directory && !fs::exists(normalizedPhysical)) {
             fs::create_directories(normalizedPhysical);
         }
 
-        return Mount(normalizedRoot, normalizedPhysical, type, readOnly,
+        return mount(normalizedRoot, normalizedPhysical, type, readOnly,
                      priority);
     }
 
-    bool VFS::Unmount(const std::string &mountName) {
-        return s_mounts.erase(mountName) > 0;
+    bool VFS::unmount(const std::string &mountName) {
+        return sMounts.erase(mountName) > 0;
     }
 
-    bool VFS::IsMounted(const std::string &mountName) {
-        return s_mounts.find(mountName) != s_mounts.end();
+    bool VFS::isMounted(const std::string &mountName) {
+        return sMounts.find(mountName) != sMounts.end();
     }
 
     std::pair<std::string, std::string>
-    VFS::SplitVirtualPath(const std::string &virtualPath) {
+    VFS::splitVirtualPath(const std::string &virtualPath) {
         size_t colonPos = virtualPath.find("://");
         if (colonPos != std::string::npos) {
             return {virtualPath.substr(0, colonPos),
@@ -127,8 +142,8 @@ namespace axiom {
         return {"", ""};
     }
 
-    bool VFS::ResolvePath(const std::string &virtualPath, ResolvedPath &out) {
-        auto [mountName, relativePath] = SplitVirtualPath(virtualPath);
+    bool VFS::resolvePath(const std::string &virtualPath, ResolvedPath &out) {
+        auto [mountName, relativePath] = splitVirtualPath(virtualPath);
 
         if (mountName.empty()) { // relativePath.empty() NICHT mehr als Fehler
                                  // behandeln
@@ -137,8 +152,8 @@ namespace axiom {
             return false;
         }
 
-        auto it = s_mounts.find(mountName);
-        if (it == s_mounts.end()) {
+        auto it = sMounts.find(mountName);
+        if (it == sMounts.end()) {
             std::cerr << "VFS: Mount nicht gefunden: " << mountName << "\n";
             return false;
         }
@@ -151,10 +166,10 @@ namespace axiom {
         return true;
     }
 
-    bool VFS::ReadFile(const std::string &virtualPath,
+    bool VFS::readFile(const std::string &virtualPath,
                        std::vector<uint8_t> &outData) {
         ResolvedPath resolved;
-        if (!ResolvePath(virtualPath, resolved)) {
+        if (!resolvePath(virtualPath, resolved)) {
             return false;
         }
 
@@ -180,16 +195,16 @@ namespace axiom {
         }
     }
 
-    std::vector<uint8_t> VFS::ReadFile(const std::string &virtualPath) {
+    std::vector<uint8_t> VFS::readFile(const std::string &virtualPath) {
         std::vector<uint8_t> data;
-        ReadFile(virtualPath, data);
+        readFile(virtualPath, data);
         return data;
     }
 
-    bool VFS::ReadTextFile(const std::string &virtualPath,
+    bool VFS::readTextFile(const std::string &virtualPath,
                            std::string &outText) {
         std::vector<uint8_t> data;
-        if (!ReadFile(virtualPath, data)) {
+        if (!readFile(virtualPath, data)) {
             return false;
         }
 
@@ -197,10 +212,10 @@ namespace axiom {
         return true;
     }
 
-    bool VFS::WriteFile(const std::string &virtualPath,
+    bool VFS::writeFile(const std::string &virtualPath,
                         const std::vector<uint8_t> &data) {
         ResolvedPath resolved;
-        if (!ResolvePath(virtualPath, resolved)) {
+        if (!resolvePath(virtualPath, resolved)) {
             return false;
         }
 
@@ -232,45 +247,45 @@ namespace axiom {
         }
     }
 
-    bool VFS::WriteTextFile(const std::string &virtualPath,
+    bool VFS::writeTextFile(const std::string &virtualPath,
                             const std::string &text) {
         std::vector<uint8_t> data(text.begin(), text.end());
-        return WriteFile(virtualPath, data);
+        return writeFile(virtualPath, data);
     }
 
     std::future<std::vector<uint8_t>>
-    VFS::ReadFileAsync(const std::string &virtualPath) {
+    VFS::readFileAsync(const std::string &virtualPath) {
         return std::async(std::launch::async,
-                          [virtualPath]() { return ReadFile(virtualPath); });
+                          [virtualPath]() { return readFile(virtualPath); });
     }
 
-    bool VFS::Exists(const std::string &virtualPath) {
+    bool VFS::exists(const std::string &virtualPath) {
         ResolvedPath resolved;
-        if (!ResolvePath(virtualPath, resolved)) {
+        if (!resolvePath(virtualPath, resolved)) {
             return false;
         }
         return fs::exists(resolved.physicalPath);
     }
 
-    bool VFS::IsFile(const std::string &virtualPath) {
+    bool VFS::isFile(const std::string &virtualPath) {
         ResolvedPath resolved;
-        if (!ResolvePath(virtualPath, resolved)) {
+        if (!resolvePath(virtualPath, resolved)) {
             return false;
         }
         return fs::is_regular_file(resolved.physicalPath);
     }
 
-    bool VFS::IsDirectory(const std::string &virtualPath) {
+    bool VFS::isDirectory(const std::string &virtualPath) {
         ResolvedPath resolved;
-        if (!ResolvePath(virtualPath, resolved)) {
+        if (!resolvePath(virtualPath, resolved)) {
             return false;
         }
         return fs::is_directory(resolved.physicalPath);
     }
 
-    bool VFS::CreateDirectory(const std::string &virtualPath) {
+    bool VFS::createDirectory(const std::string &virtualPath) {
         ResolvedPath resolved;
-        if (!ResolvePath(virtualPath, resolved)) {
+        if (!resolvePath(virtualPath, resolved)) {
             return false;
         }
 
@@ -290,9 +305,9 @@ namespace axiom {
         }
     }
 
-    uint64_t VFS::GetFileSize(const std::string &virtualPath) {
+    uint64_t VFS::getFileSize(const std::string &virtualPath) {
         ResolvedPath resolved;
-        if (!ResolvePath(virtualPath, resolved)) {
+        if (!resolvePath(virtualPath, resolved)) {
             return 0;
         }
 
@@ -304,9 +319,9 @@ namespace axiom {
     }
 
     std::filesystem::file_time_type
-    VFS::GetLastWriteTime(const std::string &virtualPath) {
+    VFS::getLastWriteTime(const std::string &virtualPath) {
         ResolvedPath resolved;
-        if (!ResolvePath(virtualPath, resolved)) {
+        if (!resolvePath(virtualPath, resolved)) {
             return {};
         }
 
@@ -317,10 +332,10 @@ namespace axiom {
         }
     }
 
-    std::vector<std::string> VFS::ListFiles(const std::string &virtualPath,
+    std::vector<std::string> VFS::listFiles(const std::string &virtualPath,
                                             bool recursive) {
         ResolvedPath resolved;
-        if (!ResolvePath(virtualPath, resolved)) {
+        if (!resolvePath(virtualPath, resolved)) {
             return {};
         }
 
@@ -349,9 +364,9 @@ namespace axiom {
     }
 
     std::vector<std::string>
-    VFS::ListDirectories(const std::string &virtualPath, bool recursive) {
+    VFS::listDirectories(const std::string &virtualPath, bool recursive) {
         ResolvedPath resolved;
-        if (!ResolvePath(virtualPath, resolved)) {
+        if (!resolvePath(virtualPath, resolved)) {
             return {};
         }
 
@@ -380,19 +395,19 @@ namespace axiom {
         return dirs;
     }
 
-    void VFS::WatchFile(const std::string &virtualPath,
+    void VFS::watchFile(const std::string &virtualPath,
                         std::function<void()> onChanged) {
-        s_fileWatchers[virtualPath] = onChanged;
+        sFileWatchers[virtualPath] = onChanged;
     }
 
-    void VFS::UnwatchFile(const std::string &virtualPath) {
-        s_fileWatchers.erase(virtualPath);
+    void VFS::unwatchFile(const std::string &virtualPath) {
+        sFileWatchers.erase(virtualPath);
     }
 
-    void VFS::PollFileChanges() {
-        for (auto &[virtualPath, callback] : s_fileWatchers) {
+    void VFS::pollFileChanges() {
+        for (auto &[virtualPath, callback] : sFileWatchers) {
             ResolvedPath resolved;
-            if (!ResolvePath(virtualPath, resolved)) {
+            if (!resolvePath(virtualPath, resolved)) {
                 continue;
             }
 
@@ -411,15 +426,15 @@ namespace axiom {
         }
     }
 
-    std::string VFS::ResolvePhysicalPath(const std::string &virtualPath) {
+    std::string VFS::resolvePhysicalPath(const std::string &virtualPath) {
         ResolvedPath resolved;
-        if (!ResolvePath(virtualPath, resolved)) {
+        if (!resolvePath(virtualPath, resolved)) {
             return "";
         }
         return resolved.physicalPath;
     }
 
-    std::string VFS::ResolvePhysicalMountPath(
+    std::string VFS::resolvePhysicalMountPath(
         const std::string &mountRootHint,
         const std::vector<std::string> &candidatePaths,
         const std::vector<std::string> &commandLineArgs, bool &usedFallback) {
@@ -430,7 +445,7 @@ namespace axiom {
             if (arg.rfind(prefix, 0) == 0) {
                 const std::string candidate = arg.substr(prefix.size());
                 if (!candidate.empty() && fs::exists(candidate)) {
-                    return NormalizePath(candidate);
+                    return normalizePath(candidate);
                 }
             }
         }
@@ -441,26 +456,26 @@ namespace axiom {
             rootHint = rootHint.substr(schemePos + 3);
         }
         if (!rootHint.empty() && fs::exists(rootHint)) {
-            return NormalizePath(rootHint);
+            return normalizePath(rootHint);
         }
 
         for (const auto &candidate : candidatePaths) {
             if (!candidate.empty() && fs::exists(candidate)) {
-                return NormalizePath(candidate);
+                return normalizePath(candidate);
             }
         }
 
         if (!candidatePaths.empty()) {
             usedFallback = true;
-            return NormalizePath(candidatePaths.front());
+            return normalizePath(candidatePaths.front());
         }
 
         return {};
     }
 
-    bool VFS::IsPathValid(const std::string &virtualPath) {
+    bool VFS::isPathValid(const std::string &virtualPath) {
         ResolvedPath resolved;
-        return ResolvePath(virtualPath, resolved);
+        return resolvePath(virtualPath, resolved);
     }
 
 } // namespace axiom

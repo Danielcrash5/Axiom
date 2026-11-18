@@ -1,31 +1,36 @@
+/**
+ * @file axiom/src/ImGui/ImGuiPanelManager.cpp
+ * @brief Implements the ImGui panel manager module.
+ */
+
 #include "axiom/ImGui/ImGuiPanelManager.h"
 
 #include <algorithm>
 
 namespace axiom {
-    void ImGuiPanelManager::Update(double deltaTime) {
-        for (const auto &panel : m_Panels) {
-            panel->OnUpdate(deltaTime);
+    void ImGuiPanelManager::update(double deltaTime) {
+        for (const auto &panel : m_panels) {
+            panel->onUpdate(deltaTime);
         }
     }
 
-    void ImGuiPanelManager::ImGuiRender() {
-        for (const auto &panel : m_Panels) {
-            panel->ImGuiRender();
+    void ImGuiPanelManager::imGuiRender() {
+        for (const auto &panel : m_panels) {
+            panel->imGuiRender();
         }
     }
 
     void
-    ImGuiPanelManager::AddPanel(const std::shared_ptr<IImGuiPanel> &panel) {
-        m_Panels.push_back(panel);
+    ImGuiPanelManager::addPanel(const std::shared_ptr<IImGuiPanel> &panel) {
+        m_panels.push_back(panel);
     }
 
-    void ImGuiPanelManager::RemovePanel(const std::string &name) {
-        m_Panels.erase(
-            std::remove_if(m_Panels.begin(), m_Panels.end(),
+    void ImGuiPanelManager::removePanel(const std::string &name) {
+        m_panels.erase(
+            std::remove_if(m_panels.begin(), m_panels.end(),
                            [&name](const std::shared_ptr<IImGuiPanel> &panel) {
-                               return panel->GetName() == name;
+                               return panel->getName() == name;
                            }),
-            m_Panels.end());
+            m_panels.end());
     }
 } // namespace axiom

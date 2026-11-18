@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/assets/StreamedAssets.cpp
+ * @brief Implements the streamed assets module.
+ */
+
 #include <axiom/assets/StreamedAssets.h>
 #include <axiom/assets/VFS.h>
 #include <iostream>
@@ -8,17 +13,17 @@ namespace axiom {
 
     MusicAsset::MusicAsset() {}
 
-    MusicAsset::~MusicAsset() { CloseStream(); }
+    MusicAsset::~MusicAsset() { closeStream(); }
 
-    bool MusicAsset::OpenStream(const std::string &physicalPath) {
+    bool MusicAsset::openStream(const std::string &physicalPath) {
         // TODO: Implementiere Audio-Decoding mit libsndfile oder ffmpeg
         // Für jetzt: Placeholder
-        m_State = StreamState::Ready;
+        m_state = StreamState::ready;
         return true;
     }
 
-    size_t MusicAsset::FillBuffer(uint8_t *dst, size_t bytesRequested) {
-        if (m_State != StreamState::Ready) {
+    size_t MusicAsset::fillBuffer(uint8_t *dst, size_t bytesRequested) {
+        if (m_state != StreamState::ready) {
             return 0;
         }
 
@@ -27,43 +32,43 @@ namespace axiom {
         return 0;
     }
 
-    void MusicAsset::CloseStream() {
-        if (m_FileHandle) {
+    void MusicAsset::closeStream() {
+        if (m_fileHandle) {
             // TODO: Schließe Datei und Decoder
-            m_FileHandle = nullptr;
+            m_fileHandle = nullptr;
         }
-        m_State = StreamState::Opening;
+        m_state = StreamState::opening;
     }
 
-    StreamState MusicAsset::GetState() const { return m_State; }
+    StreamState MusicAsset::getState() const { return m_state; }
 
-    float MusicAsset::GetProgress() const {
-        if (m_TotalBytes == 0) {
+    float MusicAsset::getProgress() const {
+        if (m_totalBytes == 0) {
             return 0.0f;
         }
-        return static_cast<float>(m_BytePosition) / static_cast<float>(m_TotalBytes);
+        return static_cast<float>(m_bytePosition) / static_cast<float>(m_totalBytes);
     }
 
-    size_t MusicAsset::GetTotalSize() const { return m_TotalBytes; }
+    size_t MusicAsset::getTotalSize() const { return m_totalBytes; }
 
-    bool MusicAsset::Seek(size_t position) {
-        if (position > m_TotalBytes) {
+    bool MusicAsset::seek(size_t position) {
+        if (position > m_totalBytes) {
             return false;
         }
-        m_BytePosition = position;
+        m_bytePosition = position;
         // TODO: Seek in Decoder
         return true;
     }
 
     // === MusicLoader ===
 
-    void *MusicLoader::Load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
+    void *MusicLoader::load(const std::vector<uint8_t> &data, size_t &outSizeBytes) {
         auto *music = new MusicAsset();
         // TODO: Initialisiere Decoder mit Metadaten
         outSizeBytes = sizeof(MusicAsset);
         return music;
     }
 
-    void MusicLoader::Unload(void *data) { delete static_cast<MusicAsset *>(data); }
+    void MusicLoader::unload(void *data) { delete static_cast<MusicAsset *>(data); }
 
 } // namespace axiom

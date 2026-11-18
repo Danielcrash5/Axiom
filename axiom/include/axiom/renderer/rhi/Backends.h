@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/renderer/rhi/Backends.h
+ * @brief Declares the public interface for the backends.
+ */
+
 #pragma once
 #include <memory>
 #include <span>
@@ -7,6 +12,11 @@ namespace axiom::renderer::rhi {
 
 // Primaeres Desktop-Backend. Rueckgabetyp ist reines IRHIBackend - keine
 // Vulkan-Typen tauchen in der Public-API auf.
+/**
+ * @brief Creates vulkan backend.
+ * @param requiredInstanceExtensions The required instance extensions used by this operation.
+ * @return The result of the operation.
+ */
 [[nodiscard]] RHIResult<std::unique_ptr<IRHIBackend>> createVulkanBackend(
     std::span<const char* const> requiredInstanceExtensions = {});
 

@@ -1,3 +1,8 @@
+/**
+ * @file axiom/assets/shaders/Renderer2D/Quad.vert.glsl
+ * @brief Transforms quad vertices and forwards their color.
+ */
+
 #version 450
 
 layout(location = 0) in vec4 a_Position;

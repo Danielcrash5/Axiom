@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/renderer/vulkan/VulkanBackend.cpp
+ * @brief Implements the vulkan backend module.
+ */
+
 #include <algorithm>
 #include <array>
 #include <axiom/core/Logger.h>
@@ -17,148 +22,209 @@ namespace axiom::renderer::rhi::vulkan {
     // ============================================================================
     namespace {
 
+        /**
+         * @brief Converts this value to vk format.
+         * @param format The format used by this operation.
+         * @return The result of the operation.
+         */
         VkFormat toVkFormat(TextureFormat format) {
             switch (format) {
-            case TextureFormat::RGBA8Unorm:
+            case TextureFormat::rgbA8Unorm:
                 return VK_FORMAT_R8G8B8A8_UNORM;
-            case TextureFormat::BGRA8Unorm:
+            case TextureFormat::bgrA8Unorm:
                 return VK_FORMAT_B8G8R8A8_UNORM;
-            case TextureFormat::Depth32Float:
+            case TextureFormat::depth32Float:
                 return VK_FORMAT_D32_SFLOAT;
-            case TextureFormat::R8Unorm:
+            case TextureFormat::r8Unorm:
                 return VK_FORMAT_R8_UNORM;
             }
             return VK_FORMAT_R8G8B8A8_UNORM;
         }
 
+        /**
+         * @brief Returns the number of bytes per pixel for a format.
+         * @param format The format used by this operation.
+         * @return The result of the operation.
+         */
         uint32_t bytesPerPixel(TextureFormat format) {
             switch (format) {
-            case TextureFormat::RGBA8Unorm:
-            case TextureFormat::BGRA8Unorm:
-            case TextureFormat::Depth32Float:
+            case TextureFormat::rgbA8Unorm:
+            case TextureFormat::bgrA8Unorm:
+            case TextureFormat::depth32Float:
                 return 4;
-            case TextureFormat::R8Unorm:
+            case TextureFormat::r8Unorm:
                 return 1;
             }
             return 4;
         }
 
+        /**
+         * @brief Converts this value to vk buffer usage.
+         * @param usage The usage used by this operation.
+         * @return The result of the operation.
+         */
         VkBufferUsageFlags toVkBufferUsage(BufferUsage usage) {
             VkBufferUsageFlags flags = 0;
-            if (usage & BufferUsage::Vertex)
+            if (usage & BufferUsage::vertex)
                 flags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-            if (usage & BufferUsage::Index)
+            if (usage & BufferUsage::index)
                 flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-            if (usage & BufferUsage::Uniform)
+            if (usage & BufferUsage::uniform)
                 flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-            if (usage & BufferUsage::Storage)
+            if (usage & BufferUsage::storage)
                 flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-            if (usage & BufferUsage::CopySrc)
+            if (usage & BufferUsage::copySrc)
                 flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-            if (usage & BufferUsage::CopyDst)
+            if (usage & BufferUsage::copyDst)
                 flags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
             return flags;
         }
 
+        /**
+         * @brief Converts this value to vk image usage.
+         * @param usage The usage used by this operation.
+         * @return The result of the operation.
+         */
         VkImageUsageFlags toVkImageUsage(TextureUsage usage) {
             VkImageUsageFlags flags = 0;
-            if (usage & TextureUsage::RenderTarget)
+            if (usage & TextureUsage::renderTarget)
                 flags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-            if (usage & TextureUsage::Sampled)
+            if (usage & TextureUsage::sampled)
                 flags |= VK_IMAGE_USAGE_SAMPLED_BIT;
-            if (usage & TextureUsage::CopySrc)
+            if (usage & TextureUsage::copySrc)
                 flags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-            if (usage & TextureUsage::CopyDst)
+            if (usage & TextureUsage::copyDst)
                 flags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
             return flags;
         }
 
+        /**
+         * @brief Converts this value to vk vertex format.
+         * @param format The format used by this operation.
+         * @return The result of the operation.
+         */
         VkFormat toVkVertexFormat(VertexFormat format) {
             switch (format) {
-            case VertexFormat::Float32:
+            case VertexFormat::float32:
                 return VK_FORMAT_R32_SFLOAT;
-            case VertexFormat::Float32x2:
+            case VertexFormat::float32x2:
                 return VK_FORMAT_R32G32_SFLOAT;
-            case VertexFormat::Float32x3:
+            case VertexFormat::float32x3:
                 return VK_FORMAT_R32G32B32_SFLOAT;
-            case VertexFormat::Float32x4:
+            case VertexFormat::float32x4:
                 return VK_FORMAT_R32G32B32A32_SFLOAT;
-            case VertexFormat::Uint32:
+            case VertexFormat::uint32:
                 return VK_FORMAT_R32_UINT;
-            case VertexFormat::Uint8x4Norm:
+            case VertexFormat::uint8x4Norm:
                 return VK_FORMAT_R8G8B8A8_UNORM;
             }
             return VK_FORMAT_R32G32B32_SFLOAT;
         }
 
+        /**
+         * @brief Converts this value to vk topology.
+         * @param topo The topo used by this operation.
+         * @return The result of the operation.
+         */
         VkPrimitiveTopology toVkTopology(PrimitiveTopology topo) {
             switch (topo) {
-            case PrimitiveTopology::TriangleList:
+            case PrimitiveTopology::triangleList:
                 return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-            case PrimitiveTopology::LineList:
+            case PrimitiveTopology::lineList:
                 return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-            case PrimitiveTopology::LineStrip:
+            case PrimitiveTopology::lineStrip:
                 return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-            case PrimitiveTopology::PointList:
+            case PrimitiveTopology::pointList:
                 return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
             }
             return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         }
 
+        /**
+         * @brief Converts this value to vk cull mode.
+         * @param cull The cull used by this operation.
+         * @return The result of the operation.
+         */
         VkCullModeFlags toVkCullMode(CullMode cull) {
             switch (cull) {
-            case CullMode::None:
+            case CullMode::none:
                 return VK_CULL_MODE_NONE;
-            case CullMode::Front:
+            case CullMode::front:
                 return VK_CULL_MODE_FRONT_BIT;
-            case CullMode::Back:
+            case CullMode::back:
                 return VK_CULL_MODE_BACK_BIT;
             }
             return VK_CULL_MODE_BACK_BIT;
         }
 
+        /**
+         * @brief Converts this value to vk descriptor type.
+         * @param type The type used by this operation.
+         * @return The result of the operation.
+         */
         VkDescriptorType toVkDescriptorType(BindingType type) {
             switch (type) {
-            case BindingType::UniformBuffer:
+            case BindingType::uniformBuffer:
                 return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            case BindingType::StorageBuffer:
+            case BindingType::storageBuffer:
                 return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            case BindingType::SampledTexture:
+            case BindingType::sampledTexture:
                 return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-            case BindingType::Sampler:
+            case BindingType::sampler:
                 return VK_DESCRIPTOR_TYPE_SAMPLER;
             }
             return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         }
 
+        /**
+         * @brief Converts this value to vk shader stage flags.
+         * @param stage The stage used by this operation.
+         * @return The result of the operation.
+         */
         VkShaderStageFlags toVkShaderStageFlags(ShaderStage stage) {
             VkShaderStageFlags flags = 0;
-            if (stage & ShaderStage::Vertex)
+            if (stage & ShaderStage::vertex)
                 flags |= VK_SHADER_STAGE_VERTEX_BIT;
-            if (stage & ShaderStage::Pixel)
+            if (stage & ShaderStage::pixel)
                 flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
-            if (stage & ShaderStage::Compute)
+            if (stage & ShaderStage::compute)
                 flags |= VK_SHADER_STAGE_COMPUTE_BIT;
             return flags;
         }
 
+        /**
+         * @brief Converts this value to vk filter.
+         * @param mode The mode used by this operation.
+         * @return The result of the operation.
+         */
         VkFilter toVkFilter(FilterMode mode) {
-            return mode == FilterMode::Linear ? VK_FILTER_LINEAR
+            return mode == FilterMode::linear ? VK_FILTER_LINEAR
                                               : VK_FILTER_NEAREST;
         }
 
+        /**
+         * @brief Converts this value to vk address mode.
+         * @param mode The mode used by this operation.
+         * @return The result of the operation.
+         */
         VkSamplerAddressMode toVkAddressMode(AddressMode mode) {
             switch (mode) {
-            case AddressMode::Repeat:
+            case AddressMode::repeat:
                 return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            case AddressMode::ClampToEdge:
+            case AddressMode::clampToEdge:
                 return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-            case AddressMode::MirroredRepeat:
+            case AddressMode::mirroredRepeat:
                 return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
             }
             return VK_SAMPLER_ADDRESS_MODE_REPEAT;
         }
 
+        /**
+         * @brief Creates shader module.
+         * @param device The device used by this operation.
+         * @param spirv The spirv used by this operation.
+         * @return The result of the operation.
+         */
         VkShaderModule createShaderModule(VkDevice device,
                                           std::span<const uint32_t> spirv) {
             if (spirv.empty())
@@ -175,6 +241,12 @@ namespace axiom::renderer::rhi::vulkan {
         }
 
 #ifndef NDEBUG
+        /**
+         * @brief Handles a Vulkan diagnostic message.
+         * @param severity The severity used by this operation.
+         * @param data The data used by this operation.
+         * @return The result of the operation.
+         */
         VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
             VkDebugUtilsMessageSeverityFlagBitsEXT severity,
             VkDebugUtilsMessageTypeFlagsEXT,
@@ -254,7 +326,7 @@ namespace axiom::renderer::rhi::vulkan {
 
         if (vkCreateInstance(&instanceInfo, nullptr, &backend->m_instance) !=
             VK_SUCCESS) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
 #ifndef NDEBUG
@@ -283,7 +355,7 @@ namespace axiom::renderer::rhi::vulkan {
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(backend->m_instance, &deviceCount, nullptr);
         if (deviceCount == 0) {
-            return std::unexpected(RHIError::AdapterRequestFailed);
+            return std::unexpected(RHIError::adapterRequestFailed);
         }
         std::vector<VkPhysicalDevice> physicalDevices(deviceCount);
         vkEnumeratePhysicalDevices(backend->m_instance, &deviceCount,
@@ -343,7 +415,7 @@ namespace axiom::renderer::rhi::vulkan {
         }
 
         if (chosen == VK_NULL_HANDLE) {
-            return std::unexpected(RHIError::AdapterRequestFailed);
+            return std::unexpected(RHIError::adapterRequestFailed);
         }
         backend->m_physicalDevice = chosen;
         backend->m_graphicsQueueFamily = chosenGraphicsFamily;
@@ -395,7 +467,7 @@ namespace axiom::renderer::rhi::vulkan {
 
         if (vkCreateDevice(chosen, &deviceInfo, nullptr, &backend->m_device) !=
             VK_SUCCESS) {
-            return std::unexpected(RHIError::DeviceRequestFailed);
+            return std::unexpected(RHIError::deviceRequestFailed);
         }
         vkGetDeviceQueue(backend->m_device, chosenGraphicsFamily, 0,
                          &backend->m_graphicsQueue);
@@ -409,7 +481,7 @@ namespace axiom::renderer::rhi::vulkan {
 
         if (vmaCreateAllocator(&allocatorInfo, &backend->m_allocator) !=
             VK_SUCCESS) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         // --- Upload-Infrastruktur ---
@@ -419,7 +491,7 @@ namespace axiom::renderer::rhi::vulkan {
         poolInfo.queueFamilyIndex = chosenGraphicsFamily;
         if (vkCreateCommandPool(backend->m_device, &poolInfo, nullptr,
                                 &backend->m_uploadCommandPool) != VK_SUCCESS) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         VkCommandBufferAllocateInfo cmdAllocInfo{
@@ -430,14 +502,14 @@ namespace axiom::renderer::rhi::vulkan {
         if (vkAllocateCommandBuffers(backend->m_device, &cmdAllocInfo,
                                      &backend->m_uploadCommandBuffer) !=
             VK_SUCCESS) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         VkFenceCreateInfo fenceInfo{.sType =
                                         VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
         if (vkCreateFence(backend->m_device, &fenceInfo, nullptr,
                           &backend->m_uploadFence) != VK_SUCCESS) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         // --- Graph-Command-Infrastruktur (Phase 2) ---
@@ -447,14 +519,14 @@ namespace axiom::renderer::rhi::vulkan {
         graphPoolInfo.queueFamilyIndex = chosenGraphicsFamily;
         if (vkCreateCommandPool(backend->m_device, &graphPoolInfo, nullptr,
                                 &backend->m_graphCommandPool) != VK_SUCCESS) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         VkFenceCreateInfo graphFenceInfo{
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
         if (vkCreateFence(backend->m_device, &graphFenceInfo, nullptr,
                           &backend->m_graphFence) != VK_SUCCESS) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         return backend;
@@ -545,7 +617,7 @@ namespace axiom::renderer::rhi::vulkan {
     RHIResult<BufferHandle>
     VulkanBackend::createBuffer(const BufferDesc &desc) {
         if (desc.sizeBytes == 0) {
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
 
         VkBufferCreateInfo bufferInfo{.sType =
@@ -561,7 +633,7 @@ namespace axiom::renderer::rhi::vulkan {
         VmaAllocation allocation;
         if (vmaCreateBuffer(m_allocator, &bufferInfo, &allocInfo, &buffer,
                             &allocation, nullptr) != VK_SUCCESS) {
-            return std::unexpected(RHIError::OutOfMemory);
+            return std::unexpected(RHIError::outOfMemory);
         }
 
         uint32_t index;
@@ -601,7 +673,7 @@ namespace axiom::renderer::rhi::vulkan {
     RHIResult<TextureHandle>
     VulkanBackend::createTexture(const TextureDesc &desc) {
         if (desc.width == 0 || desc.height == 0) {
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
 
         VkImageCreateInfo imageInfo{.sType =
@@ -623,10 +695,10 @@ namespace axiom::renderer::rhi::vulkan {
         VmaAllocation allocation;
         if (vmaCreateImage(m_allocator, &imageInfo, &allocInfo, &image,
                            &allocation, nullptr) != VK_SUCCESS) {
-            return std::unexpected(RHIError::OutOfMemory);
+            return std::unexpected(RHIError::outOfMemory);
         }
 
-        bool isDepth = desc.format == TextureFormat::Depth32Float;
+        bool isDepth = desc.format == TextureFormat::depth32Float;
         VkImageViewCreateInfo viewInfo{
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
         viewInfo.image = image;
@@ -641,7 +713,7 @@ namespace axiom::renderer::rhi::vulkan {
         if (vkCreateImageView(m_device, &viewInfo, nullptr, &view) !=
             VK_SUCCESS) {
             vmaDestroyImage(m_allocator, image, allocation);
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         uint32_t index;
@@ -715,7 +787,7 @@ namespace axiom::renderer::rhi::vulkan {
         if (vmaCreateBuffer(m_allocator, &bufferInfo, &allocInfo,
                             &m_stagingBuffer, &m_stagingAllocation,
                             &resultInfo) != VK_SUCCESS) {
-            return std::unexpected(RHIError::OutOfMemory);
+            return std::unexpected(RHIError::outOfMemory);
         }
 
         m_stagingMapped = resultInfo.pMappedData;
@@ -743,7 +815,7 @@ namespace axiom::renderer::rhi::vulkan {
         vkResetFences(m_device, 1, &m_uploadFence);
         if (vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, m_uploadFence) !=
             VK_SUCCESS) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
         vkWaitForFences(m_device, 1, &m_uploadFence, VK_TRUE, UINT64_MAX);
         return {};
@@ -753,11 +825,11 @@ namespace axiom::renderer::rhi::vulkan {
     VulkanBackend::uploadBufferData(BufferHandle handle, uint64_t offset,
                                     std::span<const std::byte> data) {
         if (handle.index >= m_buffers.size()) {
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
         auto &slot = m_buffers[handle.index];
         if (!slot.alive || slot.generation != handle.generation) {
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
 
         if (auto result = ensureStagingCapacity(data.size()); !result) {
@@ -779,11 +851,11 @@ namespace axiom::renderer::rhi::vulkan {
                                      const TextureUploadDesc &uploadDesc,
                                      std::span<const std::byte> data) {
         if (handle.index >= m_textures.size()) {
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
         auto &slot = m_textures[handle.index];
         if (!slot.alive || slot.generation != handle.generation) {
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
 
         if (auto result = ensureStagingCapacity(data.size()); !result) {
@@ -897,7 +969,7 @@ namespace axiom::renderer::rhi::vulkan {
     RHIResult<SurfaceHandle>
     VulkanBackend::createSurface(void *nativeSurfaceHandle) {
         if (nativeSurfaceHandle == nullptr) {
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
 
         uint32_t index;
@@ -950,7 +1022,7 @@ namespace axiom::renderer::rhi::vulkan {
             // praesentieren kann (uebliche Konfiguration auf Desktop). Eine
             // dedizierte Present-Queue-Suche ist eine spaetere Erweiterung,
             // falls das auf einer Zielplattform mal nicht zutrifft.
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
 
         VkSurfaceCapabilitiesKHR caps{};
@@ -971,14 +1043,14 @@ namespace axiom::renderer::rhi::vulkan {
             // Minimiertes Fenster o.ae. - Swapchain-Erzeugung mit Groesse 0 ist
             // ungueltig. Aufrufer soll es spaeter (nach Restore) erneut
             // versuchen.
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
 
         uint32_t formatCount = 0;
         vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, slot.surface,
                                              &formatCount, nullptr);
         if (formatCount == 0)
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         std::vector<VkSurfaceFormatKHR> formats(formatCount);
         vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, slot.surface,
                                              &formatCount, formats.data());
@@ -998,8 +1070,8 @@ namespace axiom::renderer::rhi::vulkan {
         // eines der beiden.
         TextureFormat rhiFormat =
             chosenFormat.format == VK_FORMAT_R8G8B8A8_UNORM
-                ? TextureFormat::RGBA8Unorm
-                : TextureFormat::BGRA8Unorm;
+                ? TextureFormat::rgbA8Unorm
+                : TextureFormat::bgrA8Unorm;
 
         uint32_t presentModeCount = 0;
         vkGetPhysicalDeviceSurfacePresentModesKHR(
@@ -1082,7 +1154,7 @@ namespace axiom::renderer::rhi::vulkan {
         VkSwapchainKHR newSwapchain;
         if (vkCreateSwapchainKHR(m_device, &createInfo, nullptr,
                                  &newSwapchain) != VK_SUCCESS) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         // Alte Image-Views (ueber m_textures) und die alte Swapchain selbst
@@ -1121,7 +1193,7 @@ namespace axiom::renderer::rhi::vulkan {
             VkImageView view;
             if (vkCreateImageView(m_device, &viewInfo, nullptr, &view) !=
                 VK_SUCCESS) {
-                return std::unexpected(RHIError::Unknown);
+                return std::unexpected(RHIError::unknown);
             }
 
             uint32_t index;
@@ -1156,10 +1228,10 @@ namespace axiom::renderer::rhi::vulkan {
     RHIResult<void> VulkanBackend::setSwapchainVsync(SwapchainHandle handle,
                                                      bool enabled) {
         if (handle.index >= m_swapchains.size())
-            return std::unexpected(RHIError::InvalidHandle);
+            return std::unexpected(RHIError::invalidHandle);
         auto &slot = m_swapchains[handle.index];
         if (!slot.alive || slot.generation != handle.generation)
-            return std::unexpected(RHIError::InvalidHandle);
+            return std::unexpected(RHIError::invalidHandle);
         if (slot.vsync == enabled)
             return {}; // schon im gewuenschten Modus, kein unnoetiger Rebuild
 
@@ -1171,7 +1243,7 @@ namespace axiom::renderer::rhi::vulkan {
     VulkanBackend::createSwapchain(const SwapchainDesc &desc) {
         VkSurfaceKHR surface = nativeSurface(desc.surface);
         if (surface == VK_NULL_HANDLE) {
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
 
         uint32_t index;
@@ -1196,7 +1268,7 @@ namespace axiom::renderer::rhi::vulkan {
             VK_SUCCESS) {
             slot.alive = false;
             m_freeSwapchainSlots.push_back(index);
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         if (auto result =
@@ -1237,11 +1309,11 @@ namespace axiom::renderer::rhi::vulkan {
     RHIResult<AcquiredImage>
     VulkanBackend::acquireNextImage(SwapchainHandle handle) {
         if (handle.index >= m_swapchains.size()) {
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
         auto &slot = m_swapchains[handle.index];
         if (!slot.alive || slot.generation != handle.generation) {
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
 
         uint32_t imageIndex = 0;
@@ -1264,14 +1336,14 @@ namespace axiom::renderer::rhi::vulkan {
         }
 
         if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         vkWaitForFences(m_device, 1, &slot.acquireFence, VK_TRUE, UINT64_MAX);
         vkResetFences(m_device, 1, &slot.acquireFence);
 
         if (imageIndex >= slot.imageTextures.size()) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
         return AcquiredImage{slot.imageTextures[imageIndex], imageIndex};
     }
@@ -1279,11 +1351,11 @@ namespace axiom::renderer::rhi::vulkan {
     RHIResult<void> VulkanBackend::present(SwapchainHandle handle,
                                            uint32_t imageIndex) {
         if (handle.index >= m_swapchains.size()) {
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
         auto &slot = m_swapchains[handle.index];
         if (!slot.alive || slot.generation != handle.generation) {
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
 
         // Keine Wait-Semaphores noetig: submit() (VulkanBackend::submit)
@@ -1304,17 +1376,17 @@ namespace axiom::renderer::rhi::vulkan {
             return recreateSwapchainInternal(slot, slot.width, slot.height);
         }
         if (result != VK_SUCCESS) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
         return {};
     }
 
     TextureFormat VulkanBackend::swapchainFormat(SwapchainHandle handle) const {
         if (handle.index >= m_swapchains.size())
-            return TextureFormat::RGBA8Unorm;
+            return TextureFormat::rgbA8Unorm;
         auto &slot = m_swapchains[handle.index];
         if (!slot.alive || slot.generation != handle.generation)
-            return TextureFormat::RGBA8Unorm;
+            return TextureFormat::rgbA8Unorm;
         return slot.rhiFormat;
     }
 
@@ -1339,15 +1411,15 @@ namespace axiom::renderer::rhi::vulkan {
         VkShaderModule fragModule =
             createShaderModule(m_device, desc.shader.pixelSpirv);
 
-        if ((desc.shader.stages & ShaderStage::Vertex) &&
+        if ((desc.shader.stages & ShaderStage::vertex) &&
             vertModule == VK_NULL_HANDLE) {
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
-        if ((desc.shader.stages & ShaderStage::Pixel) &&
+        if ((desc.shader.stages & ShaderStage::pixel) &&
             fragModule == VK_NULL_HANDLE) {
             if (vertModule != VK_NULL_HANDLE)
                 vkDestroyShaderModule(m_device, vertModule, nullptr);
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
         }
 
         std::vector<VkPipelineShaderStageCreateInfo> stages;
@@ -1429,11 +1501,11 @@ namespace axiom::renderer::rhi::vulkan {
         blendAttachment.colorWriteMask =
             VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
             VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-        if (desc.state.blend != BlendMode::None) {
+        if (desc.state.blend != BlendMode::none) {
             blendAttachment.blendEnable = VK_TRUE;
             blendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
             blendAttachment.dstColorBlendFactor =
-                desc.state.blend == BlendMode::Additive
+                desc.state.blend == BlendMode::additive
                     ? VK_BLEND_FACTOR_ONE
                     : VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
             blendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
@@ -1464,7 +1536,7 @@ namespace axiom::renderer::rhi::vulkan {
                 vkDestroyShaderModule(m_device, vertModule, nullptr);
             if (fragModule)
                 vkDestroyShaderModule(m_device, fragModule, nullptr);
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         VkFormat colorFormat = toVkFormat(desc.colorTargetFormat);
@@ -1503,7 +1575,7 @@ namespace axiom::renderer::rhi::vulkan {
 
         if (result != VK_SUCCESS) {
             vkDestroyPipelineLayout(m_device, pipelineLayout, nullptr);
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         uint32_t index;
@@ -1586,7 +1658,7 @@ namespace axiom::renderer::rhi::vulkan {
         VkDescriptorSetLayout layout;
         if (vkCreateDescriptorSetLayout(m_device, &layoutInfo, nullptr,
                                         &layout) != VK_SUCCESS) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         uint32_t index;
@@ -1623,7 +1695,7 @@ namespace axiom::renderer::rhi::vulkan {
     VulkanBackend::createBindGroup(const BindGroupDesc &desc) {
         VkDescriptorSetLayout layout = nativeDescriptorSetLayout(desc.layout);
         if (layout == VK_NULL_HANDLE)
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
 
         VkDescriptorPoolSize poolSizes[] = {
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8},
@@ -1643,7 +1715,7 @@ namespace axiom::renderer::rhi::vulkan {
         VkDescriptorPool pool;
         if (vkCreateDescriptorPool(m_device, &poolInfo, nullptr, &pool) !=
             VK_SUCCESS) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         VkDescriptorSetVariableDescriptorCountAllocateInfo variableCountInfo{
@@ -1666,7 +1738,7 @@ namespace axiom::renderer::rhi::vulkan {
         if (vkAllocateDescriptorSets(m_device, &allocInfo, &set) !=
             VK_SUCCESS) {
             vkDestroyDescriptorPool(m_device, pool, nullptr);
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         std::vector<VkWriteDescriptorSet> writes;
@@ -1755,7 +1827,7 @@ namespace axiom::renderer::rhi::vulkan {
                                    std::span<const BindGroupEntry> entries) {
         VkDescriptorSet set = nativeDescriptorSet(target);
         if (set == VK_NULL_HANDLE)
-            return std::unexpected(RHIError::InvalidDescriptor);
+            return std::unexpected(RHIError::invalidDescriptor);
 
         std::vector<VkWriteDescriptorSet> writes;
         std::vector<VkDescriptorBufferInfo> bufferInfos;
@@ -1827,7 +1899,7 @@ namespace axiom::renderer::rhi::vulkan {
         VkSampler sampler;
         if (vkCreateSampler(m_device, &samplerInfo, nullptr, &sampler) !=
             VK_SUCCESS) {
-            return std::unexpected(RHIError::Unknown);
+            return std::unexpected(RHIError::unknown);
         }
 
         uint32_t index;

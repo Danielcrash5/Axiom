@@ -1,3 +1,8 @@
+/**
+ * @file testbed/assets/shaders/VertexFormat.glsl
+ * @brief Declares the vertex inputs used by testbed geometry shaders.
+ */
+
 layout(location = 0) in vec3 a_Position;
 layout(location = 1) in vec4 a_Color;
 layout(location = 2) in vec2 a_TexCoord;

@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/renderer/Renderer2D.cpp
+ * @brief Implements the renderer2 d module.
+ */
+
 #include <axiom/renderer/Renderer2D.h>
 #include <axiom/renderer/Renderer.h>
 
@@ -6,7 +11,7 @@
 
 namespace axiom::renderer {
 
-Renderer* Renderer2D::s_renderer = nullptr;
+Renderer* Renderer2D::sRenderer = nullptr;
 
 Renderer2D::SceneData& Renderer2D::scene() {
     static SceneData data;
@@ -14,14 +19,14 @@ Renderer2D::SceneData& Renderer2D::scene() {
 }
 
 void Renderer2D::setActiveRenderer(Renderer* renderer) {
-    s_renderer = renderer;
+    sRenderer = renderer;
 }
 
 Renderer* Renderer2D::activeRenderer() {
-    return s_renderer;
+    return sRenderer;
 }
 
-void Renderer2D::BeginScene(const glm::mat4& viewProjection) {
+void Renderer2D::beginScene(const glm::mat4& viewProjection) {
     auto& data = scene();
     data.viewProjection = viewProjection;
     data.active = true;
@@ -29,37 +34,25 @@ void Renderer2D::BeginScene(const glm::mat4& viewProjection) {
     clearQueuedItems();
 }
 
-void Renderer2D::beginScene(const glm::mat4& viewProjection) {
-    BeginScene(viewProjection);
-}
-
-void Renderer2D::EndScene() {
-    Flush();
+void Renderer2D::endScene() {
+    flush();
     scene().active = false;
 }
 
-void Renderer2D::endScene() {
-    EndScene();
-}
-
-void Renderer2D::Flush() {
+void Renderer2D::flush() {
     auto& data = scene();
     if (!data.active && data.queuedItems.empty()) {
         return;
     }
 
-    if (s_renderer) {
+    if (sRenderer) {
         for (auto& item : data.queuedItems) {
-            s_renderer->submitItem(item);
+            sRenderer->submitItem(item);
         }
     }
 
     data.queuedItems.clear();
     data.nextZIndex = 0;
-}
-
-void Renderer2D::flush() {
-    Flush();
 }
 
 void Renderer2D::pushItem(RenderItem item) {
@@ -72,7 +65,7 @@ void Renderer2D::pushItem(RenderItem item) {
     data.queuedItems.push_back(std::move(item));
 }
 
-void Renderer2D::SubmitQuad(const glm::mat4& transform, const glm::vec4& color,
+void Renderer2D::submitQuad(const glm::mat4& transform, const glm::vec4& color,
                             float tilingFactor) {
     RenderItem item;
     item.material = std::make_shared<Material>();
@@ -83,21 +76,21 @@ void Renderer2D::SubmitQuad(const glm::mat4& transform, const glm::vec4& color,
     item.indexCount = 6;
     item.material->params["baseColor"] = ResourceBinding{};
     item.material->params["baseColor"].binding = 0;
-    item.material->params["baseColor"].kind = ResourceBinding::Kind::Direct;
+    item.material->params["baseColor"].kind = ResourceBinding::Kind::direct;
     item.material->params["baseColor"].buffer = item.vertexBuffer;
     item.material->state = rhi::PipelineState{};
-    item.material->state.blend = rhi::BlendMode::AlphaBlend;
+    item.material->state.blend = rhi::BlendMode::alphaBlend;
     item.depth = 0.0f;
     item.transform = transform;
     item.material->params["tilingFactor"] = ResourceBinding{};
     item.material->params["tilingFactor"].binding = 1;
-    item.material->params["tilingFactor"].kind = ResourceBinding::Kind::Direct;
+    item.material->params["tilingFactor"].kind = ResourceBinding::Kind::direct;
     (void)color;
     (void)tilingFactor;
     pushItem(item);
 }
 
-void Renderer2D::SubmitCircle(const glm::mat4& transform, float thickness,
+void Renderer2D::submitCircle(const glm::mat4& transform, float thickness,
                               const glm::vec4& color) {
     RenderItem item;
     item.material = std::make_shared<Material>();
@@ -112,7 +105,7 @@ void Renderer2D::SubmitCircle(const glm::mat4& transform, float thickness,
     pushItem(item);
 }
 
-void Renderer2D::SubmitLine(const glm::vec3& start, const glm::vec3& end,
+void Renderer2D::submitLine(const glm::vec3& start, const glm::vec3& end,
                            const glm::vec4& color) {
     const glm::vec3 center = (start + end) * 0.5f;
     const glm::vec3 delta = end - start;
@@ -139,20 +132,20 @@ void Renderer2D::SubmitLine(const glm::vec3& start, const glm::vec3& end,
     pushItem(item);
 }
 
-void Renderer2D::SubmitRect(const glm::vec3& position, const glm::vec2& size,
+void Renderer2D::submitRect(const glm::vec3& position, const glm::vec2& size,
                            const glm::vec4& color) {
     const glm::mat4 transform =
         glm::translate(glm::mat4(1.0f), position) *
         glm::scale(glm::mat4(1.0f), glm::vec3(size.x, size.y, 1.0f));
-    SubmitQuad(transform, color);
+    submitQuad(transform, color);
 }
 
-void Renderer2D::DrawQuad(const glm::vec2& position, const glm::vec2& size,
+void Renderer2D::drawQuad(const glm::vec2& position, const glm::vec2& size,
                          const glm::vec4& color) {
-    SubmitRect(glm::vec3(position, 0.0f), size, color);
+    submitRect(glm::vec3(position, 0.0f), size, color);
 }
 
-void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& size,
+void Renderer2D::drawRotatedQuad(const glm::vec2& position, const glm::vec2& size,
                                 float rotationRadians,
                                 const glm::vec4& color) {
     glm::mat4 transform = glm::translate(glm::mat4(1.0f),
@@ -161,22 +154,22 @@ void Renderer2D::DrawRotatedQuad(const glm::vec2& position, const glm::vec2& siz
                                       glm::vec3(0.0f, 0.0f, 1.0f)) *
                           glm::scale(glm::mat4(1.0f),
                                     glm::vec3(size.x, size.y, 1.0f));
-    SubmitQuad(transform, color);
+    submitQuad(transform, color);
 }
 
-void Renderer2D::DrawCircle(const glm::vec2& position, float radius,
+void Renderer2D::drawCircle(const glm::vec2& position, float radius,
                            const glm::vec4& color,
                            float thickness) {
     glm::mat4 transform = glm::translate(glm::mat4(1.0f),
                                        glm::vec3(position, 0.0f)) *
                           glm::scale(glm::mat4(1.0f),
                                     glm::vec3(radius, radius, 1.0f));
-    SubmitCircle(transform, thickness, color);
+    submitCircle(transform, thickness, color);
 }
 
-void Renderer2D::DrawLine(const glm::vec2& start, const glm::vec2& end,
+void Renderer2D::drawLine(const glm::vec2& start, const glm::vec2& end,
                          const glm::vec4& color) {
-    SubmitLine(glm::vec3(start, 0.0f), glm::vec3(end, 0.0f), color);
+    submitLine(glm::vec3(start, 0.0f), glm::vec3(end, 0.0f), color);
 }
 
 std::span<const RenderItem> Renderer2D::queuedItems() {
@@ -190,21 +183,6 @@ size_t Renderer2D::queuedItemCount() {
 void Renderer2D::clearQueuedItems() {
     scene().queuedItems.clear();
     scene().nextZIndex = 0;
-}
-
-void Renderer2D::submitQuad(const glm::mat4& transform, const glm::vec4& color,
-                           float tilingFactor) {
-    SubmitQuad(transform, color, tilingFactor);
-}
-
-void Renderer2D::submitCircle(const glm::mat4& transform, float thickness,
-                             const glm::vec4& color) {
-    SubmitCircle(transform, thickness, color);
-}
-
-void Renderer2D::submitLine(const glm::vec3& start, const glm::vec3& end,
-                           const glm::vec4& color) {
-    SubmitLine(start, end, color);
 }
 
 } // namespace axiom::renderer

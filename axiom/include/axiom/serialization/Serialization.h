@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/serialization/Serialization.h
+ * @brief Declares the public interface for the serialization.
+ */
+
 #pragma once
 
 #include "axiom/assets/VFS.h"
@@ -19,15 +24,34 @@ namespace axiom::serialization {
     // Forward declaration - JSON is only used in implementation files
     // to avoid GCC/nlohmann/json compatibility issues with wide header inclusion
 
+    /**
+     * @brief Provides the binary input archive type alias.
+     */
     using BinaryInputArchive = cereal::BinaryInputArchive;
+    /**
+     * @brief Provides the binary output archive type alias.
+     */
     using BinaryOutputArchive = cereal::BinaryOutputArchive;
+    /**
+     * @brief Provides the portable binary input archive type alias.
+     */
     using PortableBinaryInputArchive = cereal::PortableBinaryInputArchive;
+    /**
+     * @brief Provides the portable binary output archive type alias.
+     */
     using PortableBinaryOutputArchive = cereal::PortableBinaryOutputArchive;
 
     namespace detail {
 
+        /**
+         * @brief Converts this value to archive bytes.
+         * @tparam Archive Template type used by this operation.
+         * @tparam T Template type used by this operation.
+         * @param value The value used by this operation.
+         * @return The result of the operation.
+         */
         template <typename Archive, typename T>
-        std::vector<std::uint8_t> ToArchiveBytes(const T &value) {
+        std::vector<std::uint8_t> toArchiveBytes(const T &value) {
             std::ostringstream stream(std::ios::out | std::ios::binary);
             Archive archive(stream);
             archive(value);
@@ -36,8 +60,15 @@ namespace axiom::serialization {
             return {bytes.begin(), bytes.end()};
         }
 
+        /**
+         * @brief Creates a value from archive bytes data.
+         * @tparam Archive Template type used by this operation.
+         * @tparam T Template type used by this operation.
+         * @param bytes The bytes used by this operation.
+         * @return The result of the operation.
+         */
         template <typename Archive, typename T>
-        T FromArchiveBytes(std::span<const std::uint8_t> bytes) {
+        T fromArchiveBytes(std::span<const std::uint8_t> bytes) {
             const std::string data(bytes.begin(), bytes.end());
             std::istringstream stream(data, std::ios::in | std::ios::binary);
             Archive archive(stream);
@@ -49,134 +80,248 @@ namespace axiom::serialization {
 
     } // namespace detail
 
-    template <typename T> std::vector<std::uint8_t> ToBinary(const T &value) {
-        return detail::ToArchiveBytes<BinaryOutputArchive>(value);
+    /**
+     * @brief Converts this value to binary.
+     * @tparam T Template type used by this operation.
+     * @param value The value used by this operation.
+     * @return The result of the operation.
+     */
+    template <typename T> std::vector<std::uint8_t> toBinary(const T &value) {
+        return detail::toArchiveBytes<BinaryOutputArchive>(value);
     }
 
-    template <typename T> T FromBinary(std::span<const std::uint8_t> bytes) {
-        return detail::FromArchiveBytes<BinaryInputArchive, T>(bytes);
+    /**
+     * @brief Creates a value from binary data.
+     * @tparam T Template type used by this operation.
+     * @param bytes The bytes used by this operation.
+     * @return The result of the operation.
+     */
+    template <typename T> T fromBinary(std::span<const std::uint8_t> bytes) {
+        return detail::fromArchiveBytes<BinaryInputArchive, T>(bytes);
     }
 
-    template <typename T> T FromBinary(const std::vector<std::uint8_t> &bytes) {
-        return FromBinary<T>(std::span<const std::uint8_t>(bytes));
+    /**
+     * @brief Creates a value from binary data.
+     * @tparam T Template type used by this operation.
+     * @param bytes The bytes used by this operation.
+     * @return The result of the operation.
+     */
+    template <typename T> T fromBinary(const std::vector<std::uint8_t> &bytes) {
+        return fromBinary<T>(std::span<const std::uint8_t>(bytes));
     }
 
+    /**
+     * @brief Converts this value to portable binary.
+     * @tparam T Template type used by this operation.
+     * @param value The value used by this operation.
+     * @return The result of the operation.
+     */
     template <typename T>
-    std::vector<std::uint8_t> ToPortableBinary(const T &value) {
-        return detail::ToArchiveBytes<PortableBinaryOutputArchive>(value);
+    std::vector<std::uint8_t> toPortableBinary(const T &value) {
+        return detail::toArchiveBytes<PortableBinaryOutputArchive>(value);
     }
 
+    /**
+     * @brief Creates a value from portable binary data.
+     * @tparam T Template type used by this operation.
+     * @param bytes The bytes used by this operation.
+     * @return The result of the operation.
+     */
     template <typename T>
-    T FromPortableBinary(std::span<const std::uint8_t> bytes) {
-        return detail::FromArchiveBytes<PortableBinaryInputArchive, T>(bytes);
+    T fromPortableBinary(std::span<const std::uint8_t> bytes) {
+        return detail::fromArchiveBytes<PortableBinaryInputArchive, T>(bytes);
     }
 
+    /**
+     * @brief Creates a value from portable binary data.
+     * @tparam T Template type used by this operation.
+     * @param bytes The bytes used by this operation.
+     * @return The result of the operation.
+     */
     template <typename T>
-    T FromPortableBinary(const std::vector<std::uint8_t> &bytes) {
-        return FromPortableBinary<T>(std::span<const std::uint8_t>(bytes));
+    T fromPortableBinary(const std::vector<std::uint8_t> &bytes) {
+        return fromPortableBinary<T>(std::span<const std::uint8_t>(bytes));
     }
 
     // JSON serialization moved to implementation files to avoid header compilation issues
     // with GCC/nlohmann/json compatibility. Use alternative JSON libraries or direct
     // string serialization if needed.
 
+    /**
+     * @brief Attempts to from binary.
+     * @tparam T Template type used by this operation.
+     * @param bytes The bytes used by this operation.
+     * @param[out] outValue Receives the value value.
+     * @return The result of the operation.
+     */
     template <typename T>
-    bool TryFromBinary(std::span<const std::uint8_t> bytes, T &outValue) {
+    bool tryFromBinary(std::span<const std::uint8_t> bytes, T &outValue) {
         try {
-            outValue = FromBinary<T>(bytes);
+            outValue = fromBinary<T>(bytes);
             return true;
         } catch (...) {
             return false;
         }
     }
 
+    /**
+     * @brief Attempts to from binary.
+     * @tparam T Template type used by this operation.
+     * @param bytes The bytes used by this operation.
+     * @param[out] outValue Receives the value value.
+     * @return The result of the operation.
+     */
     template <typename T>
-    bool TryFromBinary(const std::vector<std::uint8_t> &bytes, T &outValue) {
-        return TryFromBinary<T>(std::span<const std::uint8_t>(bytes), outValue);
+    bool tryFromBinary(const std::vector<std::uint8_t> &bytes, T &outValue) {
+        return tryFromBinary<T>(std::span<const std::uint8_t>(bytes), outValue);
     }
 
+    /**
+     * @brief Attempts to from portable binary.
+     * @tparam T Template type used by this operation.
+     * @param bytes The bytes used by this operation.
+     * @param[out] outValue Receives the value value.
+     * @return The result of the operation.
+     */
     template <typename T>
-    bool TryFromPortableBinary(std::span<const std::uint8_t> bytes,
+    bool tryFromPortableBinary(std::span<const std::uint8_t> bytes,
                                T &outValue) {
         try {
-            outValue = FromPortableBinary<T>(bytes);
+            outValue = fromPortableBinary<T>(bytes);
             return true;
         } catch (...) {
             return false;
         }
     }
 
+    /**
+     * @brief Attempts to from portable binary.
+     * @tparam T Template type used by this operation.
+     * @param bytes The bytes used by this operation.
+     * @param[out] outValue Receives the value value.
+     * @return The result of the operation.
+     */
     template <typename T>
-    bool TryFromPortableBinary(const std::vector<std::uint8_t> &bytes,
+    bool tryFromPortableBinary(const std::vector<std::uint8_t> &bytes,
                                T &outValue) {
-        return TryFromPortableBinary<T>(std::span<const std::uint8_t>(bytes),
+        return tryFromPortableBinary<T>(std::span<const std::uint8_t>(bytes),
                                         outValue);
     }
 
+    /**
+     * @brief Attempts to from JSON string.
+     * @tparam T Template type used by this operation.
+     * @param text The text used by this operation.
+     * @param[out] outValue Receives the value value.
+     * @return The result of the operation.
+     */
     template <typename T>
-    bool TryFromJsonString(std::string_view text, T &outValue) {
+    bool tryfromJsonString(std::string_view text, T &outValue) {
         try {
-            outValue = FromJsonString<T>(text);
+            outValue = fromJsonString<T>(text);
             return true;
         } catch (...) {
             return false;
         }
     }
 
+    /**
+     * @brief Saves binary.
+     * @tparam T Template type used by this operation.
+     * @param virtualPath The virtual path used by this operation.
+     * @param value The value used by this operation.
+     * @return The result of the operation.
+     */
     template <typename T>
-    bool SaveBinary(const std::string &virtualPath, const T &value) {
+    bool saveBinary(const std::string &virtualPath, const T &value) {
         try {
-            return VFS::WriteFile(virtualPath, ToBinary(value));
+            return VFS::writeFile(virtualPath, toBinary(value));
         } catch (...) {
             return false;
         }
     }
 
+    /**
+     * @brief Loads binary.
+     * @tparam T Template type used by this operation.
+     * @param virtualPath The virtual path used by this operation.
+     * @param[out] outValue Receives the value value.
+     * @return The result of the operation.
+     */
     template <typename T>
-    bool LoadBinary(const std::string &virtualPath, T &outValue) {
+    bool loadBinary(const std::string &virtualPath, T &outValue) {
         std::vector<std::uint8_t> bytes;
-        if (!VFS::ReadFile(virtualPath, bytes))
+        if (!VFS::readFile(virtualPath, bytes))
             return false;
 
-        return TryFromBinary(bytes, outValue);
+        return tryFromBinary(bytes, outValue);
     }
 
+    /**
+     * @brief Saves portable binary.
+     * @tparam T Template type used by this operation.
+     * @param virtualPath The virtual path used by this operation.
+     * @param value The value used by this operation.
+     * @return The result of the operation.
+     */
     template <typename T>
-    bool SavePortableBinary(const std::string &virtualPath, const T &value) {
+    bool savePortableBinary(const std::string &virtualPath, const T &value) {
         try {
-            return VFS::WriteFile(virtualPath, ToPortableBinary(value));
+            return VFS::writeFile(virtualPath, toPortableBinary(value));
         } catch (...) {
             return false;
         }
     }
 
+    /**
+     * @brief Loads portable binary.
+     * @tparam T Template type used by this operation.
+     * @param virtualPath The virtual path used by this operation.
+     * @param[out] outValue Receives the value value.
+     * @return The result of the operation.
+     */
     template <typename T>
-    bool LoadPortableBinary(const std::string &virtualPath, T &outValue) {
+    bool loadPortableBinary(const std::string &virtualPath, T &outValue) {
         std::vector<std::uint8_t> bytes;
-        if (!VFS::ReadFile(virtualPath, bytes))
+        if (!VFS::readFile(virtualPath, bytes))
             return false;
 
-        return TryFromPortableBinary(bytes, outValue);
+        return tryFromPortableBinary(bytes, outValue);
     }
 
+    /**
+     * @brief Saves JSON.
+     * @tparam T Template type used by this operation.
+     * @param virtualPath The virtual path used by this operation.
+     * @param value The value used by this operation.
+     * @param indent The indent used by this operation.
+     * @return The result of the operation.
+     */
     template <typename T>
-    bool SaveJson(const std::string &virtualPath, const T &value,
+    bool saveJson(const std::string &virtualPath, const T &value,
                   int indent = 4) {
         try {
-            return VFS::WriteTextFile(virtualPath,
-                                      ToJsonString(value, indent));
+            return VFS::writeTextFile(virtualPath,
+                                      toJsonString(value, indent));
         } catch (...) {
             return false;
         }
     }
 
+    /**
+     * @brief Loads JSON.
+     * @tparam T Template type used by this operation.
+     * @param virtualPath The virtual path used by this operation.
+     * @param[out] outValue Receives the value value.
+     * @return The result of the operation.
+     */
     template <typename T>
-    bool LoadJson(const std::string &virtualPath, T &outValue) {
+    bool loadJson(const std::string &virtualPath, T &outValue) {
         std::string text;
-        if (!VFS::ReadTextFile(virtualPath, text))
+        if (!VFS::readTextFile(virtualPath, text))
             return false;
 
-        return TryFromJsonString(text, outValue);
+        return TryfromJsonString(text, outValue);
     }
 
 } // namespace axiom::serialization

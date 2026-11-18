@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/renderer/passes/QuadRenderPass.cpp
+ * @brief Implements the quad render pass module.
+ */
+
 #include <axiom/renderer/passes/QuadRenderPass.h>
 
 #include <axiom/core/Logger.h>
@@ -15,8 +20,11 @@
 namespace axiom::renderer::passes {
 namespace {
 
+/** @brief Stores the data for the quad vertex. */
 struct QuadVertex {
+    /** @brief Stores the position. */
     float position[4];
+    /** @brief Stores the color. */
     float color[4];
 };
 
@@ -51,18 +59,18 @@ rhi::RHIResult<void> QuadRenderPass::ensureVertexCapacity(size_t vertexCount) {
     size_t newCapacity = std::max<size_t>(m_vertexCapacity, kUnitQuad.size());
     while (newCapacity < vertexCount) {
         if (newCapacity > std::numeric_limits<size_t>::max() / 2) {
-            return std::unexpected(rhi::RHIError::OutOfMemory);
+            return std::unexpected(rhi::RHIError::outOfMemory);
         }
         newCapacity *= 2;
     }
     if (newCapacity > std::numeric_limits<uint64_t>::max() /
                           sizeof(QuadVertex)) {
-        return std::unexpected(rhi::RHIError::OutOfMemory);
+        return std::unexpected(rhi::RHIError::outOfMemory);
     }
 
     auto buffer = m_backend->createBuffer({
         .sizeBytes = newCapacity * sizeof(QuadVertex),
-        .usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst,
+        .usage = rhi::BufferUsage::vertex | rhi::BufferUsage::copyDst,
         .debugName = "SceneQuadVertices",
     });
     if (!buffer) {
@@ -82,7 +90,7 @@ rhi::RHIResult<void> QuadRenderPass::initialize(
     Renderer& renderer, rhi::SurfaceHandle surface,
     rhi::TextureFormat colorTargetFormat) {
     if (m_backend || !renderer.initialized() || !surface.valid()) {
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
 
     m_backend = &renderer.backend();
@@ -96,10 +104,10 @@ rhi::RHIResult<void> QuadRenderPass::initialize(
         .stride = sizeof(QuadVertex),
         .attributes = {
             {.semantic = "POSITION", .location = 0,
-             .format = rhi::VertexFormat::Float32x4,
+             .format = rhi::VertexFormat::float32x4,
              .offset = offsetof(QuadVertex, position)},
             {.semantic = "COLOR", .location = 1,
-             .format = rhi::VertexFormat::Float32x4,
+             .format = rhi::VertexFormat::float32x4,
              .offset = offsetof(QuadVertex, color)},
         },
     };
@@ -115,17 +123,17 @@ rhi::RHIResult<void> QuadRenderPass::initialize(
     const rhi::ShaderDesc* shader = renderer.shaderRegistry().find(*shaderId);
     if (!shader) {
         AXIOM_ERROR("QuadRenderPass: kompilierter Shader fehlt im ShaderRegistry");
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
 
     rhi::PipelineDesc pipelineDesc{
         .shader = *shader,
         .state = {
-            .blend = rhi::BlendMode::AlphaBlend,
+            .blend = rhi::BlendMode::alphaBlend,
             .depthTest = false,
             .depthWrite = false,
-            .cull = rhi::CullMode::None,
-            .topology = rhi::PrimitiveTopology::TriangleList,
+            .cull = rhi::CullMode::none,
+            .topology = rhi::PrimitiveTopology::triangleList,
         },
         .colorTargetFormat = colorTargetFormat,
     };
@@ -142,12 +150,12 @@ void QuadRenderPass::setup(rendergraph::RenderGraphBuilder& builder) {
     const View* view = builder.currentView();
     const auto presentTarget = builder.presentTargetResource();
     if (!view || !presentTarget.valid() ||
-        view->target.kind != RenderTargetKind::Swapchain ||
+        view->target.kind != RenderTargetKind::swapchain ||
         !(view->target.surface == m_surface)) {
         return;
     }
 
-    m_target = builder.write(presentTarget, rhi::TextureLayout::ColorAttachment);
+    m_target = builder.write(presentTarget, rhi::TextureLayout::colorAttachment);
 }
 
 void QuadRenderPass::execute(rendergraph::RenderContext& ctx,

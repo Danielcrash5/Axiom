@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/Input/ActionMap.cpp
+ * @brief Implements the action map module.
+ */
+
 #include "axiom/input/ActionMap.h"
 #include <cmath>
 #include <glm/glm.hpp>
@@ -6,64 +11,64 @@ namespace axiom {
 
     // ================= BUTTONS =================
 
-    void ActionMap::BindButton(const std::string &action, InputType type,
+    void ActionMap::bindButton(const std::string &action, InputType type,
                                int code, int deviceId) {
-        m_ButtonBindings[action].push_back({type, code, deviceId});
+        m_buttonBindings[action].push_back({type, code, deviceId});
     }
 
-    void ActionMap::BindHat(const std::string &action, InputType type,
+    void ActionMap::bindHat(const std::string &action, InputType type,
                             JoystickHat mask, int hat, int deviceId) {
-        m_ButtonBindings[action].push_back(
+        m_buttonBindings[action].push_back(
             {type, static_cast<int>(mask), deviceId, hat});
     }
 
-    void ActionMap::BindJoystickHat(const std::string &action, JoystickHat mask,
+    void ActionMap::bindJoystickHat(const std::string &action, JoystickHat mask,
                                     int hat, int deviceId) {
-        BindHat(action, InputType::JoystickHat, mask, hat, deviceId);
+        bindHat(action, InputType::joystickHat, mask, hat, deviceId);
     }
 
-    void ActionMap::RebindButton(const std::string &action, size_t index,
+    void ActionMap::rebindButton(const std::string &action, size_t index,
                                  InputType type, int code, int deviceId) {
-        m_ButtonBindings[action][index] = {type, code, deviceId};
+        m_buttonBindings[action][index] = {type, code, deviceId};
     }
 
-    bool ActionMap::IsActionPressed(const std::string &action) const {
-        auto it = m_ButtonBindings.find(action);
-        if (it == m_ButtonBindings.end())
+    bool ActionMap::isActionPressed(const std::string &action) const {
+        auto it = m_buttonBindings.find(action);
+        if (it == m_buttonBindings.end())
             return false;
 
         for (const auto &binding : it->second) {
             switch (binding.type) {
-            case InputType::Key:
-                if (Input::IsKeyPressed(binding.code))
+            case InputType::key:
+                if (Input::isKeyPressed(binding.code))
                     return true;
                 break;
-            case InputType::MouseButton:
-                if (Input::IsMousePressed(binding.code))
+            case InputType::mouseButton:
+                if (Input::isMousePressed(binding.code))
                     return true;
                 break;
-            case InputType::GamepadButton:
-                if (Input::IsGamepadPressed(binding.code, binding.deviceId))
+            case InputType::gamepadButton:
+                if (Input::isGamepadPressed(binding.code, binding.deviceId))
                     return true;
                 break;
-            case InputType::JoystickButton:
-                if (Input::IsJoystickButtonPressed(binding.code,
+            case InputType::joystickButton:
+                if (Input::isJoystickButtonPressed(binding.code,
                                                    binding.deviceId))
                     return true;
                 break;
-            case InputType::JoystickHat:
-                if (Input::IsJoystickHatPressed(
+            case InputType::joystickHat:
+                if (Input::isJoystickHatPressed(
                         static_cast<JoystickHat>(binding.code), binding.index,
                         binding.deviceId))
                     return true;
                 break;
-            case InputType::CustomButton:
-                if (Input::IsCustomDeviceButtonPressed(binding.code,
+            case InputType::customButton:
+                if (Input::isCustomDeviceButtonPressed(binding.code,
                                                        binding.deviceId))
                     return true;
                 break;
-            case InputType::CustomHat:
-                if (Input::IsCustomDeviceHatPressed(
+            case InputType::customHat:
+                if (Input::isCustomDeviceHatPressed(
                         static_cast<JoystickHat>(binding.code), binding.index,
                         binding.deviceId))
                     return true;
@@ -76,43 +81,43 @@ namespace axiom {
         return false;
     }
 
-    bool ActionMap::IsActionJustPressed(const std::string &action) const {
-        auto it = m_ButtonBindings.find(action);
-        if (it == m_ButtonBindings.end())
+    bool ActionMap::isActionJustPressed(const std::string &action) const {
+        auto it = m_buttonBindings.find(action);
+        if (it == m_buttonBindings.end())
             return false;
 
         for (const auto &binding : it->second) {
             switch (binding.type) {
-            case InputType::Key:
-                if (Input::IsKeyJustPressed(binding.code))
+            case InputType::key:
+                if (Input::isKeyJustPressed(binding.code))
                     return true;
                 break;
-            case InputType::MouseButton:
-                if (Input::IsMouseJustPressed(binding.code))
+            case InputType::mouseButton:
+                if (Input::isMouseJustPressed(binding.code))
                     return true;
                 break;
-            case InputType::GamepadButton:
-                if (Input::IsGamepadJustPressed(binding.code, binding.deviceId))
+            case InputType::gamepadButton:
+                if (Input::isGamepadJustPressed(binding.code, binding.deviceId))
                     return true;
                 break;
-            case InputType::JoystickButton:
-                if (Input::IsJoystickButtonJustPressed(binding.code,
+            case InputType::joystickButton:
+                if (Input::isJoystickButtonJustPressed(binding.code,
                                                        binding.deviceId))
                     return true;
                 break;
-            case InputType::JoystickHat:
-                if (Input::IsJoystickHatJustPressed(
+            case InputType::joystickHat:
+                if (Input::isJoystickHatJustPressed(
                         static_cast<JoystickHat>(binding.code), binding.index,
                         binding.deviceId))
                     return true;
                 break;
-            case InputType::CustomButton:
-                if (Input::IsCustomDeviceButtonJustPressed(binding.code,
+            case InputType::customButton:
+                if (Input::isCustomDeviceButtonJustPressed(binding.code,
                                                            binding.deviceId))
                     return true;
                 break;
-            case InputType::CustomHat:
-                if (Input::IsCustomDeviceHatJustPressed(
+            case InputType::customHat:
+                if (Input::isCustomDeviceHatJustPressed(
                         static_cast<JoystickHat>(binding.code), binding.index,
                         binding.deviceId))
                     return true;
@@ -127,19 +132,19 @@ namespace axiom {
 
     // ================= AXIS =================
 
-    void ActionMap::BindAxis(const std::string &axis,
+    void ActionMap::bindAxis(const std::string &axis,
                              const AxisBinding &binding) {
-        m_AxisBindings[axis].push_back(binding);
+        m_axisBindings[axis].push_back(binding);
     }
 
-    void ActionMap::RebindAxis(const std::string &axis, size_t index,
+    void ActionMap::rebindAxis(const std::string &axis, size_t index,
                                const AxisBinding &binding) {
-        m_AxisBindings[axis][index] = binding;
+        m_axisBindings[axis][index] = binding;
     }
 
-    float ActionMap::GetAxis(const std::string &axis) const {
-        auto it = m_AxisBindings.find(axis);
-        if (it == m_AxisBindings.end())
+    float ActionMap::getAxis(const std::string &axis) const {
+        auto it = m_axisBindings.find(axis);
+        if (it == m_axisBindings.end())
             return 0.0f;
 
         float value = 0.0f;
@@ -148,26 +153,26 @@ namespace axiom {
             float input = 0.0f;
 
             switch (binding.type) {
-            case InputType::Key:
-                input = Input::IsKeyPressed(binding.code) ? 1.0f : 0.0f;
+            case InputType::key:
+                input = Input::isKeyPressed(binding.code) ? 1.0f : 0.0f;
                 break;
 
-            case InputType::GamepadAxis:
-                input = Input::GetGamepadAxis(binding.code, binding.deviceId);
+            case InputType::gamepadAxis:
+                input = Input::getGamepadAxis(binding.code, binding.deviceId);
                 break;
 
-            case InputType::JoystickAxis:
-                input = Input::GetJoystickAxis(binding.code, binding.deviceId,
+            case InputType::joystickAxis:
+                input = Input::getJoystickAxis(binding.code, binding.deviceId,
                                                binding.deadzone);
                 break;
 
-            case InputType::CustomAxis:
-                input = Input::GetCustomDeviceAxis(
+            case InputType::customAxis:
+                input = Input::getCustomDeviceAxis(
                     binding.code, binding.deviceId, binding.deadzone);
                 break;
 
-            case InputType::MouseAxis: {
-                glm::vec2 delta = Input::GetMouseDelta();
+            case InputType::mouseAxis: {
+                glm::vec2 delta = Input::getMouseDelta();
                 input = (binding.code == 0) ? delta.x : delta.y;
                 break;
             }
@@ -190,19 +195,19 @@ namespace axiom {
 
     // ================= AXIS 2D =================
 
-    void ActionMap::BindAxis2D(const std::string &axis,
+    void ActionMap::bindAxis2D(const std::string &axis,
                                const std::string &xAxis,
                                const std::string &yAxis) {
-        m_Axis2DBindings[axis] = {xAxis, yAxis};
+        m_axis2DBindings[axis] = {xAxis, yAxis};
     }
 
-    glm::vec2 ActionMap::GetAxis2D(const std::string &axis) const {
-        auto it = m_Axis2DBindings.find(axis);
-        if (it == m_Axis2DBindings.end())
+    glm::vec2 ActionMap::getAxis2D(const std::string &axis) const {
+        auto it = m_axis2DBindings.find(axis);
+        if (it == m_axis2DBindings.end())
             return glm::vec2(0.0f);
 
-        float x = GetAxis(it->second.xAxis);
-        float y = GetAxis(it->second.yAxis);
+        float x = getAxis(it->second.xAxis);
+        float y = getAxis(it->second.yAxis);
 
         return glm::vec2(x, y);
     }

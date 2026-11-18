@@ -1,41 +1,56 @@
+/**
+ * @file axiom/src/core/Logger.cpp
+ * @brief Implements the logger module.
+ */
+
 #include "axiom/core/Logger.h"
 #include <iostream>
 
 namespace axiom {
 
     namespace {
-        const char *ToString(LogLevel level) {
+        /**
+         * @brief Converts this value to string.
+         * @param level The level used by this operation.
+         * @return The result of the operation.
+         */
+        const char *toString(LogLevel level) {
             switch (level) {
-            case LogLevel::Trace:
+            case LogLevel::trace:
                 return "TRACE";
-            case LogLevel::Debug:
+            case LogLevel::debug:
                 return "DEBUG";
-            case LogLevel::Info:
+            case LogLevel::info:
                 return "INFO";
-            case LogLevel::Warn:
+            case LogLevel::warn:
                 return "WARN";
-            case LogLevel::Error:
+            case LogLevel::error:
                 return "ERROR";
-            case LogLevel::Fatal:
+            case LogLevel::fatal:
                 return "FATAL";
             default:
                 return "UNKNOWN";
             }
         }
 
-        const char *GetColor(LogLevel level) {
+        /**
+         * @brief Returns the color.
+         * @param level The level used by this operation.
+         * @return The result of the operation.
+         */
+        const char *getColor(LogLevel level) {
             switch (level) {
-            case LogLevel::Trace:
+            case LogLevel::trace:
                 return "\033[37m"; // white
-            case LogLevel::Debug:
+            case LogLevel::debug:
                 return "\033[36m"; // cyan
-            case LogLevel::Info:
+            case LogLevel::info:
                 return "\033[32m"; // green
-            case LogLevel::Warn:
+            case LogLevel::warn:
                 return "\033[33m"; // yellow
-            case LogLevel::Error:
+            case LogLevel::error:
                 return "\033[31m"; // red
-            case LogLevel::Fatal:
+            case LogLevel::fatal:
                 return "\033[41m"; // red background
             default:
                 return "\033[0m";
@@ -44,26 +59,26 @@ namespace axiom {
     } // namespace
 
 #ifdef AXIOM_ENABLE_CONSOLE_LOG
-    void ConsoleSink::Write(LogLevel level, const std::string &message) {
-        std::cout << GetColor(level) << "[" << ToString(level) << "] "
+    void ConsoleSink::write(LogLevel level, const std::string &message) {
+        std::cout << getColor(level) << "[" << toString(level) << "] "
                   << message << "\033[0m" << std::endl;
 
-        if (level == LogLevel::Fatal)
+        if (level == LogLevel::fatal)
             std::terminate();
     }
 
 #endif
 
-    Logger &Logger::Get() {
+    Logger &Logger::get() {
         static Logger instance;
         return instance;
     }
 
-    void Logger::SetLevel(LogLevel level) { m_Level = level; }
+    void Logger::setLevel(LogLevel level) { m_level = level; }
 
-    void Logger::AddSink(std::shared_ptr<LogSink> sink) {
-        std::lock_guard lock(m_Mutex);
-        m_Sinks.emplace_back(sink);
+    void Logger::addSink(std::shared_ptr<LogSink> sink) {
+        std::lock_guard lock(m_mutex);
+        m_sinks.emplace_back(sink);
     }
 
 } // namespace axiom

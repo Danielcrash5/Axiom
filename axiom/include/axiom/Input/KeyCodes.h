@@ -1,121 +1,235 @@
+/**
+ * @file axiom/include/axiom/Input/KeyCodes.h
+ * @brief Declares the public interface for the key codes.
+ */
+
 #pragma once
 
 #include <SDL3/SDL.h>
 
 namespace axiom {
+    /**
+     * @brief Provides the key code type alias.
+     */
     using KeyCode = int;
 
-    namespace Key {
-        constexpr KeyCode A = SDL_SCANCODE_A;
-        constexpr KeyCode B = SDL_SCANCODE_B;
-        constexpr KeyCode C = SDL_SCANCODE_C;
-        constexpr KeyCode D = SDL_SCANCODE_D;
-        constexpr KeyCode E = SDL_SCANCODE_E;
-        constexpr KeyCode F = SDL_SCANCODE_F;
-        constexpr KeyCode G = SDL_SCANCODE_G;
-        constexpr KeyCode H = SDL_SCANCODE_H;
-        constexpr KeyCode I = SDL_SCANCODE_I;
-        constexpr KeyCode J = SDL_SCANCODE_J;
-        constexpr KeyCode K = SDL_SCANCODE_K;
-        constexpr KeyCode L = SDL_SCANCODE_L;
-        constexpr KeyCode M = SDL_SCANCODE_M;
-        constexpr KeyCode N = SDL_SCANCODE_N;
-        constexpr KeyCode O = SDL_SCANCODE_O;
-        constexpr KeyCode P = SDL_SCANCODE_P;
-        constexpr KeyCode Q = SDL_SCANCODE_Q;
-        constexpr KeyCode R = SDL_SCANCODE_R;
-        constexpr KeyCode S = SDL_SCANCODE_S;
-        constexpr KeyCode T = SDL_SCANCODE_T;
-        constexpr KeyCode U = SDL_SCANCODE_U;
-        constexpr KeyCode V = SDL_SCANCODE_V;
-        constexpr KeyCode W = SDL_SCANCODE_W;
-        constexpr KeyCode X = SDL_SCANCODE_X;
-        constexpr KeyCode Y = SDL_SCANCODE_Y;
-        constexpr KeyCode Z = SDL_SCANCODE_Z;
+    namespace key {
+        /** @brief Maps a to its input code. */
+        constexpr KeyCode a = SDL_SCANCODE_A;
+        /** @brief Maps b to its input code. */
+        constexpr KeyCode b = SDL_SCANCODE_B;
+        /** @brief Maps c to its input code. */
+        constexpr KeyCode c = SDL_SCANCODE_C;
+        /** @brief Maps d to its input code. */
+        constexpr KeyCode d = SDL_SCANCODE_D;
+        /** @brief Maps e to its input code. */
+        constexpr KeyCode e = SDL_SCANCODE_E;
+        /** @brief Maps f to its input code. */
+        constexpr KeyCode f = SDL_SCANCODE_F;
+        /** @brief Maps g to its input code. */
+        constexpr KeyCode g = SDL_SCANCODE_G;
+        /** @brief Maps h to its input code. */
+        constexpr KeyCode h = SDL_SCANCODE_H;
+        /** @brief Maps i to its input code. */
+        constexpr KeyCode i = SDL_SCANCODE_I;
+        /** @brief Maps j to its input code. */
+        constexpr KeyCode j = SDL_SCANCODE_J;
+        /** @brief Maps k to its input code. */
+        constexpr KeyCode k = SDL_SCANCODE_K;
+        /** @brief Maps l to its input code. */
+        constexpr KeyCode l = SDL_SCANCODE_L;
+        /** @brief Maps m to its input code. */
+        constexpr KeyCode m = SDL_SCANCODE_M;
+        /** @brief Maps n to its input code. */
+        constexpr KeyCode n = SDL_SCANCODE_N;
+        /** @brief Maps o to its input code. */
+        constexpr KeyCode o = SDL_SCANCODE_O;
+        /** @brief Maps p to its input code. */
+        constexpr KeyCode p = SDL_SCANCODE_P;
+        /** @brief Maps q to its input code. */
+        constexpr KeyCode q = SDL_SCANCODE_Q;
+        /** @brief Maps r to its input code. */
+        constexpr KeyCode r = SDL_SCANCODE_R;
+        /** @brief Maps s to its input code. */
+        constexpr KeyCode s = SDL_SCANCODE_S;
+        /** @brief Maps t to its input code. */
+        constexpr KeyCode t = SDL_SCANCODE_T;
+        /** @brief Maps u to its input code. */
+        constexpr KeyCode u = SDL_SCANCODE_U;
+        /** @brief Maps v to its input code. */
+        constexpr KeyCode v = SDL_SCANCODE_V;
+        /** @brief Maps w to its input code. */
+        constexpr KeyCode w = SDL_SCANCODE_W;
+        /** @brief Maps x to its input code. */
+        constexpr KeyCode x = SDL_SCANCODE_X;
+        /** @brief Maps y to its input code. */
+        constexpr KeyCode y = SDL_SCANCODE_Y;
+        /** @brief Maps z to its input code. */
+        constexpr KeyCode z = SDL_SCANCODE_Z;
 
-        constexpr KeyCode Num0 = SDL_SCANCODE_0;
-        constexpr KeyCode Num1 = SDL_SCANCODE_1;
-        constexpr KeyCode Num2 = SDL_SCANCODE_2;
-        constexpr KeyCode Num3 = SDL_SCANCODE_3;
-        constexpr KeyCode Num4 = SDL_SCANCODE_4;
-        constexpr KeyCode Num5 = SDL_SCANCODE_5;
-        constexpr KeyCode Num6 = SDL_SCANCODE_6;
-        constexpr KeyCode Num7 = SDL_SCANCODE_7;
-        constexpr KeyCode Num8 = SDL_SCANCODE_8;
-        constexpr KeyCode Num9 = SDL_SCANCODE_9;
+        /** @brief Maps num0 to its input code. */
+        constexpr KeyCode num0 = SDL_SCANCODE_0;
+        /** @brief Maps num1 to its input code. */
+        constexpr KeyCode num1 = SDL_SCANCODE_1;
+        /** @brief Maps num2 to its input code. */
+        constexpr KeyCode num2 = SDL_SCANCODE_2;
+        /** @brief Maps num3 to its input code. */
+        constexpr KeyCode num3 = SDL_SCANCODE_3;
+        /** @brief Maps num4 to its input code. */
+        constexpr KeyCode num4 = SDL_SCANCODE_4;
+        /** @brief Maps num5 to its input code. */
+        constexpr KeyCode num5 = SDL_SCANCODE_5;
+        /** @brief Maps num6 to its input code. */
+        constexpr KeyCode num6 = SDL_SCANCODE_6;
+        /** @brief Maps num7 to its input code. */
+        constexpr KeyCode num7 = SDL_SCANCODE_7;
+        /** @brief Maps num8 to its input code. */
+        constexpr KeyCode num8 = SDL_SCANCODE_8;
+        /** @brief Maps num9 to its input code. */
+        constexpr KeyCode num9 = SDL_SCANCODE_9;
 
-        constexpr KeyCode F1 = SDL_SCANCODE_F1;
-        constexpr KeyCode F2 = SDL_SCANCODE_F2;
-        constexpr KeyCode F3 = SDL_SCANCODE_F3;
-        constexpr KeyCode F4 = SDL_SCANCODE_F4;
-        constexpr KeyCode F5 = SDL_SCANCODE_F5;
-        constexpr KeyCode F6 = SDL_SCANCODE_F6;
-        constexpr KeyCode F7 = SDL_SCANCODE_F7;
-        constexpr KeyCode F8 = SDL_SCANCODE_F8;
-        constexpr KeyCode F9 = SDL_SCANCODE_F9;
-        constexpr KeyCode F10 = SDL_SCANCODE_F10;
-        constexpr KeyCode F11 = SDL_SCANCODE_F11;
-        constexpr KeyCode F12 = SDL_SCANCODE_F12;
-        constexpr KeyCode F13 = SDL_SCANCODE_F13;
-        constexpr KeyCode F14 = SDL_SCANCODE_F14;
-        constexpr KeyCode F15 = SDL_SCANCODE_F15;
-        constexpr KeyCode F16 = SDL_SCANCODE_F16;
-        constexpr KeyCode F17 = SDL_SCANCODE_F17;
-        constexpr KeyCode F18 = SDL_SCANCODE_F18;
-        constexpr KeyCode F19 = SDL_SCANCODE_F19;
-        constexpr KeyCode F20 = SDL_SCANCODE_F20;
-        constexpr KeyCode F21 = SDL_SCANCODE_F21;
-        constexpr KeyCode F22 = SDL_SCANCODE_F22;
-        constexpr KeyCode F23 = SDL_SCANCODE_F23;
-        constexpr KeyCode F24 = SDL_SCANCODE_F24;
+        /** @brief Maps f1 to its input code. */
+        constexpr KeyCode f1 = SDL_SCANCODE_F1;
+        /** @brief Maps f2 to its input code. */
+        constexpr KeyCode f2 = SDL_SCANCODE_F2;
+        /** @brief Maps f3 to its input code. */
+        constexpr KeyCode f3 = SDL_SCANCODE_F3;
+        /** @brief Maps f4 to its input code. */
+        constexpr KeyCode f4 = SDL_SCANCODE_F4;
+        /** @brief Maps f5 to its input code. */
+        constexpr KeyCode f5 = SDL_SCANCODE_F5;
+        /** @brief Maps f6 to its input code. */
+        constexpr KeyCode f6 = SDL_SCANCODE_F6;
+        /** @brief Maps f7 to its input code. */
+        constexpr KeyCode f7 = SDL_SCANCODE_F7;
+        /** @brief Maps f8 to its input code. */
+        constexpr KeyCode f8 = SDL_SCANCODE_F8;
+        /** @brief Maps f9 to its input code. */
+        constexpr KeyCode f9 = SDL_SCANCODE_F9;
+        /** @brief Maps f10 to its input code. */
+        constexpr KeyCode f10 = SDL_SCANCODE_F10;
+        /** @brief Maps f11 to its input code. */
+        constexpr KeyCode f11 = SDL_SCANCODE_F11;
+        /** @brief Maps f12 to its input code. */
+        constexpr KeyCode f12 = SDL_SCANCODE_F12;
+        /** @brief Maps f13 to its input code. */
+        constexpr KeyCode f13 = SDL_SCANCODE_F13;
+        /** @brief Maps f14 to its input code. */
+        constexpr KeyCode f14 = SDL_SCANCODE_F14;
+        /** @brief Maps f15 to its input code. */
+        constexpr KeyCode f15 = SDL_SCANCODE_F15;
+        /** @brief Maps f16 to its input code. */
+        constexpr KeyCode f16 = SDL_SCANCODE_F16;
+        /** @brief Maps f17 to its input code. */
+        constexpr KeyCode f17 = SDL_SCANCODE_F17;
+        /** @brief Maps f18 to its input code. */
+        constexpr KeyCode f18 = SDL_SCANCODE_F18;
+        /** @brief Maps f19 to its input code. */
+        constexpr KeyCode f19 = SDL_SCANCODE_F19;
+        /** @brief Maps f20 to its input code. */
+        constexpr KeyCode f20 = SDL_SCANCODE_F20;
+        /** @brief Maps f21 to its input code. */
+        constexpr KeyCode f21 = SDL_SCANCODE_F21;
+        /** @brief Maps f22 to its input code. */
+        constexpr KeyCode f22 = SDL_SCANCODE_F22;
+        /** @brief Maps f23 to its input code. */
+        constexpr KeyCode f23 = SDL_SCANCODE_F23;
+        /** @brief Maps f24 to its input code. */
+        constexpr KeyCode f24 = SDL_SCANCODE_F24;
 
-        constexpr KeyCode Space = SDL_SCANCODE_SPACE;
-        constexpr KeyCode Escape = SDL_SCANCODE_ESCAPE;
-        constexpr KeyCode Enter = SDL_SCANCODE_RETURN;
-        constexpr KeyCode Tab = SDL_SCANCODE_TAB;
-        constexpr KeyCode Backspace = SDL_SCANCODE_BACKSPACE;
-        constexpr KeyCode Insert = SDL_SCANCODE_INSERT;
-        constexpr KeyCode Delete = SDL_SCANCODE_DELETE;
-        constexpr KeyCode Right = SDL_SCANCODE_RIGHT;
-        constexpr KeyCode Left = SDL_SCANCODE_LEFT;
-        constexpr KeyCode Down = SDL_SCANCODE_DOWN;
-        constexpr KeyCode Up = SDL_SCANCODE_UP;
-        constexpr KeyCode PageUp = SDL_SCANCODE_PAGEUP;
-        constexpr KeyCode PageDown = SDL_SCANCODE_PAGEDOWN;
-        constexpr KeyCode Home = SDL_SCANCODE_HOME;
-        constexpr KeyCode End = SDL_SCANCODE_END;
-        constexpr KeyCode CapsLock = SDL_SCANCODE_CAPSLOCK;
-        constexpr KeyCode ScrollLock = SDL_SCANCODE_SCROLLLOCK;
-        constexpr KeyCode NumLock = SDL_SCANCODE_NUMLOCKCLEAR;
-        constexpr KeyCode PrintScreen = SDL_SCANCODE_PRINTSCREEN;
-        constexpr KeyCode Pause = SDL_SCANCODE_PAUSE;
-        constexpr KeyCode Menu = SDL_SCANCODE_MENU;
+        /** @brief Maps space to its input code. */
+        constexpr KeyCode space = SDL_SCANCODE_SPACE;
+        /** @brief Maps escape to its input code. */
+        constexpr KeyCode escape = SDL_SCANCODE_ESCAPE;
+        /** @brief Maps enter to its input code. */
+        constexpr KeyCode enter = SDL_SCANCODE_RETURN;
+        /** @brief Maps tab to its input code. */
+        constexpr KeyCode tab = SDL_SCANCODE_TAB;
+        /** @brief Maps backspace to its input code. */
+        constexpr KeyCode backspace = SDL_SCANCODE_BACKSPACE;
+        /** @brief Maps insert to its input code. */
+        constexpr KeyCode insert = SDL_SCANCODE_INSERT;
+        /** @brief Maps delete key to its input code. */
+        constexpr KeyCode deleteKey = SDL_SCANCODE_DELETE;
+        /** @brief Maps right to its input code. */
+        constexpr KeyCode right = SDL_SCANCODE_RIGHT;
+        /** @brief Maps left to its input code. */
+        constexpr KeyCode left = SDL_SCANCODE_LEFT;
+        /** @brief Maps down to its input code. */
+        constexpr KeyCode down = SDL_SCANCODE_DOWN;
+        /** @brief Maps up to its input code. */
+        constexpr KeyCode up = SDL_SCANCODE_UP;
+        /** @brief Maps page up to its input code. */
+        constexpr KeyCode pageUp = SDL_SCANCODE_PAGEUP;
+        /** @brief Maps page down to its input code. */
+        constexpr KeyCode pageDown = SDL_SCANCODE_PAGEDOWN;
+        /** @brief Maps home to its input code. */
+        constexpr KeyCode home = SDL_SCANCODE_HOME;
+        /** @brief Maps end to its input code. */
+        constexpr KeyCode end = SDL_SCANCODE_END;
+        /** @brief Maps caps lock to its input code. */
+        constexpr KeyCode capsLock = SDL_SCANCODE_CAPSLOCK;
+        /** @brief Maps scroll lock to its input code. */
+        constexpr KeyCode scrollLock = SDL_SCANCODE_SCROLLLOCK;
+        /** @brief Maps num lock to its input code. */
+        constexpr KeyCode numLock = SDL_SCANCODE_NUMLOCKCLEAR;
+        /** @brief Maps print screen to its input code. */
+        constexpr KeyCode printScreen = SDL_SCANCODE_PRINTSCREEN;
+        /** @brief Maps pause to its input code. */
+        constexpr KeyCode pause = SDL_SCANCODE_PAUSE;
+        /** @brief Maps menu to its input code. */
+        constexpr KeyCode menu = SDL_SCANCODE_MENU;
 
-        constexpr KeyCode LeftShift = SDL_SCANCODE_LSHIFT;
-        constexpr KeyCode LeftControl = SDL_SCANCODE_LCTRL;
-        constexpr KeyCode LeftAlt = SDL_SCANCODE_LALT;
-        constexpr KeyCode LeftSuper = SDL_SCANCODE_LGUI;
-        constexpr KeyCode RightShift = SDL_SCANCODE_RSHIFT;
-        constexpr KeyCode RightControl = SDL_SCANCODE_RCTRL;
-        constexpr KeyCode RightAlt = SDL_SCANCODE_RALT;
-        constexpr KeyCode RightSuper = SDL_SCANCODE_RGUI;
+        /** @brief Maps left shift to its input code. */
+        constexpr KeyCode leftShift = SDL_SCANCODE_LSHIFT;
+        /** @brief Maps left control to its input code. */
+        constexpr KeyCode leftControl = SDL_SCANCODE_LCTRL;
+        /** @brief Maps left alt to its input code. */
+        constexpr KeyCode leftAlt = SDL_SCANCODE_LALT;
+        /** @brief Maps left super to its input code. */
+        constexpr KeyCode leftSuper = SDL_SCANCODE_LGUI;
+        /** @brief Maps right shift to its input code. */
+        constexpr KeyCode rightShift = SDL_SCANCODE_RSHIFT;
+        /** @brief Maps right control to its input code. */
+        constexpr KeyCode rightControl = SDL_SCANCODE_RCTRL;
+        /** @brief Maps right alt to its input code. */
+        constexpr KeyCode rightAlt = SDL_SCANCODE_RALT;
+        /** @brief Maps right super to its input code. */
+        constexpr KeyCode rightSuper = SDL_SCANCODE_RGUI;
 
-        constexpr KeyCode KP0 = SDL_SCANCODE_KP_0;
-        constexpr KeyCode KP1 = SDL_SCANCODE_KP_1;
-        constexpr KeyCode KP2 = SDL_SCANCODE_KP_2;
-        constexpr KeyCode KP3 = SDL_SCANCODE_KP_3;
-        constexpr KeyCode KP4 = SDL_SCANCODE_KP_4;
-        constexpr KeyCode KP5 = SDL_SCANCODE_KP_5;
-        constexpr KeyCode KP6 = SDL_SCANCODE_KP_6;
-        constexpr KeyCode KP7 = SDL_SCANCODE_KP_7;
-        constexpr KeyCode KP8 = SDL_SCANCODE_KP_8;
-        constexpr KeyCode KP9 = SDL_SCANCODE_KP_9;
-        constexpr KeyCode KPDecimal = SDL_SCANCODE_KP_DECIMAL;
-        constexpr KeyCode KPDivide = SDL_SCANCODE_KP_DIVIDE;
-        constexpr KeyCode KPMultiply = SDL_SCANCODE_KP_MULTIPLY;
-        constexpr KeyCode KPSubtract = SDL_SCANCODE_KP_MINUS;
-        constexpr KeyCode KPAdd = SDL_SCANCODE_KP_PLUS;
-        constexpr KeyCode KPEnter = SDL_SCANCODE_KP_ENTER;
-        constexpr KeyCode KPEqual = SDL_SCANCODE_KP_EQUALS;
+        /** @brief Maps k p0 to its input code. */
+        constexpr KeyCode kP0 = SDL_SCANCODE_KP_0;
+        /** @brief Maps k p1 to its input code. */
+        constexpr KeyCode kP1 = SDL_SCANCODE_KP_1;
+        /** @brief Maps k p2 to its input code. */
+        constexpr KeyCode kP2 = SDL_SCANCODE_KP_2;
+        /** @brief Maps k p3 to its input code. */
+        constexpr KeyCode kP3 = SDL_SCANCODE_KP_3;
+        /** @brief Maps k p4 to its input code. */
+        constexpr KeyCode kP4 = SDL_SCANCODE_KP_4;
+        /** @brief Maps k p5 to its input code. */
+        constexpr KeyCode kP5 = SDL_SCANCODE_KP_5;
+        /** @brief Maps k p6 to its input code. */
+        constexpr KeyCode kP6 = SDL_SCANCODE_KP_6;
+        /** @brief Maps k p7 to its input code. */
+        constexpr KeyCode kP7 = SDL_SCANCODE_KP_7;
+        /** @brief Maps k p8 to its input code. */
+        constexpr KeyCode kP8 = SDL_SCANCODE_KP_8;
+        /** @brief Maps k p9 to its input code. */
+        constexpr KeyCode kP9 = SDL_SCANCODE_KP_9;
+        /** @brief Maps kp decimal to its input code. */
+        constexpr KeyCode kpDecimal = SDL_SCANCODE_KP_DECIMAL;
+        /** @brief Maps kp divide to its input code. */
+        constexpr KeyCode kpDivide = SDL_SCANCODE_KP_DIVIDE;
+        /** @brief Maps kp multiply to its input code. */
+        constexpr KeyCode kpMultiply = SDL_SCANCODE_KP_MULTIPLY;
+        /** @brief Maps kp subtract to its input code. */
+        constexpr KeyCode kpSubtract = SDL_SCANCODE_KP_MINUS;
+        /** @brief Maps kp add to its input code. */
+        constexpr KeyCode kpAdd = SDL_SCANCODE_KP_PLUS;
+        /** @brief Maps kp enter to its input code. */
+        constexpr KeyCode kpEnter = SDL_SCANCODE_KP_ENTER;
+        /** @brief Maps kp equal to its input code. */
+        constexpr KeyCode kpEqual = SDL_SCANCODE_KP_EQUALS;
     } // namespace Key
 } // namespace axiom

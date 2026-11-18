@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/renderer/RenderQueue.cpp
+ * @brief Implements the render queue module.
+ */
+
 #include <axiom/renderer/RenderQueue.h>
 #include <algorithm>
 #include <cstdint>
@@ -7,6 +12,11 @@ namespace axiom::renderer {
 
 namespace {
 
+/**
+ * @brief Returns the shader key.
+ * @param item The item used by this operation.
+ * @return The result of the operation.
+ */
 uint64_t shaderKey(const RenderItem& item) {
     if (!item.material) {
         return 0;
@@ -14,10 +24,20 @@ uint64_t shaderKey(const RenderItem& item) {
     return static_cast<uint64_t>(item.material->shaderId);
 }
 
+/**
+ * @brief Returns the material key.
+ * @param item The item used by this operation.
+ * @return The result of the operation.
+ */
 uintptr_t materialKey(const RenderItem& item) {
     return reinterpret_cast<uintptr_t>(item.material.get());
 }
 
+/**
+ * @brief Returns the pipeline tuple.
+ * @param item The item used by this operation.
+ * @return The result of the operation.
+ */
 auto pipelineTuple(const RenderItem& item) {
     return std::tuple{
         shaderKey(item),
@@ -30,6 +50,12 @@ auto pipelineTuple(const RenderItem& item) {
     };
 }
 
+/**
+ * @brief Returns the same batch key.
+ * @param left The left used by this operation.
+ * @param right The right used by this operation.
+ * @return The result of the operation.
+ */
 bool sameBatchKey(const RenderItem& left, const RenderItem& right) {
     return left.material == right.material &&
            left.vertexBuffer == right.vertexBuffer &&
@@ -39,24 +65,24 @@ bool sameBatchKey(const RenderItem& left, const RenderItem& right) {
 
 } // namespace
 
-void RenderSort::sort(std::vector<RenderItem>& items, SortMode mode) {
+void render_sort::sort(std::vector<RenderItem>& items, SortMode mode) {
     switch (mode) {
-    case SortMode::None:
+    case SortMode::none:
         return;
-    case SortMode::PipelineGrouped:
+    case SortMode::pipelineGrouped:
         std::stable_sort(items.begin(), items.end(), [](const RenderItem& left,
                                                         const RenderItem& right) {
             return pipelineTuple(left) < pipelineTuple(right);
         });
         return;
-    case SortMode::FrontToBack:
+    case SortMode::frontToBack:
         std::stable_sort(items.begin(), items.end(), [](const RenderItem& left,
                                                         const RenderItem& right) {
             return std::tuple{left.layer, left.depth, left.zIndex, pipelineTuple(left)} <
                    std::tuple{right.layer, right.depth, right.zIndex, pipelineTuple(right)};
         });
         return;
-    case SortMode::BackToFront:
+    case SortMode::backToFront:
         std::stable_sort(items.begin(), items.end(), [](const RenderItem& left,
                                                         const RenderItem& right) {
             return std::tuple{left.layer, -left.depth, left.zIndex, pipelineTuple(left)} <
@@ -88,13 +114,13 @@ std::vector<std::vector<RenderItem>> RenderQueueSystem::build(
             }
         }
 
-        RenderSort::sort(queue, descriptor.sortMode);
+        render_sort::sort(queue, descriptor.sortMode);
     }
 
     return queues;
 }
 
-std::vector<DrawBatch> BatchBuilder::build(std::span<const RenderItem> sortedItems) {
+std::vector<DrawBatch> batch_builder::build(std::span<const RenderItem> sortedItems) {
     std::vector<DrawBatch> batches;
     const RenderItem* previousItem = nullptr;
 

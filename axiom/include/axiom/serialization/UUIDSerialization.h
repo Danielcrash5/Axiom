@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/serialization/UUIDSerialization.h
+ * @brief Declares the public interface for the UUID serialization.
+ */
+
 // UUIDSerialization.h
 #pragma once
 #include "axiom/core/TaggedUUID.h"
@@ -12,7 +17,7 @@ namespace nlohmann {
     // kompilierbar (und wurde deshalb auch nirgends inkludiert).
     template <typename Tag> struct adl_serializer<axiom::TaggedUUID<Tag>> {
         static void to_json(json &j, const axiom::TaggedUUID<Tag> &id) {
-            j = id.Raw().ToHexString();
+            j = id.raw().toHexString();
         }
         static void from_json(const json &j, axiom::TaggedUUID<Tag> &id) {
             id = axiom::TaggedUUID<Tag>(axiom::UUID(j.get<std::string>()));

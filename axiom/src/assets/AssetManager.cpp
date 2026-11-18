@@ -1,62 +1,67 @@
+/**
+ * @file axiom/src/assets/AssetManager.cpp
+ * @brief Implements the asset manager module.
+ */
+
 #include <axiom/assets/AssetManager.h>
 #include <iostream>
 
 namespace axiom {
 
-    void AssetManager::Init(size_t workerThreadCount) {
-        if (s_Initialized) {
+    void AssetManager::init(size_t workerThreadCount) {
+        if (sInitialized) {
             return;
         }
 
-        s_Registry.Init();
+        sRegistry.init();
         if (workerThreadCount > 0) {
-            s_WorkerPool = std::make_unique<WorkerPool>(workerThreadCount);
+            sWorkerPool = std::make_unique<WorkerPool>(workerThreadCount);
         } else {
-            s_WorkerPool.reset();
+            sWorkerPool.reset();
         }
-        s_Initialized = true;
+        sInitialized = true;
     }
 
-    void AssetManager::Shutdown() {
-        if (!s_Initialized) {
+    void AssetManager::shutdown() {
+        if (!sInitialized) {
             return;
         }
 
-        s_WorkerPool.reset(); // Destruktor joint alle Worker-Threads
-        std::lock_guard lock(s_CacheMutex);
-        s_Cache.clear();
-        s_Loaders.clear();
-        s_Registry.Shutdown();
-        s_CacheHits = 0;
-        s_TotalBytesLoaded = 0;
-        s_Initialized = false;
+        sWorkerPool.reset(); // Destruktor joint alle Worker-Threads
+        std::lock_guard lock(sCacheMutex);
+        sCache.clear();
+        sLoaders.clear();
+        sRegistry.shutdown();
+        sCacheHits = 0;
+        sTotalBytesLoaded = 0;
+        sInitialized = false;
     }
 
-    std::shared_ptr<AssetControlBlock> AssetManager::GetOrCreateControlBlock(TypedUUID uuid) {
-        std::lock_guard lock(s_CacheMutex);
-        auto it = s_Cache.find(uuid);
-        if (it != s_Cache.end()) {
+    std::shared_ptr<AssetControlBlock> AssetManager::getOrCreateControlBlock(TypedUUID uuid) {
+        std::lock_guard lock(sCacheMutex);
+        auto it = sCache.find(uuid);
+        if (it != sCache.end()) {
             if (auto controlBlock = it->second.controlBlock.lock()) {
                 return controlBlock;
             }
-            s_Cache.erase(it);
+            sCache.erase(it);
         }
 
-        IAssetLoader *loader = GetLoader(uuid.type);
+        IAssetLoader *loader = getLoader(uuid.type);
         auto deleter = [uuid, loader](AssetControlBlock *controlBlock) {
             if (controlBlock->data && loader) {
-                loader->Unload(controlBlock->data);
+                loader->unload(controlBlock->data);
                 controlBlock->data = nullptr;
             }
 
             {
-                std::lock_guard cacheLock(s_CacheMutex);
-                if (s_TotalBytesLoaded >= controlBlock->sizeBytes) {
-                    s_TotalBytesLoaded -= controlBlock->sizeBytes;
+                std::lock_guard cacheLock(sCacheMutex);
+                if (sTotalBytesLoaded >= controlBlock->sizeBytes) {
+                    sTotalBytesLoaded -= controlBlock->sizeBytes;
                 }
-                auto cacheIt = s_Cache.find(uuid);
-                if (cacheIt != s_Cache.end()) {
-                    s_Cache.erase(cacheIt);
+                auto cacheIt = sCache.find(uuid);
+                if (cacheIt != sCache.end()) {
+                    sCache.erase(cacheIt);
                 }
             }
 
@@ -65,13 +70,13 @@ namespace axiom {
 
         std::shared_ptr<AssetControlBlock> controlBlock(new AssetControlBlock, deleter);
         CacheEntry entry{controlBlock, uuid, uuid.type, nullptr};
-        s_Cache[uuid] = entry;
+        sCache[uuid] = entry;
         return controlBlock;
     }
 
-    IAssetLoader *AssetManager::GetLoader(AssetTypeId typeId) {
-        auto it = s_Loaders.find(typeId);
-        if (it != s_Loaders.end()) {
+    IAssetLoader *AssetManager::getLoader(AssetTypeId typeId) {
+        auto it = sLoaders.find(typeId);
+        if (it != sLoaders.end()) {
             return it->second;
         }
 
@@ -80,19 +85,19 @@ namespace axiom {
         return nullptr;
     }
 
-    void AssetManager::RegisterLoader(AssetTypeId typeId, IAssetLoader *loader) {
+    void AssetManager::registerLoader(AssetTypeId typeId, IAssetLoader *loader) {
         if (!loader) {
             return;
         }
-        s_Loaders[typeId] = loader;
+        sLoaders[typeId] = loader;
     }
 
-    void AssetManager::LoadAsync_Internal(TypedUUID uuid, const AssetRegistryEntry &entry) {
+    void AssetManager::loadAsyncInternal(TypedUUID uuid, const AssetRegistryEntry &entry) {
         std::shared_ptr<AssetControlBlock> controlBlock;
         {
-            std::lock_guard lock(s_CacheMutex);
-            auto it = s_Cache.find(uuid);
-            if (it == s_Cache.end()) {
+            std::lock_guard lock(sCacheMutex);
+            auto it = sCache.find(uuid);
+            if (it == sCache.end()) {
                 return;
             }
             controlBlock = it->second.controlBlock.lock();
@@ -103,28 +108,28 @@ namespace axiom {
 
         // Lade die Datei
         std::vector<uint8_t> data;
-        if (!VFS::ReadFile(entry.physicalPath, data)) {
+        if (!VFS::readFile(entry.physicalPath, data)) {
             std::cerr << "AssetManager: Fehler beim Lesen von " << entry.physicalPath
                       << "\n";
-            controlBlock->state.store(AssetLoadState::Failed, std::memory_order_release);
+            controlBlock->state.store(AssetLoadState::failed, std::memory_order_release);
             return;
         }
 
         // Hole den Loader
-        IAssetLoader *loader = GetLoader(entry.uuid.type);
+        IAssetLoader *loader = getLoader(entry.uuid.type);
         if (!loader) {
-            controlBlock->state.store(AssetLoadState::Failed, std::memory_order_release);
+            controlBlock->state.store(AssetLoadState::failed, std::memory_order_release);
             return;
         }
 
         // Dekodiere das Asset
-        controlBlock->state.store(AssetLoadState::Loading, std::memory_order_release);
+        controlBlock->state.store(AssetLoadState::loading, std::memory_order_release);
         size_t sizeBytes = 0;
-        void *assetData = loader->Load(data, sizeBytes);
+        void *assetData = loader->load(data, sizeBytes);
         if (!assetData) {
             std::cerr << "AssetManager: Fehler beim Decoding von " << entry.physicalPath
                       << "\n";
-            controlBlock->state.store(AssetLoadState::Failed, std::memory_order_release);
+            controlBlock->state.store(AssetLoadState::failed, std::memory_order_release);
             return;
         }
 
@@ -132,77 +137,77 @@ namespace axiom {
         controlBlock->data = assetData;
         controlBlock->sizeBytes = sizeBytes;
         controlBlock->sizeBytes = sizeBytes;
-        s_TotalBytesLoaded += sizeBytes;
-        controlBlock->state.store(AssetLoadState::Loaded, std::memory_order_release);
+        sTotalBytesLoaded += sizeBytes;
+        controlBlock->state.store(AssetLoadState::loaded, std::memory_order_release);
     }
 
-    void AssetManager::ResolveDependencies(const TypedUUID &uuid,
+    void AssetManager::resolveDependencies(const TypedUUID &uuid,
                                             std::vector<TypedUUID> &outQueue) {
-        const auto &deps = s_Registry.GetDependencies(uuid);
+        const auto &deps = sRegistry.getDependencies(uuid);
         for (const auto &dep : deps) {
-            if (dep.depType == AssetDependencyType::Hard) {
+            if (dep.depType == AssetDependencyType::hard) {
                 outQueue.push_back(dep.targetUUID);
             }
         }
     }
 
-    void AssetManager::LoadDependenciesInternal(
+    void AssetManager::loadDependenciesInternal(
         const TypedUUID &uuid, std::vector<std::shared_ptr<AssetControlBlock>> &held,
         std::unordered_set<TypedUUID> &visited) {
-        for (const auto &dependency : s_Registry.GetDependencies(uuid)) {
-            if (dependency.depType != AssetDependencyType::Hard ||
+        for (const auto &dependency : sRegistry.getDependencies(uuid)) {
+            if (dependency.depType != AssetDependencyType::hard ||
                 !visited.insert(dependency.targetUUID).second) {
                 continue;
             }
 
-            const AssetRegistryEntry *entry = s_Registry.Get(dependency.targetUUID);
+            const AssetRegistryEntry *entry = sRegistry.get(dependency.targetUUID);
             if (!entry) {
                 continue;
             }
 
-            auto controlBlock = GetOrCreateControlBlock(dependency.targetUUID);
-            AssetLoadState expected = AssetLoadState::Unloaded;
+            auto controlBlock = getOrCreateControlBlock(dependency.targetUUID);
+            AssetLoadState expected = AssetLoadState::unloaded;
             if (controlBlock->state.compare_exchange_strong(expected,
-                                                             AssetLoadState::Queued)) {
-                LoadAsync_Internal(dependency.targetUUID, *entry);
+                                                             AssetLoadState::queued)) {
+                loadAsyncInternal(dependency.targetUUID, *entry);
             } else {
                 while (controlBlock->state.load(std::memory_order_acquire) ==
-                       AssetLoadState::Queued ||
+                       AssetLoadState::queued ||
                        controlBlock->state.load(std::memory_order_acquire) ==
-                           AssetLoadState::Loading) {
+                           AssetLoadState::loading) {
                     std::this_thread::yield();
                 }
             }
 
             if (controlBlock->state.load(std::memory_order_acquire) ==
-                AssetLoadState::Loaded) {
+                AssetLoadState::loaded) {
                 held.push_back(controlBlock);
-                LoadDependenciesInternal(dependency.targetUUID, held, visited);
+                loadDependenciesInternal(dependency.targetUUID, held, visited);
             }
         }
     }
 
-    size_t AssetManager::GetLoadedAssetCount() {
-        std::lock_guard lock(s_CacheMutex);
+    size_t AssetManager::getLoadedAssetCount() {
+        std::lock_guard lock(sCacheMutex);
         size_t count = 0;
-        for (const auto &[uuid, entry] : s_Cache) {
+        for (const auto &[uuid, entry] : sCache) {
             auto controlBlock = entry.controlBlock.lock();
             if (controlBlock &&
                 controlBlock->state.load(std::memory_order_acquire) ==
-                AssetLoadState::Loaded) {
+                AssetLoadState::loaded) {
                 count++;
             }
         }
         return count;
     }
 
-    size_t AssetManager::GetTotalMemoryUsage() {
-        return s_TotalBytesLoaded;
+    size_t AssetManager::getTotalMemoryUsage() {
+        return sTotalBytesLoaded;
         // TODO: Bessere Statistik-Tracking pro Asset
     }
 
-    size_t AssetManager::GetCacheHitCount() {
-        return s_CacheHits;
+    size_t AssetManager::getCacheHitCount() {
+        return sCacheHits;
     }
 
 } // namespace axiom

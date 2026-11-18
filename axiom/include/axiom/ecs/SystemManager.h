@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/ecs/SystemManager.h
+ * @brief Declares the public interface for the system manager.
+ */
+
 #pragma once
 
 #include "ISystem.h"
@@ -12,76 +17,127 @@ namespace axiom {
 
     class Scene;
 
+    /**
+     * @brief Coordinates the systems registered for scene updates and rendering.
+     * @tparam SystemManager Template type used by this type.
+     */
     class SystemManager {
       public:
+        /**
+         * @brief Adds system.
+         * @tparam T Template type used by this operation.
+         * @param args The args used by this operation.
+         * @return The result of the operation.
+         */
         template <typename T, typename... Args>
-        std::shared_ptr<T> AddSystem(Args &&...args) {
+        std::shared_ptr<T> addSystem(Args &&...args) {
             static_assert(std::is_base_of_v<ISystem, T>,
                           "System must derive from axiom::ISystem");
             auto system = std::make_shared<T>(std::forward<Args>(args)...);
-            m_Systems.push_back(system);
+            m_systems.push_back(system);
             return system;
         }
 
-        void RemoveSystem(const std::shared_ptr<ISystem> &system) {
-            m_Systems.erase(
-                std::remove(m_Systems.begin(), m_Systems.end(), system),
-                m_Systems.end());
+        /**
+         * @brief Removes system.
+         * @param system The system used by this operation.
+         */
+        void removeSystem(const std::shared_ptr<ISystem> &system) {
+            m_systems.erase(
+                std::remove(m_systems.begin(), m_systems.end(), system),
+                m_systems.end());
         }
 
-        void Clear() { m_Systems.clear(); }
+        /**
+         * @brief Clears the stored state.
+         */
+        void clear() { m_systems.clear(); }
 
-        void PreUpdate(Scene &scene, double dt) {
-            for (auto &system : m_Systems) {
+        /**
+         * @brief Updates state before the main update step.
+         * @param scene The scene used by this operation.
+         * @param dt The dt used by this operation.
+         */
+        void preUpdate(Scene &scene, double dt) {
+            for (auto &system : m_systems) {
                 if (system)
-                    system->PreUpdate(scene, dt);
+                    system->preUpdate(scene, dt);
             }
         }
 
-        void Update(Scene &scene, double dt) {
-            for (auto &system : m_Systems) {
+        /**
+         * @brief Updates the object state.
+         * @param scene The scene used by this operation.
+         * @param dt The dt used by this operation.
+         */
+        void update(Scene &scene, double dt) {
+            for (auto &system : m_systems) {
                 if (system)
-                    system->Update(scene, dt);
+                    system->update(scene, dt);
             }
         }
 
-        void FixedUpdate(Scene &scene, double dt) {
-            for (auto &system : m_Systems) {
+        /**
+         * @brief Updates state at a fixed time interval.
+         * @param scene The scene used by this operation.
+         * @param dt The dt used by this operation.
+         */
+        void fixedUpdate(Scene &scene, double dt) {
+            for (auto &system : m_systems) {
                 if (system)
-                    system->FixedUpdate(scene, dt);
+                    system->fixedUpdate(scene, dt);
             }
         }
 
-        void PostUpdate(Scene &scene, double dt) {
-            for (auto &system : m_Systems) {
+        /**
+         * @brief Performs work after the main update step.
+         * @param scene The scene used by this operation.
+         * @param dt The dt used by this operation.
+         */
+        void postUpdate(Scene &scene, double dt) {
+            for (auto &system : m_systems) {
                 if (system)
-                    system->PostUpdate(scene, dt);
+                    system->postUpdate(scene, dt);
             }
         }
 
-        void Render(Scene &scene, double alpha) {
-            for (auto &system : m_Systems) {
+        /**
+         * @brief Renders the current frame.
+         * @param scene The scene used by this operation.
+         * @param alpha The alpha used by this operation.
+         */
+        void render(Scene &scene, double alpha) {
+            for (auto &system : m_systems) {
                 if (system)
-                    system->Render(scene, alpha);
+                    system->render(scene, alpha);
             }
         }
 
-        void BeginRenderFrame() {
-            for (auto &system : m_Systems) {
+        /**
+         * @brief Begins render frame.
+         */
+        void beginRenderFrame() {
+            for (auto &system : m_systems) {
                 if (system)
-                    system->BeginRenderFrame();
+                    system->beginRenderFrame();
             }
         }
 
-        void OnViewportResize(uint32_t width, uint32_t height) {
-            for (auto &system : m_Systems) {
+        /**
+         * @brief Handles the viewport resize callback.
+         * @param width The width used by this operation.
+         * @param height The height used by this operation.
+         */
+        void onViewportResize(uint32_t width, uint32_t height) {
+            for (auto &system : m_systems) {
                 if (system)
-                    system->OnViewportResize(width, height);
+                    system->onViewportResize(width, height);
             }
         }
 
       private:
-        std::vector<std::shared_ptr<ISystem>> m_Systems;
+        /** @brief Stores the systems. */
+        std::vector<std::shared_ptr<ISystem>> m_systems;
     };
 
 } // namespace axiom

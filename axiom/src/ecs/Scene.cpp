@@ -1,35 +1,40 @@
+/**
+ * @file axiom/src/ecs/Scene.cpp
+ * @brief Implements the scene module.
+ */
+
 #include "axiom/ecs/Scene.h"
 #include "axiom/ecs/Entity.h"
 // #include "axiom/renderer/DrawCommandBuffer.h"
 // #include "axiom/renderer/Renderer2D.h"
 
 namespace axiom {
-    Entity Scene::CreateEntity(const std::string &name) {
+    Entity Scene::createEntity(const std::string &name) {
         // Bewusst anonyme flecs-Entity (kein flecs-eigener Name) - die
         // "Namensverwaltung" laeuft weiterhin komplett ueber TagComponent,
         // wie zuvor mit entt, um nicht zwei parallele Namenssysteme zu haben.
-        flecs::entity handle = m_World.entity();
+        flecs::entity handle = m_world.entity();
         Entity entity(handle, this);
-        entity.AddComponent<IDComponent>();
-        entity.AddComponent<TagComponent>(name.empty() ? "Entity" : name);
-        entity.AddComponent<TransformComponent>();
+        entity.addComponent<IDComponent>();
+        entity.addComponent<TagComponent>(name.empty() ? "Entity" : name);
+        entity.addComponent<TransformComponent>();
         return entity;
     }
 
-    void Scene::DestroyEntity(Entity entity) {
-        entity.m_Entity.destruct();
+    void Scene::destroyEntity(Entity entity) {
+        entity.m_entity.destruct();
     }
 
-    std::vector<std::shared_ptr<Entity>> Scene::GetAllEntities() {
+    std::vector<std::shared_ptr<Entity>> Scene::getAllEntities() {
         std::vector<std::shared_ptr<Entity>> entities;
-        auto query = m_World.query<TransformComponent>();
+        auto query = m_world.query<TransformComponent>();
         query.each([&](flecs::entity e, TransformComponent &) {
             entities.push_back(std::make_shared<Entity>(e, this));
         });
         return entities;
     }
 
-    void Scene::Render2D() {
+    void Scene::render2D() {
         /*DrawCommandBuffer2D commandBuffer;
 
         auto spriteView = m_Registry.view<TransformComponent,
@@ -58,8 +63,8 @@ namespace axiom {
         commandBuffer.Execute();*/
     }
 
-    Entity Scene::GetPrimaryCameraEntity() {
-        auto query = m_World.query<TransformComponent, CameraComponent>();
+    Entity Scene::getPrimaryCameraEntity() {
+        auto query = m_world.query<TransformComponent, CameraComponent>();
 
         Entity result{};
         bool found = false;

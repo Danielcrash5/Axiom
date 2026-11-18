@@ -1,16 +1,39 @@
+/**
+ * @file axiom/include/axiom/core/Time.h
+ * @brief Declares the public interface for the time.
+ */
+
 #pragma once
 
 namespace axiom {
+    /**
+     * @brief Provides the time functionality.
+     * @tparam Time Template type used by this type.
+     */
     class Time {
       public:
-        static void Update();
+        /**
+         * @brief Updates the object state.
+         */
+        static void update();
 
-        static double GetDeltaTime() { return s_DeltaTime; }
-        static double GetTime() { return s_Time; }
+        /**
+         * @brief Returns the delta time.
+         * @return The result of the operation.
+         */
+        static double getDeltaTime() { return sDeltaTime; }
+        /**
+         * @brief Returns the time.
+         * @return The result of the operation.
+         */
+        static double getTime() { return sTime; }
 
       private:
-        static double s_Time;
-        static double s_LastTime;
-        static double s_DeltaTime;
+        /** @brief Stores the time. */
+        static double sTime;
+        /** @brief Stores the last time. */
+        static double sLastTime;
+        /** @brief Stores the delta time. */
+        static double sDeltaTime;
     };
 } // namespace axiom

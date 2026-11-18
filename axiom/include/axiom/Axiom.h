@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/Axiom.h
+ * @brief Declares the public interface for the axiom.
+ */
+
 #pragma once
 
 #include "axiom/core/Application.h"
@@ -38,6 +43,10 @@
 
 namespace axiom {
 
-    Application *CreateApplication();
+    /**
+     * @brief Creates application.
+     * @return The result of the operation.
+     */
+    Application *createApplication();
 
 }

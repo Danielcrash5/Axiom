@@ -1,39 +1,44 @@
+/**
+ * @file axiom/src/assets/AssetRegistry.cpp
+ * @brief Implements the asset registry module.
+ */
+
 #include <axiom/assets/AssetRegistry.h>
 #include <algorithm>
 #include <iostream>
 
 namespace axiom {
 
-    void AssetRegistry::Init() {
+    void AssetRegistry::init() {
         // Initialisiere Mount-Prioritäten
-        s_MountPriorities["engine"] = 0;  // Niedrigste
-        s_MountPriorities["game"] = 10;
+        sMountPriorities["engine"] = 0;  // Niedrigste
+        sMountPriorities["game"] = 10;
         // Mod-Mounts erhalten höhere Prioritäten beim Registrieren
     }
 
-    void AssetRegistry::Shutdown() {
-        s_Entries.clear();
-        s_Overrides.clear();
-        s_MountPriorities.clear();
+    void AssetRegistry::shutdown() {
+        sEntries.clear();
+        sOverrides.clear();
+        sMountPriorities.clear();
     }
 
-    const AssetRegistryEntry *AssetRegistry::Get(TypedUUID uuid) {
-        auto it = s_Entries.find(uuid);
-        if (it != s_Entries.end()) {
+    const AssetRegistryEntry *AssetRegistry::get(TypedUUID uuid) {
+        auto it = sEntries.find(uuid);
+        if (it != sEntries.end()) {
             return &it->second;
         }
         return nullptr;
     }
 
-    std::string AssetRegistry::ResolvePhysicalPath(TypedUUID uuid) {
+    std::string AssetRegistry::resolvePhysicalPath(TypedUUID uuid) {
         // Prüfe Overrides (höchste Priorität)
-        auto overrideIt = s_Overrides.find(uuid);
-        if (overrideIt != s_Overrides.end()) {
+        auto overrideIt = sOverrides.find(uuid);
+        if (overrideIt != sOverrides.end()) {
             return overrideIt->second.replacementPath;
         }
 
         // Fallback auf Registry-Eintrag
-        auto entry = Get(uuid);
+        auto entry = get(uuid);
         if (entry) {
             return entry->physicalPath;
         }
@@ -41,34 +46,34 @@ namespace axiom {
         return "";
     }
 
-    void AssetRegistry::Register(const AssetRegistryEntry &entry) {
-        auto it = s_Entries.find(entry.uuid);
-        if (it != s_Entries.end()) {
+    void AssetRegistry::registerAsset(const AssetRegistryEntry &entry) {
+        auto it = sEntries.find(entry.uuid);
+        if (it != sEntries.end()) {
             // Eintrag existiert bereits - nur überschreiben falls diese Mount höhere
             // Priorität hat
-            auto oldPriority = s_MountPriorities.count(it->second.mountName)
-                                   ? s_MountPriorities[it->second.mountName]
+            auto oldPriority = sMountPriorities.count(it->second.mountName)
+                                   ? sMountPriorities[it->second.mountName]
                                    : 0;
-            auto newPriority = s_MountPriorities.count(entry.mountName)
-                                   ? s_MountPriorities[entry.mountName]
+            auto newPriority = sMountPriorities.count(entry.mountName)
+                                   ? sMountPriorities[entry.mountName]
                                    : 0;
 
             if (newPriority >= oldPriority) {
-                s_Entries[entry.uuid] = entry;
+                sEntries[entry.uuid] = entry;
             }
         } else {
-            s_Entries[entry.uuid] = entry;
+            sEntries[entry.uuid] = entry;
         }
     }
 
-    void AssetRegistry::Unregister(TypedUUID uuid) {
-        s_Entries.erase(uuid);
-        s_Overrides.erase(uuid);
+    void AssetRegistry::unregister(TypedUUID uuid) {
+        sEntries.erase(uuid);
+        sOverrides.erase(uuid);
     }
 
-    const std::vector<AssetDependency> &AssetRegistry::GetDependencies(TypedUUID uuid) {
-        auto it = s_Entries.find(uuid);
-        if (it != s_Entries.end()) {
+    const std::vector<AssetDependency> &AssetRegistry::getDependencies(TypedUUID uuid) {
+        auto it = sEntries.find(uuid);
+        if (it != sEntries.end()) {
             return it->second.dependencies;
         }
 
@@ -76,56 +81,56 @@ namespace axiom {
         return empty;
     }
 
-    bool AssetRegistry::IsHardDependency(TypedUUID from, TypedUUID to) {
-        const auto &deps = GetDependencies(from);
+    bool AssetRegistry::isHardDependency(TypedUUID from, TypedUUID to) {
+        const auto &deps = getDependencies(from);
         for (const auto &dep : deps) {
-            if (dep.targetUUID == to && dep.depType == AssetDependencyType::Hard) {
+            if (dep.targetUUID == to && dep.depType == AssetDependencyType::hard) {
                 return true;
             }
         }
         return false;
     }
 
-    void AssetRegistry::RegisterOverride(TypedUUID target,
+    void AssetRegistry::registerOverride(TypedUUID target,
                                           const std::string &replacementPath) {
-        s_Overrides[target] = {replacementPath, 100};
+        sOverrides[target] = {replacementPath, 100};
     }
 
-    void AssetRegistry::ClearOverrides() { s_Overrides.clear(); }
+    void AssetRegistry::clearOverrides() { sOverrides.clear(); }
 
-    void AssetRegistry::ScanMount(const std::string &mountName, bool isModMount) {
+    void AssetRegistry::scanMount(const std::string &mountName, bool isModMount) {
         if (isModMount) {
             // Mod-Mounts erhalten höhere Priorität basierend auf Lade-Reihenfolge
             static int modPriority = 50;
-            s_MountPriorities[mountName] = modPriority++;
+            sMountPriorities[mountName] = modPriority++;
         }
         // TODO: Implementiere Mount-Scanning hier
         // - VFS::ListFiles() für Mount aufrufen
         // - Metadaten-Dateien (.axmeta) parsen
         // - Abhängigkeiten extrahieren
-        // - Register() aufrufen
+        // - registerAsset() aufrufen
     }
 
-    void AssetRegistry::RebuildFromMounts() {
-        s_Entries.clear();
+    void AssetRegistry::rebuildFromMounts() {
+        sEntries.clear();
 
         // Scan in Prioritäts-Reihenfolge: Engine → Game → Mods
-        for (const auto &[mountName, priority] : s_MountPriorities) {
-            ScanMount(mountName, priority >= 50);
+        for (const auto &[mountName, priority] : sMountPriorities) {
+            scanMount(mountName, priority >= 50);
         }
 
-        if (!ValidateDependencyGraph()) {
+        if (!validateDependencyGraph()) {
             std::cerr << "AssetRegistry: Zyklen in Abhängigkeitsgraph erkannt!\n";
         }
     }
 
-    bool AssetRegistry::ValidateDependencyGraph() {
+    bool AssetRegistry::validateDependencyGraph() {
         std::unordered_set<TypedUUID> visited;
         std::unordered_set<TypedUUID> inStack;
 
-        for (const auto &[uuid, entry] : s_Entries) {
+        for (const auto &[uuid, entry] : sEntries) {
             if (visited.find(uuid) == visited.end()) {
-                if (!DetectCycles(uuid, visited, inStack)) {
+                if (!detectCycles(uuid, visited, inStack)) {
                     return false;
                 }
             }
@@ -134,24 +139,24 @@ namespace axiom {
         return true;
     }
 
-    bool AssetRegistry::DetectCycles(TypedUUID start, std::unordered_set<TypedUUID> &visited,
+    bool AssetRegistry::detectCycles(TypedUUID start, std::unordered_set<TypedUUID> &visited,
                                       std::unordered_set<TypedUUID> &inStack) {
         visited.insert(start);
         inStack.insert(start);
 
-        const auto &deps = GetDependencies(start);
+        const auto &deps = getDependencies(start);
         for (const auto &dep : deps) {
-            if (dep.depType != AssetDependencyType::Hard) {
+            if (dep.depType != AssetDependencyType::hard) {
                 continue; // Nur hart-abhängige Zyklen prüfen
             }
 
             if (visited.find(dep.targetUUID) == visited.end()) {
-                if (!DetectCycles(dep.targetUUID, visited, inStack)) {
+                if (!detectCycles(dep.targetUUID, visited, inStack)) {
                     return false;
                 }
             } else if (inStack.find(dep.targetUUID) != inStack.end()) {
                 std::cerr << "Zyklus erkannt: "
-                          << start.ToString() << " → " << dep.targetUUID.ToString() << "\n";
+                          << start.toString() << " → " << dep.targetUUID.toString() << "\n";
                 return false;
             }
         }
@@ -160,11 +165,11 @@ namespace axiom {
         return true;
     }
 
-    size_t AssetRegistry::GetAssetCount() { return s_Entries.size(); }
+    size_t AssetRegistry::getAssetCount() { return sEntries.size(); }
 
-    size_t AssetRegistry::GetTotalAssetSize() {
+    size_t AssetRegistry::getTotalAssetSize() {
         size_t total = 0;
-        for (const auto &[uuid, entry] : s_Entries) {
+        for (const auto &[uuid, entry] : sEntries) {
             total += entry.sizeBytes;
         }
         return total;

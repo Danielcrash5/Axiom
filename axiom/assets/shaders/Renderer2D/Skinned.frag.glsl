@@ -1,3 +1,8 @@
+/**
+ * @file axiom/assets/shaders/Renderer2D/Skinned.frag.glsl
+ * @brief Applies fragment shading to skinned 2D geometry.
+ */
+
 #version 460 core
 
 layout(location = 0) out vec4 FragColor;

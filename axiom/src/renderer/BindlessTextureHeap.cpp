@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/renderer/BindlessTextureHeap.cpp
+ * @brief Implements the bindless texture heap module.
+ */
+
 #include <axiom/renderer/BindlessTextureHeap.h>
 
 namespace axiom::renderer {
@@ -9,8 +14,8 @@ rhi::RHIResult<void> BindlessTextureHeap::init(rhi::IRHIBackend& backend) {
     rhi::BindGroupLayoutDesc layoutDesc;
     rhi::BindGroupLayoutEntry entry;
     entry.binding = 0;
-    entry.type = rhi::BindingType::SampledTexture;
-    entry.visibility = rhi::ShaderStage::Pixel;
+    entry.type = rhi::BindingType::sampledTexture;
+    entry.visibility = rhi::ShaderStage::pixel;
     entry.bindless = true;
     entry.bindlessMaxCount = kMaxTextures;
     layoutDesc.entries.push_back(entry);
@@ -61,7 +66,7 @@ void BindlessTextureHeap::shutdown() {
 
 rhi::RHIResult<uint32_t> BindlessTextureHeap::allocate(rhi::TextureHandle texture) {
     if (!initialized() || !texture.valid()) {
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
 
     uint32_t slot;
@@ -72,7 +77,7 @@ rhi::RHIResult<uint32_t> BindlessTextureHeap::allocate(rhi::TextureHandle textur
         reusedSlot = true;
     } else {
         if (m_nextSlot >= kMaxTextures) {
-            return std::unexpected(rhi::RHIError::OutOfMemory);
+            return std::unexpected(rhi::RHIError::outOfMemory);
         }
         slot = m_nextSlot++;
     }
@@ -105,7 +110,7 @@ void BindlessTextureHeap::free(uint32_t index) {
 
 rhi::RHIResult<void> BindlessTextureHeap::update(uint32_t index, rhi::TextureHandle newTexture) {
     if (!initialized() || index >= kMaxTextures || !newTexture.valid()) {
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
 
     rhi::BindGroupEntry entry;

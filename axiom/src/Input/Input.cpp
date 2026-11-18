@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/Input/Input.cpp
+ * @brief Implements the input module.
+ */
+
 #include "axiom/input/Input.h"
 
 #include <SDL3/SDL.h>
@@ -7,95 +12,95 @@
 
 namespace axiom {
 
-    SDL_Window *Input::s_Window = nullptr;
+    SDL_Window *Input::sWindow = nullptr;
 
-    std::array<bool, SDL_SCANCODE_COUNT> Input::s_CurrentKeys{};
-    std::array<bool, SDL_SCANCODE_COUNT> Input::s_PreviousKeys{};
+    std::array<bool, SDL_SCANCODE_COUNT> Input::sCurrentKeys{};
+    std::array<bool, SDL_SCANCODE_COUNT> Input::sPreviousKeys{};
 
-    std::array<bool, 9> Input::s_CurrentMouse{};
-    std::array<bool, 9> Input::s_PreviousMouse{};
+    std::array<bool, 9> Input::sCurrentMouse{};
+    std::array<bool, 9> Input::sPreviousMouse{};
 
-    std::array<SDL_Gamepad *, 4> Input::s_Gamepads{};
+    std::array<SDL_Gamepad *, 4> Input::sGamepads{};
     std::array<std::array<bool, SDL_GAMEPAD_BUTTON_COUNT>, 4>
-        Input::s_CurrentGamepadButtons{};
+        Input::sCurrentGamepadButtons{};
     std::array<std::array<bool, SDL_GAMEPAD_BUTTON_COUNT>, 4>
-        Input::s_PreviousGamepadButtons{};
-    std::array<Input::JoystickDevice, 8> Input::s_Joysticks{};
-    int Input::s_JoystickCount = 0;
-    std::vector<std::shared_ptr<ICustomInputDevice>> Input::s_CustomDevices{};
+        Input::sPreviousGamepadButtons{};
+    std::array<Input::JoystickDevice, 8> Input::sJoysticks{};
+    int Input::sJoystickCount = 0;
+    std::vector<std::shared_ptr<ICustomInputDevice>> Input::sCustomDevices{};
 
-    glm::vec2 Input::s_MousePosition{};
-    glm::vec2 Input::s_PreviousMousePosition{};
-    glm::vec2 Input::s_MouseScroll{};
-    glm::vec2 Input::s_PendingMouseScroll{};
+    glm::vec2 Input::sMousePosition{};
+    glm::vec2 Input::sPreviousMousePosition{};
+    glm::vec2 Input::sMouseScroll{};
+    glm::vec2 Input::sPendingMouseScroll{};
 
-    void Input::Init(void *window) {
-        s_Window = static_cast<SDL_Window *>(window);
-        RefreshGamepads();
-        RefreshJoysticks();
+    void Input::init(void *window) {
+        sWindow = static_cast<SDL_Window *>(window);
+        refreshGamepads();
+        refreshJoysticks();
     }
 
-    void Input::Shutdown() {
-        for (SDL_Gamepad *&gamepad : s_Gamepads) {
+    void Input::shutdown() {
+        for (SDL_Gamepad *&gamepad : sGamepads) {
             if (gamepad) {
                 SDL_CloseGamepad(gamepad);
                 gamepad = nullptr;
             }
         }
 
-        for (JoystickDevice &joystick : s_Joysticks) {
+        for (JoystickDevice &joystick : sJoysticks) {
             if (joystick.Handle) {
                 SDL_CloseJoystick(joystick.Handle);
                 joystick = {};
             }
         }
 
-        s_JoystickCount = 0;
-        s_CustomDevices.clear();
-        s_Window = nullptr;
+        sJoystickCount = 0;
+        sCustomDevices.clear();
+        sWindow = nullptr;
     }
 
-    void Input::Update() {
-        s_PreviousKeys = s_CurrentKeys;
-        s_PreviousMouse = s_CurrentMouse;
-        s_PreviousGamepadButtons = s_CurrentGamepadButtons;
-        s_PreviousMousePosition = s_MousePosition;
-        s_MouseScroll = s_PendingMouseScroll;
-        s_PendingMouseScroll = glm::vec2(0.0f);
+    void Input::update() {
+        sPreviousKeys = sCurrentKeys;
+        sPreviousMouse = sCurrentMouse;
+        sPreviousGamepadButtons = sCurrentGamepadButtons;
+        sPreviousMousePosition = sMousePosition;
+        sMouseScroll = sPendingMouseScroll;
+        sPendingMouseScroll = glm::vec2(0.0f);
 
         int keyCount = 0;
         const bool *keyboardState = SDL_GetKeyboardState(&keyCount);
         const int copyCount =
             std::min(keyCount, static_cast<int>(SDL_SCANCODE_COUNT));
         for (int key = 0; key < copyCount; ++key)
-            s_CurrentKeys[key] = keyboardState[key];
+            sCurrentKeys[key] = keyboardState[key];
         for (int key = copyCount; key < SDL_SCANCODE_COUNT; ++key)
-            s_CurrentKeys[key] = false;
+            sCurrentKeys[key] = false;
 
         float mouseX = 0.0f;
         float mouseY = 0.0f;
         const SDL_MouseButtonFlags mouseState =
             SDL_GetMouseState(&mouseX, &mouseY);
-        s_MousePosition = glm::vec2(mouseX, mouseY);
+        sMousePosition = glm::vec2(mouseX, mouseY);
 
-        for (size_t button = 0; button < s_CurrentMouse.size(); ++button)
-            s_CurrentMouse[button] =
+        for (size_t button = 0; button < sCurrentMouse.size(); ++button)
+            sCurrentMouse[button] =
                 (mouseState & SDL_BUTTON_MASK(static_cast<int>(button))) != 0;
 
         SDL_UpdateGamepads();
         SDL_UpdateJoysticks();
-        UpdateJoysticks();
+        updateJoysticks();
 
         for (const std::shared_ptr<ICustomInputDevice> &device :
-             s_CustomDevices) {
+             sCustomDevices) {
             if (device)
-                device->Update();
+                device->update();
         }
 
-        for (size_t device = 0; device < s_Gamepads.size(); ++device) {
-            SDL_Gamepad *gamepad = s_Gamepads[device];
+        for (size_t device = 0; device < sGamepads.size(); ++device) {
+            SDL_Gamepad *gamepad = sGamepads[device];
             for (int button = 0; button < SDL_GAMEPAD_BUTTON_COUNT; ++button) {
-                s_CurrentGamepadButtons[device][button] =
+                sCurrentGamepadButtons[device][button] =
                     gamepad &&
                     SDL_GetGamepadButton(
                         gamepad, static_cast<SDL_GamepadButton>(button));
@@ -103,63 +108,63 @@ namespace axiom {
         }
     }
 
-    float Input::ApplyDeadzone(float value, float deadzone) {
+    float Input::applyDeadzone(float value, float deadzone) {
         return std::abs(value) < deadzone ? 0.0f : value;
     }
 
-    bool Input::IsValidJoystickSlot(int id) {
-        return id >= 0 && static_cast<size_t>(id) < s_Joysticks.size();
+    bool Input::isValidJoystickSlot(int id) {
+        return id >= 0 && static_cast<size_t>(id) < sJoysticks.size();
     }
 
-    bool Input::IsKeyPressed(KeyCode key) {
-        return key >= 0 && key < SDL_SCANCODE_COUNT && s_CurrentKeys[key];
+    bool Input::isKeyPressed(KeyCode key) {
+        return key >= 0 && key < SDL_SCANCODE_COUNT && sCurrentKeys[key];
     }
 
-    bool Input::IsKeyJustPressed(KeyCode key) {
-        return key >= 0 && key < SDL_SCANCODE_COUNT && s_CurrentKeys[key] &&
-               !s_PreviousKeys[key];
+    bool Input::isKeyJustPressed(KeyCode key) {
+        return key >= 0 && key < SDL_SCANCODE_COUNT && sCurrentKeys[key] &&
+               !sPreviousKeys[key];
     }
 
-    bool Input::IsKeyReleased(KeyCode key) {
-        return key >= 0 && key < SDL_SCANCODE_COUNT && !s_CurrentKeys[key] &&
-               s_PreviousKeys[key];
+    bool Input::isKeyReleased(KeyCode key) {
+        return key >= 0 && key < SDL_SCANCODE_COUNT && !sCurrentKeys[key] &&
+               sPreviousKeys[key];
     }
 
-    bool Input::IsMousePressed(MouseCode button) {
+    bool Input::isMousePressed(MouseCode button) {
         return button >= 0 &&
-               static_cast<size_t>(button) < s_CurrentMouse.size() &&
-               s_CurrentMouse[button];
+               static_cast<size_t>(button) < sCurrentMouse.size() &&
+               sCurrentMouse[button];
     }
 
-    bool Input::IsMouseJustPressed(MouseCode button) {
+    bool Input::isMouseJustPressed(MouseCode button) {
         return button >= 0 &&
-               static_cast<size_t>(button) < s_CurrentMouse.size() &&
-               s_CurrentMouse[button] && !s_PreviousMouse[button];
+               static_cast<size_t>(button) < sCurrentMouse.size() &&
+               sCurrentMouse[button] && !sPreviousMouse[button];
     }
 
-    bool Input::IsMouseReleased(MouseCode button) {
+    bool Input::isMouseReleased(MouseCode button) {
         return button >= 0 &&
-               static_cast<size_t>(button) < s_CurrentMouse.size() &&
-               !s_CurrentMouse[button] && s_PreviousMouse[button];
+               static_cast<size_t>(button) < sCurrentMouse.size() &&
+               !sCurrentMouse[button] && sPreviousMouse[button];
     }
 
-    glm::vec2 Input::GetMousePosition() { return s_MousePosition; }
+    glm::vec2 Input::getMousePosition() { return sMousePosition; }
 
-    glm::vec2 Input::GetMouseDelta() {
-        return s_MousePosition - s_PreviousMousePosition;
+    glm::vec2 Input::getMouseDelta() {
+        return sMousePosition - sPreviousMousePosition;
     }
 
-    glm::vec2 Input::GetMouseScroll() { return s_MouseScroll; }
+    glm::vec2 Input::getMouseScroll() { return sMouseScroll; }
 
-    glm::vec2 Input::GetMouseScrollDelta() { return s_MouseScroll; }
+    glm::vec2 Input::getMouseScrollDelta() { return sMouseScroll; }
 
-    void Input::OnMouseScroll(double xOffset, double yOffset) {
-        s_PendingMouseScroll +=
+    void Input::onMouseScroll(double xOffset, double yOffset) {
+        sPendingMouseScroll +=
             glm::vec2(static_cast<float>(xOffset), static_cast<float>(yOffset));
     }
 
-    void Input::RefreshGamepads() {
-        for (SDL_Gamepad *&gamepad : s_Gamepads) {
+    void Input::refreshGamepads() {
+        for (SDL_Gamepad *&gamepad : sGamepads) {
             if (gamepad) {
                 SDL_CloseGamepad(gamepad);
                 gamepad = nullptr;
@@ -172,24 +177,24 @@ namespace axiom {
             return;
 
         const int openCount =
-            std::min<int>(count, static_cast<int>(s_Gamepads.size()));
+            std::min<int>(count, static_cast<int>(sGamepads.size()));
         for (int i = 0; i < openCount; ++i)
-            s_Gamepads[i] = SDL_OpenGamepad(ids[i]);
+            sGamepads[i] = SDL_OpenGamepad(ids[i]);
 
         SDL_free(ids);
     }
 
-    void Input::OnGamepadChanged() { RefreshGamepads(); }
+    void Input::onGamepadChanged() { refreshGamepads(); }
 
-    void Input::RefreshJoysticks() {
-        for (JoystickDevice &joystick : s_Joysticks) {
+    void Input::refreshJoysticks() {
+        for (JoystickDevice &joystick : sJoysticks) {
             if (joystick.Handle) {
                 SDL_CloseJoystick(joystick.Handle);
                 joystick = {};
             }
         }
 
-        s_JoystickCount = 0;
+        sJoystickCount = 0;
 
         int count = 0;
         SDL_JoystickID *ids = SDL_GetJoysticks(&count);
@@ -197,13 +202,13 @@ namespace axiom {
             return;
 
         const int openCount =
-            std::min<int>(count, static_cast<int>(s_Joysticks.size()));
+            std::min<int>(count, static_cast<int>(sJoysticks.size()));
         for (int i = 0; i < openCount; ++i) {
             SDL_Joystick *joystick = SDL_OpenJoystick(ids[i]);
             if (!joystick)
                 continue;
 
-            JoystickDevice &device = s_Joysticks[s_JoystickCount++];
+            JoystickDevice &device = sJoysticks[sJoystickCount++];
             device.Handle = joystick;
             device.InstanceID = SDL_GetJoystickID(joystick);
 
@@ -219,33 +224,33 @@ namespace axiom {
             device.RawAxes.assign(axisCount, 0);
             device.CurrentButtons.assign(buttonCount, false);
             device.PreviousButtons.assign(buttonCount, false);
-            device.Hats.assign(hatCount, Joystick::HatCentered);
-            device.PreviousHats.assign(hatCount, Joystick::HatCentered);
+            device.Hats.assign(hatCount, joystick::hatCentered);
+            device.PreviousHats.assign(hatCount, joystick::hatCentered);
         }
 
         SDL_free(ids);
-        UpdateJoysticks();
+        updateJoysticks();
     }
 
-    void Input::OnJoystickChanged() { RefreshJoysticks(); }
+    void Input::onJoystickChanged() { refreshJoysticks(); }
 
-    Input::JoystickDevice *Input::GetJoystick(int id) {
-        if (!IsValidJoystickSlot(id))
+    Input::JoystickDevice *Input::getJoystick(int id) {
+        if (!isValidJoystickSlot(id))
             return nullptr;
 
-        if (id >= s_JoystickCount)
-            RefreshJoysticks();
+        if (id >= sJoystickCount)
+            refreshJoysticks();
 
-        if (id >= s_JoystickCount || !s_Joysticks[id].Handle)
+        if (id >= sJoystickCount || !sJoysticks[id].Handle)
             return nullptr;
 
-        return &s_Joysticks[id];
+        return &sJoysticks[id];
     }
 
-    void Input::UpdateJoysticks() {
-        for (int deviceIndex = 0; deviceIndex < s_JoystickCount;
+    void Input::updateJoysticks() {
+        for (int deviceIndex = 0; deviceIndex < sJoystickCount;
              ++deviceIndex) {
-            JoystickDevice &device = s_Joysticks[deviceIndex];
+            JoystickDevice &device = sJoysticks[deviceIndex];
             if (!device.Handle || !SDL_JoystickConnected(device.Handle))
                 continue;
 
@@ -275,20 +280,20 @@ namespace axiom {
         }
     }
 
-    SDL_Gamepad *Input::GetGamepad(int id) {
-        if (id < 0 || static_cast<size_t>(id) >= s_Gamepads.size())
+    SDL_Gamepad *Input::getGamepad(int id) {
+        if (id < 0 || static_cast<size_t>(id) >= sGamepads.size())
             return nullptr;
 
-        if (!s_Gamepads[id])
-            RefreshGamepads();
+        if (!sGamepads[id])
+            refreshGamepads();
 
-        return s_Gamepads[id];
+        return sGamepads[id];
     }
 
-    bool Input::IsGamepadConnected(int id) { return GetGamepad(id) != nullptr; }
+    bool Input::isGamepadConnected(int id) { return getGamepad(id) != nullptr; }
 
-    std::string Input::GetGamepadName(int id) {
-        SDL_Gamepad *gamepad = GetGamepad(id);
+    std::string Input::getGamepadName(int id) {
+        SDL_Gamepad *gamepad = getGamepad(id);
         if (!gamepad)
             return {};
 
@@ -296,37 +301,37 @@ namespace axiom {
         return name ? name : "";
     }
 
-    bool Input::IsGamepadPressed(GamepadButton button, int id) {
+    bool Input::isGamepadPressed(GamepadButton button, int id) {
         if (id < 0 ||
-            static_cast<size_t>(id) >= s_CurrentGamepadButtons.size() ||
+            static_cast<size_t>(id) >= sCurrentGamepadButtons.size() ||
             button < 0 || button >= SDL_GAMEPAD_BUTTON_COUNT)
             return false;
 
-        return s_CurrentGamepadButtons[id][button];
+        return sCurrentGamepadButtons[id][button];
     }
 
-    bool Input::IsGamepadJustPressed(GamepadButton button, int id) {
+    bool Input::isGamepadJustPressed(GamepadButton button, int id) {
         if (id < 0 ||
-            static_cast<size_t>(id) >= s_CurrentGamepadButtons.size() ||
+            static_cast<size_t>(id) >= sCurrentGamepadButtons.size() ||
             button < 0 || button >= SDL_GAMEPAD_BUTTON_COUNT)
             return false;
 
-        return s_CurrentGamepadButtons[id][button] &&
-               !s_PreviousGamepadButtons[id][button];
+        return sCurrentGamepadButtons[id][button] &&
+               !sPreviousGamepadButtons[id][button];
     }
 
-    bool Input::IsGamepadReleased(GamepadButton button, int id) {
+    bool Input::isGamepadReleased(GamepadButton button, int id) {
         if (id < 0 ||
-            static_cast<size_t>(id) >= s_CurrentGamepadButtons.size() ||
+            static_cast<size_t>(id) >= sCurrentGamepadButtons.size() ||
             button < 0 || button >= SDL_GAMEPAD_BUTTON_COUNT)
             return false;
 
-        return !s_CurrentGamepadButtons[id][button] &&
-               s_PreviousGamepadButtons[id][button];
+        return !sCurrentGamepadButtons[id][button] &&
+               sPreviousGamepadButtons[id][button];
     }
 
-    float Input::GetGamepadAxis(GamepadAxis axis, int id) {
-        SDL_Gamepad *gamepad = GetGamepad(id);
+    float Input::getGamepadAxis(GamepadAxis axis, int id) {
+        SDL_Gamepad *gamepad = getGamepad(id);
         if (!gamepad)
             return 0.0f;
 
@@ -339,80 +344,80 @@ namespace axiom {
                 ? static_cast<float>(SDL_JOYSTICK_AXIS_MAX)
                 : 32768.0f;
 
-        return ApplyDeadzone(glm::clamp(value / normalizer, -1.0f, 1.0f));
+        return applyDeadzone(glm::clamp(value / normalizer, -1.0f, 1.0f));
     }
 
-    glm::vec2 Input::GetGamepadLeftStick(int id) {
-        return glm::vec2(GetGamepadAxis(SDL_GAMEPAD_AXIS_LEFTX, id),
-                         GetGamepadAxis(SDL_GAMEPAD_AXIS_LEFTY, id));
+    glm::vec2 Input::getGamepadLeftStick(int id) {
+        return glm::vec2(getGamepadAxis(SDL_GAMEPAD_AXIS_LEFTX, id),
+                         getGamepadAxis(SDL_GAMEPAD_AXIS_LEFTY, id));
     }
 
-    glm::vec2 Input::GetGamepadRightStick(int id) {
-        return glm::vec2(GetGamepadAxis(SDL_GAMEPAD_AXIS_RIGHTX, id),
-                         GetGamepadAxis(SDL_GAMEPAD_AXIS_RIGHTY, id));
+    glm::vec2 Input::getGamepadRightStick(int id) {
+        return glm::vec2(getGamepadAxis(SDL_GAMEPAD_AXIS_RIGHTX, id),
+                         getGamepadAxis(SDL_GAMEPAD_AXIS_RIGHTY, id));
     }
 
-    float Input::GetGamepadLeftTrigger(int id) {
-        return GetGamepadAxis(SDL_GAMEPAD_AXIS_LEFT_TRIGGER, id);
+    float Input::getGamepadLeftTrigger(int id) {
+        return getGamepadAxis(SDL_GAMEPAD_AXIS_LEFT_TRIGGER, id);
     }
 
-    float Input::GetGamepadRightTrigger(int id) {
-        return GetGamepadAxis(SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, id);
+    float Input::getGamepadRightTrigger(int id) {
+        return getGamepadAxis(SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, id);
     }
 
-    bool Input::RumbleGamepad(uint16_t lowFrequency, uint16_t highFrequency,
+    bool Input::rumbleGamepad(uint16_t lowFrequency, uint16_t highFrequency,
                               uint32_t durationMs, int id) {
-        SDL_Gamepad *gamepad = GetGamepad(id);
+        SDL_Gamepad *gamepad = getGamepad(id);
         return gamepad && SDL_RumbleGamepad(gamepad, lowFrequency,
                                             highFrequency, durationMs);
     }
 
-    bool Input::RumbleGamepadTriggers(uint16_t leftTrigger,
+    bool Input::rumbleGamepadTriggers(uint16_t leftTrigger,
                                       uint16_t rightTrigger,
                                       uint32_t durationMs, int id) {
-        SDL_Gamepad *gamepad = GetGamepad(id);
+        SDL_Gamepad *gamepad = getGamepad(id);
         return gamepad && SDL_RumbleGamepadTriggers(gamepad, leftTrigger,
                                                     rightTrigger, durationMs);
     }
 
-    bool Input::SetGamepadLED(uint8_t red, uint8_t green, uint8_t blue,
+    bool Input::setGamepadLed(uint8_t red, uint8_t green, uint8_t blue,
                               int id) {
-        SDL_Gamepad *gamepad = GetGamepad(id);
+        SDL_Gamepad *gamepad = getGamepad(id);
         return gamepad && SDL_SetGamepadLED(gamepad, red, green, blue);
     }
 
-    bool Input::SetGamepadSensorEnabled(GamepadSensor sensor, bool enabled,
+    bool Input::setGamepadSensorEnabled(GamepadSensor sensor, bool enabled,
                                         int id) {
-        SDL_Gamepad *gamepad = GetGamepad(id);
+        SDL_Gamepad *gamepad = getGamepad(id);
         return gamepad &&
                SDL_SetGamepadSensorEnabled(
                    gamepad, static_cast<SDL_SensorType>(sensor), enabled);
     }
 
-    bool Input::GetGamepadSensorData(GamepadSensor sensor, float *data,
+    bool Input::getGamepadSensorData(GamepadSensor sensor, float *data,
                                      int valueCount, int id) {
-        SDL_Gamepad *gamepad = GetGamepad(id);
+        SDL_Gamepad *gamepad = getGamepad(id);
         return gamepad && data && valueCount > 0 &&
                SDL_GetGamepadSensorData(gamepad,
                                         static_cast<SDL_SensorType>(sensor),
                                         data, valueCount);
     }
 
-    int Input::GetGamepadTouchpadCount(int id) {
-        SDL_Gamepad *gamepad = GetGamepad(id);
+    int Input::getGamepadTouchpadCount(int id) {
+        SDL_Gamepad *gamepad = getGamepad(id);
         return gamepad ? SDL_GetNumGamepadTouchpads(gamepad) : 0;
     }
 
-    int Input::GetGamepadTouchpadFingerCount(int touchpad, int id) {
-        SDL_Gamepad *gamepad = GetGamepad(id);
+    int Input::getGamepadTouchpadFingerCount(int touchpad, int id) {
+        SDL_Gamepad *gamepad = getGamepad(id);
         return gamepad ? SDL_GetNumGamepadTouchpadFingers(gamepad, touchpad)
                        : 0;
     }
 
-    bool Input::GetGamepadTouchpadFinger(int touchpad, int finger, bool &down,
+    bool Input::getGamepadTouchpadFinger(int touchpad, int finger, bool &down,
                                          float &x, float &y, float &pressure,
                                          int id) {
-        SDL_Gamepad *gamepad = GetGamepad(id);
+        SDL_Gamepad *gamepad = getGamepad(id);
         if (!gamepad)
             return false;
 
@@ -420,43 +425,43 @@ namespace axiom {
                                             &x, &y, &pressure);
     }
 
-    bool Input::IsJoystickConnected(int id) {
-        return GetJoystick(id) != nullptr;
+    bool Input::isJoystickConnected(int id) {
+        return getJoystick(id) != nullptr;
     }
 
-    std::string Input::GetJoystickName(int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+    std::string Input::getJoystickName(int id) {
+        JoystickDevice *joystick = getJoystick(id);
         return joystick ? joystick->Name : "";
     }
 
-    int Input::GetJoystickCount() { return s_JoystickCount; }
+    int Input::getJoystickCount() { return sJoystickCount; }
 
-    int Input::GetJoystickAxisCount(int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+    int Input::getJoystickAxisCount(int id) {
+        JoystickDevice *joystick = getJoystick(id);
         return joystick ? static_cast<int>(joystick->Axes.size()) : 0;
     }
 
-    int Input::GetJoystickButtonCount(int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+    int Input::getJoystickButtonCount(int id) {
+        JoystickDevice *joystick = getJoystick(id);
         return joystick ? static_cast<int>(joystick->CurrentButtons.size()) : 0;
     }
 
-    int Input::GetJoystickHatCount(int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+    int Input::getJoystickHatCount(int id) {
+        JoystickDevice *joystick = getJoystick(id);
         return joystick ? static_cast<int>(joystick->Hats.size()) : 0;
     }
 
-    float Input::GetJoystickAxis(JoystickAxis axis, int id, float deadzone) {
-        JoystickDevice *joystick = GetJoystick(id);
+    float Input::getJoystickAxis(JoystickAxis axis, int id, float deadzone) {
+        JoystickDevice *joystick = getJoystick(id);
         if (!joystick || axis < 0 ||
             static_cast<size_t>(axis) >= joystick->Axes.size())
             return 0.0f;
 
-        return ApplyDeadzone(joystick->Axes[axis], deadzone);
+        return applyDeadzone(joystick->Axes[axis], deadzone);
     }
 
-    int16_t Input::GetJoystickAxisRaw(JoystickAxis axis, int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+    int16_t Input::getJoystickAxisRaw(JoystickAxis axis, int id) {
+        JoystickDevice *joystick = getJoystick(id);
         if (!joystick || axis < 0 ||
             static_cast<size_t>(axis) >= joystick->RawAxes.size())
             return 0;
@@ -464,8 +469,8 @@ namespace axiom {
         return joystick->RawAxes[axis];
     }
 
-    bool Input::IsJoystickButtonPressed(JoystickButton button, int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+    bool Input::isJoystickButtonPressed(JoystickButton button, int id) {
+        JoystickDevice *joystick = getJoystick(id);
         if (!joystick || button < 0 ||
             static_cast<size_t>(button) >= joystick->CurrentButtons.size())
             return false;
@@ -473,8 +478,8 @@ namespace axiom {
         return joystick->CurrentButtons[button];
     }
 
-    bool Input::IsJoystickButtonJustPressed(JoystickButton button, int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+    bool Input::isJoystickButtonJustPressed(JoystickButton button, int id) {
+        JoystickDevice *joystick = getJoystick(id);
         if (!joystick || button < 0 ||
             static_cast<size_t>(button) >= joystick->CurrentButtons.size())
             return false;
@@ -483,8 +488,8 @@ namespace axiom {
                !joystick->PreviousButtons[button];
     }
 
-    bool Input::IsJoystickButtonReleased(JoystickButton button, int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+    bool Input::isJoystickButtonReleased(JoystickButton button, int id) {
+        JoystickDevice *joystick = getJoystick(id);
         if (!joystick || button < 0 ||
             static_cast<size_t>(button) >= joystick->CurrentButtons.size())
             return false;
@@ -493,21 +498,21 @@ namespace axiom {
                joystick->PreviousButtons[button];
     }
 
-    JoystickHat Input::GetJoystickHat(int hat, int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+    JoystickHat Input::getJoystickHat(int hat, int id) {
+        JoystickDevice *joystick = getJoystick(id);
         if (!joystick || hat < 0 ||
             static_cast<size_t>(hat) >= joystick->Hats.size())
-            return Joystick::HatCentered;
+            return joystick::hatCentered;
 
         return joystick->Hats[hat];
     }
 
-    bool Input::IsJoystickHatPressed(JoystickHat mask, int hat, int id) {
-        return (GetJoystickHat(hat, id) & mask) != 0;
+    bool Input::isJoystickHatPressed(JoystickHat mask, int hat, int id) {
+        return (getJoystickHat(hat, id) & mask) != 0;
     }
 
-    bool Input::IsJoystickHatJustPressed(JoystickHat mask, int hat, int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+    bool Input::isJoystickHatJustPressed(JoystickHat mask, int hat, int id) {
+        JoystickDevice *joystick = getJoystick(id);
         if (!joystick || hat < 0 ||
             static_cast<size_t>(hat) >= joystick->Hats.size())
             return false;
@@ -516,8 +521,8 @@ namespace axiom {
                (joystick->PreviousHats[hat] & mask) == 0;
     }
 
-    bool Input::IsJoystickHatReleased(JoystickHat mask, int hat, int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+    bool Input::isJoystickHatReleased(JoystickHat mask, int hat, int id) {
+        JoystickDevice *joystick = getJoystick(id);
         if (!joystick || hat < 0 ||
             static_cast<size_t>(hat) >= joystick->Hats.size())
             return false;
@@ -526,141 +531,141 @@ namespace axiom {
                (joystick->PreviousHats[hat] & mask) != 0;
     }
 
-    bool Input::RumbleJoystick(uint16_t lowFrequency, uint16_t highFrequency,
+    bool Input::rumbleJoystick(uint16_t lowFrequency, uint16_t highFrequency,
                                uint32_t durationMs, int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+        JoystickDevice *joystick = getJoystick(id);
         return joystick && SDL_RumbleJoystick(joystick->Handle, lowFrequency,
                                               highFrequency, durationMs);
     }
 
-    bool Input::RumbleJoystickTriggers(uint16_t leftTrigger,
+    bool Input::rumbleJoystickTriggers(uint16_t leftTrigger,
                                        uint16_t rightTrigger,
                                        uint32_t durationMs, int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+        JoystickDevice *joystick = getJoystick(id);
         return joystick &&
                SDL_RumbleJoystickTriggers(joystick->Handle, leftTrigger,
                                           rightTrigger, durationMs);
     }
 
-    bool Input::SetJoystickLED(uint8_t red, uint8_t green, uint8_t blue,
+    bool Input::setJoystickLed(uint8_t red, uint8_t green, uint8_t blue,
                                int id) {
-        JoystickDevice *joystick = GetJoystick(id);
+        JoystickDevice *joystick = getJoystick(id);
         return joystick &&
                SDL_SetJoystickLED(joystick->Handle, red, green, blue);
     }
 
     int
-    Input::RegisterCustomDevice(std::shared_ptr<ICustomInputDevice> device) {
+    Input::registerCustomDevice(std::shared_ptr<ICustomInputDevice> device) {
         if (!device)
             return -1;
 
-        for (size_t i = 0; i < s_CustomDevices.size(); ++i) {
-            if (!s_CustomDevices[i]) {
-                s_CustomDevices[i] = std::move(device);
+        for (size_t i = 0; i < sCustomDevices.size(); ++i) {
+            if (!sCustomDevices[i]) {
+                sCustomDevices[i] = std::move(device);
                 return static_cast<int>(i);
             }
         }
 
-        s_CustomDevices.push_back(std::move(device));
-        return static_cast<int>(s_CustomDevices.size() - 1);
+        sCustomDevices.push_back(std::move(device));
+        return static_cast<int>(sCustomDevices.size() - 1);
     }
 
-    void Input::UnregisterCustomDevice(int id) {
-        if (id < 0 || static_cast<size_t>(id) >= s_CustomDevices.size())
+    void Input::unregisterCustomDevice(int id) {
+        if (id < 0 || static_cast<size_t>(id) >= sCustomDevices.size())
             return;
 
-        s_CustomDevices[id].reset();
+        sCustomDevices[id].reset();
     }
 
-    void Input::ClearCustomDevices() { s_CustomDevices.clear(); }
+    void Input::clearCustomDevices() { sCustomDevices.clear(); }
 
-    bool Input::IsCustomDeviceConnected(int id) {
-        return id >= 0 && static_cast<size_t>(id) < s_CustomDevices.size() &&
-               s_CustomDevices[id] != nullptr;
+    bool Input::isCustomDeviceConnected(int id) {
+        return id >= 0 && static_cast<size_t>(id) < sCustomDevices.size() &&
+               sCustomDevices[id] != nullptr;
     }
 
-    std::string Input::GetCustomDeviceName(int id) {
-        if (!IsCustomDeviceConnected(id))
+    std::string Input::getCustomDeviceName(int id) {
+        if (!isCustomDeviceConnected(id))
             return "";
 
-        return s_CustomDevices[id]->GetName();
+        return sCustomDevices[id]->getName();
     }
 
-    int Input::GetCustomDeviceCount() {
+    int Input::getCustomDeviceCount() {
         return static_cast<int>(std::count_if(
-            s_CustomDevices.begin(), s_CustomDevices.end(),
+            sCustomDevices.begin(), sCustomDevices.end(),
             [](const std::shared_ptr<ICustomInputDevice> &device) {
                 return device != nullptr;
             }));
     }
 
-    int Input::GetCustomDeviceAxisCount(int id) {
-        return IsCustomDeviceConnected(id) ? s_CustomDevices[id]->GetAxisCount()
+    int Input::getCustomDeviceAxisCount(int id) {
+        return isCustomDeviceConnected(id) ? sCustomDevices[id]->getAxisCount()
                                            : 0;
     }
 
-    int Input::GetCustomDeviceButtonCount(int id) {
-        return IsCustomDeviceConnected(id)
-                   ? s_CustomDevices[id]->GetButtonCount()
+    int Input::getCustomDeviceButtonCount(int id) {
+        return isCustomDeviceConnected(id)
+                   ? sCustomDevices[id]->getButtonCount()
                    : 0;
     }
 
-    int Input::GetCustomDeviceHatCount(int id) {
-        return IsCustomDeviceConnected(id) ? s_CustomDevices[id]->GetHatCount()
+    int Input::getCustomDeviceHatCount(int id) {
+        return isCustomDeviceConnected(id) ? sCustomDevices[id]->getHatCount()
                                            : 0;
     }
 
-    float Input::GetCustomDeviceAxis(int axis, int id, float deadzone) {
-        if (!IsCustomDeviceConnected(id) || axis < 0 ||
-            axis >= s_CustomDevices[id]->GetAxisCount())
+    float Input::getCustomDeviceAxis(int axis, int id, float deadzone) {
+        if (!isCustomDeviceConnected(id) || axis < 0 ||
+            axis >= sCustomDevices[id]->getAxisCount())
             return 0.0f;
 
-        return ApplyDeadzone(
-            glm::clamp(s_CustomDevices[id]->GetAxis(axis), -1.0f, 1.0f),
+        return applyDeadzone(
+            glm::clamp(sCustomDevices[id]->getAxis(axis), -1.0f, 1.0f),
             deadzone);
     }
 
-    bool Input::IsCustomDeviceButtonPressed(int button, int id) {
-        return IsCustomDeviceConnected(id) && button >= 0 &&
-               button < s_CustomDevices[id]->GetButtonCount() &&
-               s_CustomDevices[id]->IsButtonPressed(button);
+    bool Input::isCustomDeviceButtonPressed(int button, int id) {
+        return isCustomDeviceConnected(id) && button >= 0 &&
+               button < sCustomDevices[id]->getButtonCount() &&
+               sCustomDevices[id]->isButtonPressed(button);
     }
 
-    bool Input::IsCustomDeviceButtonJustPressed(int button, int id) {
-        return IsCustomDeviceConnected(id) && button >= 0 &&
-               button < s_CustomDevices[id]->GetButtonCount() &&
-               s_CustomDevices[id]->IsButtonJustPressed(button);
+    bool Input::isCustomDeviceButtonJustPressed(int button, int id) {
+        return isCustomDeviceConnected(id) && button >= 0 &&
+               button < sCustomDevices[id]->getButtonCount() &&
+               sCustomDevices[id]->isButtonJustPressed(button);
     }
 
-    bool Input::IsCustomDeviceButtonReleased(int button, int id) {
-        return IsCustomDeviceConnected(id) && button >= 0 &&
-               button < s_CustomDevices[id]->GetButtonCount() &&
-               s_CustomDevices[id]->IsButtonReleased(button);
+    bool Input::isCustomDeviceButtonReleased(int button, int id) {
+        return isCustomDeviceConnected(id) && button >= 0 &&
+               button < sCustomDevices[id]->getButtonCount() &&
+               sCustomDevices[id]->isButtonReleased(button);
     }
 
-    JoystickHat Input::GetCustomDeviceHat(int hat, int id) {
-        if (!IsCustomDeviceConnected(id) || hat < 0 ||
-            hat >= s_CustomDevices[id]->GetHatCount())
-            return Joystick::HatCentered;
+    JoystickHat Input::getCustomDeviceHat(int hat, int id) {
+        if (!isCustomDeviceConnected(id) || hat < 0 ||
+            hat >= sCustomDevices[id]->getHatCount())
+            return joystick::hatCentered;
 
-        return s_CustomDevices[id]->GetHat(hat);
+        return sCustomDevices[id]->getHat(hat);
     }
 
-    bool Input::IsCustomDeviceHatPressed(JoystickHat mask, int hat, int id) {
-        return (GetCustomDeviceHat(hat, id) & mask) != 0;
+    bool Input::isCustomDeviceHatPressed(JoystickHat mask, int hat, int id) {
+        return (getCustomDeviceHat(hat, id) & mask) != 0;
     }
 
-    bool Input::IsCustomDeviceHatJustPressed(JoystickHat mask, int hat,
+    bool Input::isCustomDeviceHatJustPressed(JoystickHat mask, int hat,
                                              int id) {
-        return IsCustomDeviceConnected(id) && hat >= 0 &&
-               hat < s_CustomDevices[id]->GetHatCount() &&
-               s_CustomDevices[id]->IsHatJustPressed(mask, hat);
+        return isCustomDeviceConnected(id) && hat >= 0 &&
+               hat < sCustomDevices[id]->getHatCount() &&
+               sCustomDevices[id]->isHatJustPressed(mask, hat);
     }
 
-    bool Input::IsCustomDeviceHatReleased(JoystickHat mask, int hat, int id) {
-        return IsCustomDeviceConnected(id) && hat >= 0 &&
-               hat < s_CustomDevices[id]->GetHatCount() &&
-               s_CustomDevices[id]->IsHatReleased(mask, hat);
+    bool Input::isCustomDeviceHatReleased(JoystickHat mask, int hat, int id) {
+        return isCustomDeviceConnected(id) && hat >= 0 &&
+               hat < sCustomDevices[id]->getHatCount() &&
+               sCustomDevices[id]->isHatReleased(mask, hat);
     }
 
 } // namespace axiom

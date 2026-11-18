@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/renderer/ecs/GeometrySubmissionSystem.h
+ * @brief Declares the public interface for the geometry submission system.
+ */
+
 #pragma once
 #include <memory>
 
@@ -19,12 +24,26 @@ namespace axiom::renderer {
 // Ableitung, die nur buildItem()/defaultMaterialFor() ausfuellt. Die
 // Auto-Association-Logik (Material/RenderLayer, Design-Doc Abschnitt 8) ist
 // hier zentral implementiert, nicht pro Ableitung dupliziert.
+/**
+ * @brief Processes the geometry submission system system work.
+ * @tparam GeometryComponent Template type used by this type.
+ * @tparam GeometrySubmissionSystem Template type used by this type.
+ */
 template <typename GeometryComponent>
 class GeometrySubmissionSystem : public axiom::ISystem {
 public:
+    /**
+     * @brief Creates an instance of geometry submission system.
+     * @param renderer The renderer used by this operation.
+     * @param layerRegistry The layer registry used by this operation.
+     */
     GeometrySubmissionSystem(Renderer& renderer, RenderLayerRegistry& layerRegistry)
         : m_renderer(renderer), m_layerRegistry(layerRegistry) {}
 
+    /**
+     * @brief Performs the render operation.
+     * @param scene The scene used by this operation.
+     */
     void Render(axiom::Scene& scene, double /*alpha*/) override {
         auto query = scene.View<axiom::TransformComponent, GeometryComponent>();
         query.each([&](flecs::entity entityHandle, axiom::TransformComponent& transform,
@@ -60,14 +79,27 @@ protected:
     // Pro Geometrie-Typ ueberschrieben (Phase 6): fuellt vertexBuffer/
     // indexBuffer/indexCount/zIndex/depth aus der Component. false =
     // Item wird nicht submitted (z.B. Component markiert unsichtbar).
+    /**
+     * @brief Builds item.
+     * @param geometry The geometry used by this operation.
+     * @param[out] outItem Receives the item value.
+     * @return The result of the operation.
+     */
     virtual bool buildItem(const GeometryComponent& geometry, RenderItem& outItem) = 0;
 
     // Default-Material, falls die Entity kein MaterialComponent hat.
+    /**
+     * @brief Performs the default material for operation.
+     * @param geometry The geometry used by this operation.
+     * @return The result of the operation.
+     */
     [[nodiscard]] virtual std::shared_ptr<Material> defaultMaterialFor(
         const GeometryComponent& geometry) const = 0;
 
 private:
+    /** @brief Stores the renderer. */
     Renderer& m_renderer;
+    /** @brief Stores the layer registry. */
     RenderLayerRegistry& m_layerRegistry;
 };
 

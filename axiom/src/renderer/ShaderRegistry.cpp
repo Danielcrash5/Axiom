@@ -1,3 +1,8 @@
+/**
+ * @file axiom/src/renderer/ShaderRegistry.cpp
+ * @brief Implements the shader registry module.
+ */
+
 #include <axiom/renderer/ShaderRegistry.h>
 #include <axiom/assets/VFS.h>
 #include <axiom/core/Logger.h>
@@ -8,14 +13,14 @@ namespace axiom::renderer {
 
 rhi::RHIResult<std::vector<uint32_t>> ShaderRegistry::readSpirvFile(const std::string& path) {
     std::vector<uint8_t> rawBytes;
-    if (!axiom::VFS::ReadFile(path, rawBytes)) {
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+    if (!axiom::VFS::readFile(path, rawBytes)) {
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
 
     if (rawBytes.empty() || rawBytes.size() % sizeof(uint32_t) != 0) {
         // SPIR-V ist 32-bit-wortweise aligned - falsche Groesse heisst
         // fast immer "falsche/kaputte Datei", nicht "valides, aber krummes SPIR-V".
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
 
     // memcpy statt reinterpret_cast<uint32_t*>(rawBytes.data()): vector<uint8_t>
@@ -40,7 +45,7 @@ rhi::RHIResult<ShaderID> ShaderRegistry::loadFromFiles(
 
     entry.vertexCode = std::move(*vertexCode);
     entry.pixelCode = std::move(*pixelCode);
-    entry.desc.stages = rhi::ShaderStage::Vertex | rhi::ShaderStage::Pixel;
+    entry.desc.stages = rhi::ShaderStage::vertex | rhi::ShaderStage::pixel;
     entry.desc.vertexSpirv = entry.vertexCode;
     entry.desc.pixelSpirv = entry.pixelCode;
     entry.desc.vertexLayout = std::move(vertexLayout);
@@ -49,9 +54,14 @@ rhi::RHIResult<ShaderID> ShaderRegistry::loadFromFiles(
 }
 
 namespace {
+    /**
+     * @brief Reads text file.
+     * @param path The path used by this operation.
+     * @return The result of the operation.
+     */
     std::optional<std::string> readTextFile(const std::string &path) {
         std::vector<uint8_t> raw;
-        if (!axiom::VFS::ReadFile(path, raw))
+        if (!axiom::VFS::readFile(path, raw))
             return std::nullopt;
         return std::string(raw.begin(), raw.end());
     }
@@ -63,32 +73,32 @@ rhi::RHIResult<ShaderID> ShaderRegistry::compileFromSource(
     auto vertexSource = readTextFile(vertexGlslPath);
     if (!vertexSource) {
         AXIOM_ERROR("ShaderRegistry: Vertex-Shader nicht lesbar: {}", vertexGlslPath);
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
     auto pixelSource = readTextFile(pixelGlslPath);
     if (!pixelSource) {
         AXIOM_ERROR("ShaderRegistry: Pixel-Shader nicht lesbar: {}", pixelGlslPath);
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
 
     ShaderCompiler compiler;
-    auto vertexResult = compiler.Compile(*vertexSource, vertexGlslPath,
-                                         ShaderStageKind::Vertex);
+    auto vertexResult = compiler.compile(*vertexSource, vertexGlslPath,
+                                         ShaderStageKind::vertex);
     if (!vertexResult.errors.empty()) {
         AXIOM_ERROR("Shader-Kompilierung fehlgeschlagen ({}):\n{}",
                     vertexGlslPath, vertexResult.errors);
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
     if (!vertexResult.warnings.empty()) {
         AXIOM_WARN("Shader-Warnung ({}):\n{}", vertexGlslPath, vertexResult.warnings);
     }
 
-    auto pixelResult = compiler.Compile(*pixelSource, pixelGlslPath,
-                                        ShaderStageKind::Fragment);
+    auto pixelResult = compiler.compile(*pixelSource, pixelGlslPath,
+                                        ShaderStageKind::fragment);
     if (!pixelResult.errors.empty()) {
         AXIOM_ERROR("Shader-Kompilierung fehlgeschlagen ({}):\n{}",
                     pixelGlslPath, pixelResult.errors);
-        return std::unexpected(rhi::RHIError::InvalidDescriptor);
+        return std::unexpected(rhi::RHIError::invalidDescriptor);
     }
     if (!pixelResult.warnings.empty()) {
         AXIOM_WARN("Shader-Warnung ({}):\n{}", pixelGlslPath, pixelResult.warnings);
@@ -99,7 +109,7 @@ rhi::RHIResult<ShaderID> ShaderRegistry::compileFromSource(
 
     entry.vertexCode = std::move(vertexResult.spirv);
     entry.pixelCode = std::move(pixelResult.spirv);
-    entry.desc.stages = rhi::ShaderStage::Vertex | rhi::ShaderStage::Pixel;
+    entry.desc.stages = rhi::ShaderStage::vertex | rhi::ShaderStage::pixel;
     entry.desc.vertexSpirv = entry.vertexCode;
     entry.desc.pixelSpirv = entry.pixelCode;
     entry.desc.vertexLayout = std::move(vertexLayout);

@@ -1,30 +1,61 @@
+/**
+ * @file axiom/include/axiom/ImGui/IImGuiPanel.h
+ * @brief Declares the public interface for the i ImGui panel.
+ */
+
 #pragma once
 
 #include <imgui.h>
 #include <string>
 
 namespace axiom {
+    /**
+     * @brief Defines the interface for the ImGui panel.
+     * @tparam IImGuiPanel Template type used by this type.
+     */
     class IImGuiPanel {
       public:
-        IImGuiPanel(const std::string &name) : m_Name(name) {}
+        /**
+         * @brief Creates an instance of i ImGui panel.
+         * @param name The name used by this operation.
+         */
+        IImGuiPanel(const std::string &name) : m_name(name) {}
 
+        /**
+         * @brief Releases resources owned by IImGuiPanel.
+         */
         virtual ~IImGuiPanel() = default;
 
-        const std::string &GetName() const { return m_Name; }
+        /**
+         * @brief Returns the name.
+         * @return The result of the operation.
+         */
+        const std::string &getName() const { return m_name; }
 
-        inline void ImGuiRender() {
-            ImGui::PushID(m_Name.c_str());
-            ImGui::Begin(m_Name.c_str());
-            OnImGuiRender();
+        /**
+         * @brief Performs the ImGui render operation.
+         */
+        inline void imGuiRender() {
+            ImGui::PushID(m_name.c_str());
+            ImGui::Begin(m_name.c_str());
+            onImGuiRender();
             ImGui::End();
             ImGui::PopID();
         }
 
-        virtual void OnUpdate(double deltaTime) {}
+        /**
+         * @brief Handles the update callback.
+         * @param deltaTime The delta time used by this operation.
+         */
+        virtual void onUpdate(double deltaTime) {}
 
-        virtual void OnImGuiRender() = 0;
+        /**
+         * @brief Handles the ImGui render callback.
+         */
+        virtual void onImGuiRender() = 0;
 
       private:
-        std::string m_Name;
+        /** @brief Stores the name. */
+        std::string m_name;
     };
 } // namespace axiom

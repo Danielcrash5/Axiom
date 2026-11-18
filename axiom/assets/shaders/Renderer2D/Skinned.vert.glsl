@@ -1,3 +1,8 @@
+/**
+ * @file axiom/assets/shaders/Renderer2D/Skinned.vert.glsl
+ * @brief Transforms skinned 2D vertices using their bone influences.
+ */
+
 #version 460 core
 
 layout(location = 0) in vec3 a_Position;

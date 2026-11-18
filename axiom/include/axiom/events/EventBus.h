@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/events/EventBus.h
+ * @brief Declares the public interface for the event bus.
+ */
+
 #pragma once
 
 #include <algorithm>
@@ -11,11 +16,25 @@
 
 namespace axiom {
 
+    /**
+     * @brief Routes typed events to subscribed listeners.
+     * @tparam EventBus Template type used by this type.
+     */
     class EventBus {
       public:
+        /**
+         * @brief Creates an instance of event bus.
+         */
         EventBus() = default;
+        /**
+         * @brief Releases resources owned by EventBus.
+         */
         ~EventBus() = default;
 
+        /**
+         * @brief Creates an instance of event bus.
+         * @param EventBus The event bus used by this operation.
+         */
         EventBus(const EventBus &) = delete;
         EventBus &operator=(const EventBus &) = delete;
 
@@ -25,21 +44,28 @@ namespace axiom {
 
         template <typename T> using ListenerFn = std::function<bool(T &)>;
 
+        /**
+         * @brief Performs the subscribe operation.
+         * @tparam T Template type used by this operation.
+         * @param callback The callback used by this operation.
+         * @param priority The priority used by this operation.
+         * @return The result of the operation.
+         */
         template <typename T>
-        uint64_t Subscribe(ListenerFn<T> callback, int priority = 0) {
+        uint64_t subscribe(ListenerFn<T> callback, int priority = 0) {
 
             std::type_index type = std::type_index(typeid(T));
 
             Listener listener;
-            listener.ID = ++m_LastID;
+            listener.ID = ++m_lastId;
             listener.Priority = priority;
 
             listener.Callback = [callback](void *event) {
                 return callback(*static_cast<T *>(event));
             };
 
-            m_Listeners[type].push_back(listener);
-            Sort(type);
+            m_listeners[type].push_back(listener);
+            sort(type);
 
             return listener.ID;
         }
@@ -48,12 +74,17 @@ namespace axiom {
         // Unsubscribe
         // =========================================================
 
-        template <typename T> void Unsubscribe(uint64_t id) {
+        /**
+         * @brief Performs the unsubscribe operation.
+         * @tparam T Template type used by this operation.
+         * @param id The ID used by this operation.
+         */
+        template <typename T> void unsubscribe(uint64_t id) {
 
             std::type_index type = std::type_index(typeid(T));
 
-            auto it = m_Listeners.find(type);
-            if (it == m_Listeners.end())
+            auto it = m_listeners.find(type);
+            if (it == m_listeners.end())
                 return;
 
             auto &vec = it->second;
@@ -68,17 +99,28 @@ namespace axiom {
         // Immediate Publish
         // =========================================================
 
-        template <typename T> bool Publish(T &event) {
-            return PublishInternal(event);
+        /**
+         * @brief Performs the publish operation.
+         * @tparam T Template type used by this operation.
+         * @param event The event used by this operation.
+         * @return The result of the operation.
+         */
+        template <typename T> bool publish(T &event) {
+            return publishInternal(event);
         }
 
         // =========================================================
         // Enqueue Event
         // =========================================================
 
-        template <typename T> void Enqueue(T &&event) {
+        /**
+         * @brief Adds work to the queue.
+         * @tparam T Template type used by this operation.
+         * @param event The event used by this operation.
+         */
+        template <typename T> void enqueue(T &&event) {
 
-            m_EventQueue.push(
+            m_eventQueue.push(
                 std::make_unique<QueuedEvent<T>>(std::forward<T>(event)));
         }
 
@@ -86,12 +128,15 @@ namespace axiom {
         // Dispatch queued events
         // =========================================================
 
-        void DispatchQueued() {
+        /**
+         * @brief Dispatches queued.
+         */
+        void dispatchQueued() {
 
-            while (!m_EventQueue.empty()) {
-                auto &event = m_EventQueue.front();
-                event->Dispatch(*this);
-                m_EventQueue.pop();
+            while (!m_eventQueue.empty()) {
+                auto &event = m_eventQueue.front();
+                event->dispatch(*this);
+                m_eventQueue.pop();
             }
         }
 
@@ -100,14 +145,21 @@ namespace axiom {
         // Listener Struct
         // =========================================================
 
+        /** @brief Stores the data for the listener. */
         struct Listener {
+            /** @brief Stores the ID. */
             uint64_t ID = 0;
+            /** @brief Stores the priority. */
             int Priority = 0;
             std::function<bool(void *)> Callback;
         };
 
-        void Sort(const std::type_index &type) {
-            auto &vec = m_Listeners[type];
+        /**
+         * @brief Sorts the stored items.
+         * @param type The type used by this operation.
+         */
+        void sort(const std::type_index &type) {
+            auto &vec = m_listeners[type];
 
             std::sort(vec.begin(), vec.end(),
                       [](const Listener &a, const Listener &b) {
@@ -119,11 +171,17 @@ namespace axiom {
         // Internal Publish
         // =========================================================
 
-        template <typename T> bool PublishInternal(T &event) {
+        /**
+         * @brief Publishes internal.
+         * @tparam T Template type used by this operation.
+         * @param event The event used by this operation.
+         * @return The result of the operation.
+         */
+        template <typename T> bool publishInternal(T &event) {
             std::type_index type = std::type_index(typeid(T));
 
-            auto it = m_Listeners.find(type);
-            if (it == m_Listeners.end())
+            auto it = m_listeners.find(type);
+            if (it == m_listeners.end())
                 return false;
 
             for (auto &listener : it->second) {
@@ -138,9 +196,17 @@ namespace axiom {
         // Queue Polymorphism
         // =========================================================
 
+        /** @brief Defines the interface for the queued event. */
         struct IQueuedEvent {
+            /**
+             * @brief Releases resources owned by IQueuedEvent.
+             */
             virtual ~IQueuedEvent() = default;
-            virtual void Dispatch(EventBus &bus) = 0;
+            /**
+             * @brief Dispatches the pending event or command.
+             * @param bus The bus used by this operation.
+             */
+            virtual void dispatch(EventBus &bus) = 0;
         };
 
         template <typename T> struct QueuedEvent : IQueuedEvent {
@@ -148,16 +214,19 @@ namespace axiom {
 
             QueuedEvent(T &&e) : EventData(std::move(e)) {}
 
-            void Dispatch(EventBus &bus) override {
-                bus.PublishInternal(EventData);
+            void dispatch(EventBus &bus) override {
+                bus.publishInternal(EventData);
             }
         };
 
       private:
-        std::unordered_map<std::type_index, std::vector<Listener>> m_Listeners;
-        std::queue<std::unique_ptr<IQueuedEvent>> m_EventQueue;
+        /** @brief Stores the listeners. */
+        std::unordered_map<std::type_index, std::vector<Listener>> m_listeners;
+        /** @brief Stores the event queue. */
+        std::queue<std::unique_ptr<IQueuedEvent>> m_eventQueue;
 
-        uint64_t m_LastID = 0;
+        /** @brief Stores the last ID. */
+        uint64_t m_lastId = 0;
     };
 
 } // namespace axiom

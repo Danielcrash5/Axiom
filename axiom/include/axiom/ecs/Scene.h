@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/ecs/Scene.h
+ * @brief Declares the public interface for the scene.
+ */
+
 #pragma once
 #include <flecs.h>
 #include <memory>
@@ -11,38 +16,80 @@ namespace axiom {
 
     class Entity;
 
+    /**
+     * @brief Owns the entities and components that make up a scene.
+     * @tparam Scene Template type used by this type.
+     */
     class Scene {
       public:
-        Scene(const std::string &name = "Scene") : m_Name(name) {}
+        /**
+         * @brief Creates an instance of scene.
+         * @param name The name used by this operation.
+         */
+        Scene(const std::string &name = "Scene") : m_name(name) {}
 
-        Entity CreateEntity(const std::string &name = {});
+        /**
+         * @brief Creates entity.
+         * @param name The name used by this operation.
+         * @return The result of the operation.
+         */
+        Entity createEntity(const std::string &name = {});
 
-        void DestroyEntity(Entity entity);
+        /**
+         * @brief Destroys entity and releases its resources.
+         * @param entity The entity used by this operation.
+         */
+        void destroyEntity(Entity entity);
 
-        std::vector<std::shared_ptr<Entity>> GetAllEntities();
+        /**
+         * @brief Returns the all entities.
+         * @return The result of the operation.
+         */
+        std::vector<std::shared_ptr<Entity>> getAllEntities();
 
-        void Render2D();
+        /**
+         * @brief Renders 2 d.
+         */
+        void render2D();
 
-        Entity GetPrimaryCameraEntity();
+        /**
+         * @brief Returns the primary camera entity.
+         * @return The result of the operation.
+         */
+        Entity getPrimaryCameraEntity();
 
         // flecs::query ist selbst leichtgewichtig genug, um pro Aufruf neu
         // gebaut zu werden (kein Cache noetig) - anders als bei entt::view
         // gibt es hier keine impliziten Lifetime-Fallstricke, weil die Query
         // nicht auf interne Registry-Iteratoren verweist.
-        template <typename... Components> auto View() {
-            return m_World.query<Components...>();
+        /**
+         * @brief Returns the view.
+         * @return The result of the operation.
+         */
+        template <typename... Components> auto view() {
+            return m_world.query<Components...>();
         }
 
-        template <typename... Components> auto View() const {
-            return m_World.query<const Components...>();
+        /**
+         * @brief Returns the view.
+         * @return The result of the operation.
+         */
+        template <typename... Components> auto view() const {
+            return m_world.query<const Components...>();
         }
 
-        std::string GetName() const { return m_Name; }
+        /**
+         * @brief Returns the name.
+         * @return The result of the operation.
+         */
+        std::string getName() const { return m_name; }
 
       private:
-        flecs::world m_World;
+        /** @brief Stores the world. */
+        flecs::world m_world;
 
-        std::string m_Name;
+        /** @brief Stores the name. */
+        std::string m_name;
 
         friend class Entity;
     };

@@ -1,3 +1,8 @@
+/**
+ * @file axiom/include/axiom/ImGui/ImGuiPanelManager.h
+ * @brief Declares the public interface for the ImGui panel manager.
+ */
+
 #pragma once
 
 #include "IImGuiPanel.h"
@@ -5,19 +10,45 @@
 #include <vector>
 
 namespace axiom {
+    /**
+     * @brief Provides the ImGui panel manager functionality.
+     * @tparam ImGuiPanelManager Template type used by this type.
+     */
     class ImGuiPanelManager {
       public:
+        /**
+         * @brief Creates an instance of ImGui panel manager.
+         */
         ImGuiPanelManager() = default;
+        /**
+         * @brief Releases resources owned by ImGuiPanelManager.
+         */
         ~ImGuiPanelManager() = default;
 
-        void Update(double deltaTime);
+        /**
+         * @brief Updates the object state.
+         * @param deltaTime The delta time used by this operation.
+         */
+        void update(double deltaTime);
 
-        void ImGuiRender();
+        /**
+         * @brief Performs the ImGui render operation.
+         */
+        void imGuiRender();
 
-        void AddPanel(const std::shared_ptr<IImGuiPanel> &panel);
-        void RemovePanel(const std::string &name);
+        /**
+         * @brief Adds panel.
+         * @param panel The panel used by this operation.
+         */
+        void addPanel(const std::shared_ptr<IImGuiPanel> &panel);
+        /**
+         * @brief Removes panel.
+         * @param name The name used by this operation.
+         */
+        void removePanel(const std::string &name);
 
       private:
-        std::vector<std::shared_ptr<IImGuiPanel>> m_Panels;
+        /** @brief Stores the panels. */
+        std::vector<std::shared_ptr<IImGuiPanel>> m_panels;
     };
 } // namespace axiom

@@ -1,3 +1,8 @@
+/**
+ * @file testbed/assets/shaders/SkinnedColor.glsl
+ * @brief Renders skinned testbed geometry with vertex colors.
+ */
+
 #type vertex
 #version 460 core
 
